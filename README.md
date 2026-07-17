@@ -14,6 +14,7 @@ CodexBar brings usage from several coding assistants into one compact WinUI 3 wi
 
 - One compact view for every enabled provider, plus an optional **All** summary.
 - Usage percentages, quota windows, reset countdowns, freshness, and error states.
+- Optional official service-status monitoring for enabled providers, with incident warnings on affected tabs.
 - Automatic refresh every 1, 5, 15, or 30 minutes, with manual refresh at any time.
 - System, light, and dark themes with optional Mica.
 - Settings stored per Windows user under `%LOCALAPPDATA%\CodexBarWin`.
@@ -51,6 +52,7 @@ Most usage collection happens locally through provider-owned tools. CodexBar doe
 - Codex, Claude, Antigravity, Copilot, Kiro, and Amp keep authentication under their own tools.
 - OpenCode Go reads usage history only and never reads `auth.json` or browser cookies.
 - Z.AI sends its key only to the fixed endpoint for the selected region and never writes it to the settings file.
+- Service-status checks use public official endpoints and do not send provider credentials. Providers without a verified public source are labelled unavailable rather than inferred to be operational.
 
 ## Development
 

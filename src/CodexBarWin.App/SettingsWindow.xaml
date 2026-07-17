@@ -202,6 +202,34 @@
                         </StackPanel>
 
                         <StackPanel Spacing="10">
+                            <TextBlock FontWeight="SemiBold" Text="Service status" />
+                            <Border Style="{StaticResource SettingsGroupBorderStyle}">
+                                <Grid Padding="16" ColumnSpacing="24">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel VerticalAlignment="Center" Spacing="3">
+                                        <TextBlock FontWeight="SemiBold" Text="Provider status monitoring" />
+                                        <TextBlock
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Style="{StaticResource CaptionTextBlockStyle}"
+                                            Text="Check official public status sources for enabled providers every five minutes. No provider credentials are sent."
+                                            TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <ToggleSwitch
+                                        x:Name="StatusMonitoringToggle"
+                                        Grid.Column="1"
+                                        VerticalAlignment="Center"
+                                        AutomationProperties.Name="Monitor official provider service status"
+                                        OffContent="Off"
+                                        OnContent="On"
+                                        Toggled="StatusMonitoringToggle_Toggled" />
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+
+                        <StackPanel Spacing="10">
                             <TextBlock FontWeight="SemiBold" Text="Provider tabs" />
                             <Border Style="{StaticResource SettingsGroupBorderStyle}">
                                 <StackPanel>
@@ -376,6 +404,20 @@
                             </StackPanel>
                         </Grid>
 
+                        <InfoBar
+                            x:Name="SelectedProviderStatusInfoBar"
+                            IsClosable="False"
+                            IsOpen="False"
+                            Severity="Warning">
+                            <InfoBar.ActionButton>
+                                <HyperlinkButton
+                                    x:Name="SelectedProviderIncidentLink"
+                                    AutomationProperties.Name="Open the provider's official service status"
+                                    Click="OfficialStatusLink_Click"
+                                    Content="Open official status" />
+                            </InfoBar.ActionButton>
+                        </InfoBar>
+
                         <Border Style="{StaticResource SettingsGroupBorderStyle}">
                             <Grid Padding="16" ColumnSpacing="24">
                                 <Grid.ColumnDefinitions>
@@ -400,6 +442,71 @@
                                     Toggled="SelectedProviderToggle_Toggled" />
                             </Grid>
                         </Border>
+
+                        <StackPanel Spacing="10">
+                            <TextBlock FontWeight="SemiBold" Text="Service status" />
+                            <Border Style="{StaticResource SettingsGroupBorderStyle}">
+                                <StackPanel>
+                                    <Border
+                                        BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                        BorderThickness="0,0,0,1"
+                                        Padding="16">
+                                        <Grid ColumnSpacing="24">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="150" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock FontWeight="SemiBold" Text="Current status" />
+                                            <StackPanel Grid.Column="1" Spacing="4">
+                                                <StackPanel Orientation="Horizontal" Spacing="7">
+                                                    <FontIcon
+                                                        x:Name="SelectedProviderStatusGlyph"
+                                                        FontSize="13"
+                                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                        Glyph="&#xE946;" />
+                                                    <TextBlock
+                                                        x:Name="SelectedProviderStatusText"
+                                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                        Text="Checking status…"
+                                                        TextWrapping="Wrap" />
+                                                </StackPanel>
+                                                <TextBlock
+                                                    x:Name="SelectedProviderStatusDetail"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                                    TextWrapping="Wrap"
+                                                    Visibility="Collapsed" />
+                                                <TextBlock
+                                                    x:Name="SelectedProviderStatusCheckedText"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                                    TextWrapping="Wrap" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                    <Grid Padding="16" ColumnSpacing="24">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="150" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock FontWeight="SemiBold" Text="Official source" />
+                                        <StackPanel Grid.Column="1">
+                                            <HyperlinkButton
+                                                x:Name="SelectedProviderStatusSourceLink"
+                                                Margin="-8,-6,0,-6"
+                                                HorizontalAlignment="Left"
+                                                Click="OfficialStatusLink_Click"
+                                                Content="Open official status" />
+                                            <TextBlock
+                                                x:Name="SelectedProviderStatusSourceUnavailable"
+                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                Text="No verified public source"
+                                                Visibility="Collapsed" />
+                                        </StackPanel>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
 
                         <StackPanel Spacing="10">
                             <TextBlock FontWeight="SemiBold" Text="Connection" />

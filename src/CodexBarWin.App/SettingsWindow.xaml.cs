@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Runtime.InteropServices;
+using CodexBarWin.Core.Formatting;
 using CodexBarWin.Core.Providers;
 using CodexBarWin.Infrastructure.Providers.Zai;
 using CodexBarWin.Infrastructure.Security;
@@ -8,6 +9,7 @@ using Microsoft.UI.System;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 
 namespace CodexBarWin.App;
 
@@ -30,6 +32,7 @@ public sealed partial class SettingsWindow : Window, IDisposable
         App app = (App)Application.Current;
         this.InitialiseThemeSettings(app);
         App.ApplyWindowAppearance(this, this.RootLayout, this.SolidBackground, app.CurrentSettings);
+        app.ProviderStatusStateChanged += this.App_ProviderStatusStateChanged;
         app.SettingsChanged += this.App_SettingsChanged;
         app.UpdateStateChanged += this.App_UpdateStateChanged;
 
@@ -61,6 +64,7 @@ public sealed partial class SettingsWindow : Window, IDisposable
         try
         {
             this.AllTabToggle.IsOn = settings.IsAllTabEnabled;
+            this.StatusMonitoringToggle.IsOn = settings.IsStatusMonitoringEnabled;
             this.UpdateSelectedProviderEnabledState(settings);
             foreach (ComboBoxItem item in this.DefaultProviderComboBox.Items.OfType<ComboBoxItem>())
             {
@@ -110,6 +114,7 @@ public sealed partial class SettingsWindow : Window, IDisposable
         }
 
         this.RefreshZaiPresentation(settings);
+        this.RefreshSelectedProviderStatus(settings);
     }
 
     internal void RefreshProviderVersions()
@@ -235,6 +240,19 @@ public sealed partial class SettingsWindow : Window, IDisposable
         await this.SaveSettingsAsync(settings => settings with { UseTranslucentBackground = isOn });
     }
 
+    private async void StatusMonitoringToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (this._isApplyingSettings)
+        {
+            return;
+        }
+
+        await this.SaveSettingsAsync(settings => settings with
+        {
+            IsStatusMonitoringEnabled = this.StatusMonitoringToggle.IsOn,
+        });
+    }
+
     private async void SelectedProviderToggle_Toggled(object sender, RoutedEventArgs e)
     {
         if (this._isApplyingSettings || this._selectedProvider is not ProviderId selectedProvider)
@@ -305,7 +323,84 @@ public sealed partial class SettingsWindow : Window, IDisposable
         AppSettings settings = ((App)Application.Current).CurrentSettings;
         this.UpdateSelectedProviderEnabledState(settings);
         this.RefreshZaiPresentation(settings);
+        this.RefreshSelectedProviderStatus(settings);
         return true;
+    }
+
+    private void RefreshSelectedProviderStatus(AppSettings? settings = null)
+    {
+        if (this._selectedProvider is not ProviderId selectedProvider)
+        {
+            this.SelectedProviderStatusInfoBar.IsOpen = false;
+            return;
+        }
+
+        App app = (App)Application.Current;
+        AppSettings currentSettings = settings ?? app.CurrentSettings;
+        bool providerEnabled = currentSettings.EnabledProviders.Contains(selectedProvider);
+        bool monitorThisProvider = currentSettings.IsStatusMonitoringEnabled && providerEnabled;
+        Uri? officialStatusUri = app.StatusCoordinator.GetOfficialStatusUri(selectedProvider);
+        ProviderServiceStatusSnapshot? snapshot = providerEnabled
+            ? app.StatusCoordinator.GetSnapshot(selectedProvider)
+            : null;
+        ProviderTabViewModel presentation = new(selectedProvider, selectedProvider.DisplayName);
+        presentation.ApplyServiceStatus(snapshot, officialStatusUri, monitorThisProvider);
+
+        if (currentSettings.IsStatusMonitoringEnabled && !providerEnabled)
+        {
+            presentation.ApplyServiceStatus(snapshot, officialStatusUri, monitoringEnabled: false);
+            this.SelectedProviderStatusText.Text = "Not monitored";
+            this.SelectedProviderStatusDetail.Text = "Enable this provider in the usage window to monitor its service status.";
+            this.SelectedProviderStatusDetail.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            this.SelectedProviderStatusText.Text = presentation.ServiceStatusText;
+            this.SelectedProviderStatusDetail.Text = presentation.ServiceStatusDetail;
+            this.SelectedProviderStatusDetail.Visibility = presentation.HasServiceStatusDetail
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
+
+        this.SelectedProviderStatusGlyph.Glyph = presentation.ServiceStatusGlyph;
+        Brush statusBrush = (Brush)new ProviderStatusBrushConverter().Convert(
+            presentation.ServiceStatusVisualLevel,
+            typeof(Brush),
+            parameter: null!,
+            language: string.Empty);
+        this.SelectedProviderStatusGlyph.Foreground = statusBrush;
+        this.SelectedProviderStatusText.Foreground = statusBrush;
+
+        this.SelectedProviderStatusCheckedText.Text = snapshot?.CheckedAt is DateTimeOffset checkedAt
+            ? UsageText.FormatAge(checkedAt, DateTimeOffset.Now, TimeDisplayPrecision.ThirtySeconds) is string age
+                ? age == "just now" ? "Checked just now" : $"Checked {age}"
+                : "Checked recently"
+            : app.IsProviderStatusRefreshInProgress && monitorThisProvider
+                ? "Checking now…"
+                : string.Empty;
+        this.SelectedProviderStatusSourceLink.Tag = officialStatusUri;
+        this.SelectedProviderStatusSourceLink.Visibility = officialStatusUri is null
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+        this.SelectedProviderStatusSourceUnavailable.Visibility = officialStatusUri is null
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+        this.SelectedProviderStatusInfoBar.Title = presentation.ServiceProblemTitle;
+        this.SelectedProviderStatusInfoBar.Message = presentation.ServiceStatusDetail;
+        this.SelectedProviderStatusInfoBar.IsOpen = monitorThisProvider && presentation.HasServiceProblem;
+        this.SelectedProviderIncidentLink.Tag = presentation.OfficialStatusUri;
+        this.SelectedProviderIncidentLink.Visibility = presentation.HasOfficialStatusPage
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+    }
+
+    private async void OfficialStatusLink_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement element && element.Tag is Uri uri)
+        {
+            await Windows.System.Launcher.LaunchUriAsync(uri);
+        }
     }
 
     private void RefreshZaiPresentation(AppSettings settings)
@@ -537,6 +632,14 @@ public sealed partial class SettingsWindow : Window, IDisposable
         }
     }
 
+    private void App_ProviderStatusStateChanged()
+    {
+        if (!this._isDisposed)
+        {
+            this.RefreshSelectedProviderStatus();
+        }
+    }
+
     private void RefreshUpdatePresentation()
     {
         if (this._isUpdateOperationInProgress)
@@ -613,6 +716,8 @@ public sealed partial class SettingsWindow : Window, IDisposable
         this._isDisposed = true;
         if (Application.Current is App app)
         {
+            app.ProviderStatusStateChanged -= this.App_ProviderStatusStateChanged;
+            app.SettingsChanged -= this.App_SettingsChanged;
             app.UpdateStateChanged -= this.App_UpdateStateChanged;
         }
 

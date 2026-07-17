@@ -7,6 +7,7 @@ using CodexBarWin.Infrastructure.Providers.Codex;
 using CodexBarWin.Infrastructure.Providers.Copilot;
 using CodexBarWin.Infrastructure.Providers.Kiro;
 using CodexBarWin.Infrastructure.Providers.OpenCodeGo;
+using CodexBarWin.Infrastructure.Providers.Status;
 using CodexBarWin.Infrastructure.Providers.Zai;
 using CodexBarWin.Infrastructure.Security;
 using CodexBarWin.Infrastructure.Settings;
@@ -24,11 +25,14 @@ public partial class App : Application, IDisposable
     private readonly CancellationTokenSource _shutdown = new();
     private readonly DispatcherQueue _dispatcherQueue;
     private readonly HttpClient _httpClient;
+    private readonly SemaphoreSlim _providerStatusRefreshLock = new(1, 1);
+    private readonly DispatcherTimer _providerStatusTimer = new() { Interval = TimeSpan.FromMinutes(5) };
     private readonly ZaiApiKeyResolver _zaiApiKeys;
     private bool _isDisposed;
     private bool _isHighContrastEnabled;
     private bool _isShuttingDown;
     private AppInstance? _mainInstance;
+    private ProviderId[] _monitoredStatusProviders = [];
     private SettingsWindow? _settingsWindow;
     private MainWindow? _window;
 
@@ -41,7 +45,7 @@ public partial class App : Application, IDisposable
         AppSettingsStore settingsStore = new();
         AppSettingsLoadResult settings = settingsStore.Load();
         this._settingsManager = new AppSettingsManager(settingsStore, settings.Settings);
-        this._settingsManager.Changed += changed => this.SettingsChanged?.Invoke(changed);
+        this._settingsManager.Changed += this.SettingsManager_Changed;
         this._httpClient = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
         this._zaiApiKeys = new ZaiApiKeyResolver(
             new WindowsCredentialManagerSecretStore("CodexBarWin"),
@@ -78,9 +82,15 @@ public partial class App : Application, IDisposable
         ];
 
         this.RefreshCoordinator = new ProviderRefreshCoordinator(providers, this._shutdown.Token);
+        this.StatusCoordinator = new ProviderStatusCoordinator(
+            ProviderStatusSources.Create(this._httpClient),
+            this._shutdown.Token);
+        this._providerStatusTimer.Tick += this.ProviderStatusTimer_Tick;
     }
 
     public ProviderRefreshCoordinator RefreshCoordinator { get; }
+
+    public ProviderStatusCoordinator StatusCoordinator { get; }
 
     internal AppUpdateService UpdateService { get; }
 
@@ -95,6 +105,10 @@ public partial class App : Application, IDisposable
     public event Action? AccessibilityChanged;
 
     internal event Action? UpdateStateChanged;
+
+    internal event Action? ProviderStatusStateChanged;
+
+    internal bool IsProviderStatusRefreshInProgress { get; private set; }
 
     internal static bool IsHighContrastEnabled =>
         Current is App app && app._isHighContrastEnabled;
@@ -182,7 +196,37 @@ public partial class App : Application, IDisposable
         this._mainInstance = mainInstance;
         this._mainInstance.Activated += this.MainInstance_Activated;
         this.ShowMainWindow();
+        this.ConfigureProviderStatusMonitoring(this.CurrentSettings, forceRefresh: true);
         _ = this.CheckForAppUpdateInBackgroundAsync();
+    }
+
+    internal async Task RefreshProviderStatusesAsync(CancellationToken cancellationToken = default)
+    {
+        if (!this.CurrentSettings.IsStatusMonitoringEnabled)
+        {
+            return;
+        }
+
+        await this._providerStatusRefreshLock.WaitAsync(cancellationToken);
+        try
+        {
+            if (!this.CurrentSettings.IsStatusMonitoringEnabled)
+            {
+                return;
+            }
+
+            this.IsProviderStatusRefreshInProgress = true;
+            this.NotifyProviderStatusStateChanged();
+            await this.StatusCoordinator.RefreshAsync(
+                this.CurrentSettings.EnabledProviders,
+                cancellationToken);
+        }
+        finally
+        {
+            this.IsProviderStatusRefreshInProgress = false;
+            this.NotifyProviderStatusStateChanged();
+            this._providerStatusRefreshLock.Release();
+        }
     }
 
     private async Task CheckForAppUpdateInBackgroundAsync()
@@ -208,6 +252,62 @@ public partial class App : Application, IDisposable
 
     private void MainInstance_Activated(object? sender, AppActivationArguments args) =>
         _ = this._dispatcherQueue.TryEnqueue(this.ShowMainWindow);
+
+    private void SettingsManager_Changed(AppSettings settings)
+    {
+        this.ConfigureProviderStatusMonitoring(settings);
+        this.SettingsChanged?.Invoke(settings);
+    }
+
+    private void ConfigureProviderStatusMonitoring(AppSettings settings, bool forceRefresh = false)
+    {
+        ProviderId[] enabledProviders = settings.EnabledProviders.ToArray();
+        bool providersChanged = !this._monitoredStatusProviders.SequenceEqual(enabledProviders);
+        this._monitoredStatusProviders = enabledProviders;
+
+        if (!settings.IsStatusMonitoringEnabled)
+        {
+            this._providerStatusTimer.Stop();
+            this.NotifyProviderStatusStateChanged();
+            return;
+        }
+
+        if (!this._providerStatusTimer.IsEnabled)
+        {
+            this._providerStatusTimer.Start();
+            forceRefresh = true;
+        }
+
+        if (forceRefresh || providersChanged)
+        {
+            _ = this.RefreshProviderStatusesInBackgroundAsync();
+        }
+    }
+
+    private async void ProviderStatusTimer_Tick(object? sender, object e) =>
+        await this.RefreshProviderStatusesInBackgroundAsync();
+
+    private async Task RefreshProviderStatusesInBackgroundAsync()
+    {
+        try
+        {
+            await this.RefreshProviderStatusesAsync(this._shutdown.Token);
+        }
+        catch (OperationCanceledException) when (this._shutdown.IsCancellationRequested)
+        {
+        }
+    }
+
+    private void NotifyProviderStatusStateChanged()
+    {
+        if (this._dispatcherQueue.HasThreadAccess)
+        {
+            this.ProviderStatusStateChanged?.Invoke();
+            return;
+        }
+
+        _ = this._dispatcherQueue.TryEnqueue(() => this.ProviderStatusStateChanged?.Invoke());
+    }
 
     internal void SetHighContrastEnabled(bool enabled)
     {
@@ -245,6 +345,7 @@ public partial class App : Application, IDisposable
 
         this._isShuttingDown = true;
         this._shutdown.Cancel();
+        this._providerStatusTimer.Stop();
         this._settingsWindow?.PrepareForShutdown();
         this._window?.PrepareForShutdown();
         this.Exit();

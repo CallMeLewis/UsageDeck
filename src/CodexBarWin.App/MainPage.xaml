@@ -11,6 +11,7 @@
     <Page.Resources>
         <local:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <local:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter" />
+        <local:ProviderStatusBrushConverter x:Key="ProviderStatusBrushConverter" />
         <local:UsageLevelBrushConverter x:Key="UsageLevelBrushConverter" />
         <TranslateTransform x:Key="SkeletonShimmerTransform" X="-1.25" />
         <LinearGradientBrush
@@ -301,6 +302,26 @@
                             Visibility="{Binding SelectedProvider.HasPlan, Converter={StaticResource BooleanToVisibilityConverter}}" />
                     </Grid>
                 </Border>
+
+                <InfoBar
+                    MinHeight="0"
+                    Padding="8,4"
+                    AutomationProperties.Name="Provider service issues reported"
+                    IsClosable="False"
+                    IsOpen="{Binding SelectedProvider.HasServiceProblem}"
+                    Severity="Warning"
+                    Title="Service issues reported">
+                    <InfoBar.ActionButton>
+                        <HyperlinkButton
+                            MinHeight="28"
+                            Padding="8,2"
+                            AutomationProperties.Name="Open the provider's official service status"
+                            Click="OfficialStatusLink_Click"
+                            Content="Status page"
+                            FontSize="12"
+                            Tag="{Binding SelectedProvider.OfficialStatusUri}" />
+                    </InfoBar.ActionButton>
+                </InfoBar>
 
                 <InfoBar
                     IsClosable="False"
@@ -595,8 +616,9 @@
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <StackPanel VerticalAlignment="Center" Orientation="Horizontal" Spacing="7">
+                <StackPanel VerticalAlignment="Center" Orientation="Horizontal" Spacing="8">
                     <ProgressRing
                         Width="16"
                         Height="16"
@@ -608,9 +630,154 @@
                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                         Style="{StaticResource CaptionTextBlockStyle}"
                         Text="{Binding AppVersionText}" />
+                    <Button
+                        x:Name="UpdateActionButton"
+                        MinHeight="32"
+                        Padding="12,4"
+                        AutomationProperties.LiveSetting="Polite"
+                        Click="UpdateActionButton_Click"
+                        Content="Update available"
+                        CornerRadius="8"
+                        Style="{StaticResource AccentButtonStyle}"
+                        Visibility="Collapsed" />
                 </StackPanel>
                 <Button
                     Grid.Column="1"
+                    x:Name="ProviderStatusButton"
+                    Width="40"
+                    Height="40"
+                    MinWidth="40"
+                    MinHeight="40"
+                    Padding="0"
+                    AutomationProperties.Name="Provider status"
+                    CornerRadius="20"
+                    HorizontalContentAlignment="Center"
+                    Style="{StaticResource SubtleButtonStyle}"
+                    VerticalContentAlignment="Center"
+                    Visibility="Collapsed">
+                    <Button.Flyout>
+                        <Flyout
+                            x:Name="ProviderStatusFlyout"
+                            Opening="ProviderStatusFlyout_Opening"
+                            Placement="TopEdgeAlignedLeft">
+                            <Grid Width="350" MaxHeight="520">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <Grid Padding="4,2,4,12" ColumnSpacing="8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Spacing="3">
+                                        <TextBlock FontWeight="SemiBold" Text="Provider status" />
+                                        <TextBlock
+                                            x:Name="ProviderStatusSummaryText"
+                                            AutomationProperties.LiveSetting="Polite"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Style="{StaticResource CaptionTextBlockStyle}"
+                                            Text="Checking enabled providers…" />
+                                    </StackPanel>
+                                    <Button
+                                        x:Name="ProviderStatusRefreshButton"
+                                        Grid.Column="1"
+                                        Width="32"
+                                        Height="32"
+                                        MinWidth="32"
+                                        MinHeight="32"
+                                        Padding="0"
+                                        AutomationProperties.Name="Refresh provider status"
+                                        Click="ProviderStatusRefreshButton_Click"
+                                        CornerRadius="16"
+                                        Style="{StaticResource SubtleButtonStyle}"
+                                        ToolTipService.ToolTip="Refresh provider status">
+                                        <Grid>
+                                            <FontIcon
+                                                x:Name="ProviderStatusRefreshGlyph"
+                                                FontSize="14"
+                                                Glyph="&#xE72C;" />
+                                            <ProgressRing
+                                                x:Name="ProviderStatusRefreshRing"
+                                                Width="18"
+                                                Height="18"
+                                                IsActive="False"
+                                                Visibility="Collapsed" />
+                                        </Grid>
+                                    </Button>
+                                </Grid>
+                                <Border
+                                    Grid.Row="1"
+                                    BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                    BorderThickness="0,1,0,0" />
+                                <ScrollViewer
+                                    Grid.Row="2"
+                                    MaxHeight="430"
+                                    HorizontalScrollMode="Disabled"
+                                    VerticalScrollBarVisibility="Auto">
+                                    <ItemsRepeater ItemsSource="{Binding Providers}">
+                                        <ItemsRepeater.ItemTemplate>
+                                            <DataTemplate x:DataType="local:ProviderTabViewModel">
+                                                <Border
+                                                    Padding="4,12"
+                                                    AutomationProperties.Name="{x:Bind ServiceStatusAccessibleName, Mode=OneWay}"
+                                                    BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                                    BorderThickness="0,0,0,1">
+                                                    <Grid ColumnSpacing="12">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="28" />
+                                                            <ColumnDefinition Width="*" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <local:ProviderLogo
+                                                            Width="24"
+                                                            Height="24"
+                                                            VerticalAlignment="Top"
+                                                            ProviderKey="{x:Bind ProviderKey}" />
+                                                        <StackPanel Grid.Column="1" Spacing="5">
+                                                            <TextBlock FontWeight="SemiBold" Text="{x:Bind DisplayName}" />
+                                                            <StackPanel Orientation="Horizontal" Spacing="7">
+                                                                <FontIcon
+                                                                    FontSize="13"
+                                                                    Foreground="{x:Bind ServiceStatusVisualLevel, Converter={StaticResource ProviderStatusBrushConverter}, Mode=OneWay}"
+                                                                    Glyph="{x:Bind ServiceStatusGlyph, Mode=OneWay}" />
+                                                                <TextBlock
+                                                                    Foreground="{x:Bind ServiceStatusVisualLevel, Converter={StaticResource ProviderStatusBrushConverter}, Mode=OneWay}"
+                                                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                                                    Text="{x:Bind ServiceStatusText, Mode=OneWay}" />
+                                                            </StackPanel>
+                                                            <TextBlock
+                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                Style="{StaticResource CaptionTextBlockStyle}"
+                                                                Text="{x:Bind ServiceStatusDetail, Mode=OneWay}"
+                                                                TextWrapping="Wrap"
+                                                                Visibility="{x:Bind HasServiceStatusDetail, Converter={StaticResource BooleanToVisibilityConverter}, Mode=OneWay}" />
+                                                            <HyperlinkButton
+                                                                Margin="-8,0,0,0"
+                                                                HorizontalAlignment="Left"
+                                                                Click="OfficialStatusLink_Click"
+                                                                Content="Open official status"
+                                                                FontSize="12"
+                                                                Tag="{x:Bind OfficialStatusUri, Mode=OneWay}"
+                                                                Visibility="{x:Bind ShowServiceStatusLink, Converter={StaticResource BooleanToVisibilityConverter}, Mode=OneWay}" />
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsRepeater.ItemTemplate>
+                                    </ItemsRepeater>
+                                </ScrollViewer>
+                            </Grid>
+                        </Flyout>
+                    </Button.Flyout>
+                    <FontIcon
+                        x:Name="ProviderStatusButtonGlyph"
+                        FontSize="16"
+                        Glyph="&#xE9D9;"
+                        IsTextScaleFactorEnabled="False" />
+                </Button>
+                <Button
+                    Grid.Column="2"
                     Width="40"
                     Height="40"
                     MinWidth="40"
@@ -626,7 +793,7 @@
                     <FontIcon FontSize="16" Glyph="&#xE72C;" IsTextScaleFactorEnabled="False" />
                 </Button>
                 <Button
-                    Grid.Column="2"
+                    Grid.Column="3"
                     Width="40"
                     Height="40"
                     MinWidth="40"
@@ -645,7 +812,7 @@
                         IsTextScaleFactorEnabled="False" />
                 </Button>
                 <Button
-                    Grid.Column="3"
+                    Grid.Column="4"
                     Width="40"
                     Height="40"
                     MinWidth="40"

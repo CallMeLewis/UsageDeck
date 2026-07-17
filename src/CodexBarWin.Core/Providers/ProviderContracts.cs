@@ -14,6 +14,15 @@ public interface ICliVersionProvider
     Task<string?> ReadCliVersionAsync(CancellationToken cancellationToken);
 }
 
+public interface IProviderStatusProvider
+{
+    ProviderId Id { get; }
+
+    Uri? OfficialStatusUri { get; }
+
+    Task<ProviderServiceStatusSnapshot> FetchStatusAsync(CancellationToken cancellationToken);
+}
+
 public enum ProviderErrorCategory
 {
     NotInstalled,
@@ -42,6 +51,18 @@ public sealed class ProviderException : Exception
     }
 
     public ProviderErrorCategory Category { get; }
+
+    public string SafeMessage { get; }
+}
+
+public sealed class ProviderStatusException : Exception
+{
+    public ProviderStatusException(string safeMessage, Exception? innerException = null)
+        : base(safeMessage, innerException)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(safeMessage);
+        this.SafeMessage = safeMessage.Trim();
+    }
 
     public string SafeMessage { get; }
 }

@@ -5,6 +5,7 @@ using CodexBarWin.Core.Formatting;
 using CodexBarWin.Core.Providers;
 using CodexBarWin.Infrastructure.Settings;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
@@ -20,15 +21,16 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
     private readonly DispatcherTimer _presentationTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly DispatcherTimer _refreshTimer = new() { Interval = TimeSpan.FromMinutes(5) };
     private readonly UISettings _uiSettings = new();
+    private readonly string _appVersionText = $"v{App.VersionNumber}";
     private bool _hasCompletedInitialLoad;
     private bool _hasShownInitialContent;
+    private bool _isUpdateOperationInProgress;
     private int _refreshOperationsInProgress;
     private Storyboard? _skeletonShimmerStoryboard;
     private ProviderTabViewModel _selectedProvider = null!;
     private TimeDisplayPrecision _timeDisplayPrecision = TimeDisplayPrecision.Seconds;
     private string _themeToggleGlyph = "\uE708";
     private string _themeToggleLabel = "Switch to dark theme";
-    private string _appVersionText = $"v{App.VersionNumber}";
 
     public MainPage()
     {
@@ -39,6 +41,7 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
         this.ApplyPresentationCadence(app.CurrentSettings.RefreshIntervalMinutes);
         app.SettingsChanged += this.App_SettingsChanged;
         app.AccessibilityChanged += this.App_AccessibilityChanged;
+        app.ProviderStatusStateChanged += this.App_ProviderStatusStateChanged;
         app.UpdateStateChanged += this.App_UpdateStateChanged;
         this.Tabs = [];
         this.Providers = [];
@@ -49,6 +52,8 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
         this.ActualThemeChanged += this.MainPage_ActualThemeChanged;
         this._presentationTimer.Tick += this.PresentationTimer_Tick;
         this._refreshTimer.Tick += this.RefreshTimer_Tick;
+        this.RefreshProviderStatusPresentation();
+        this.RefreshUpdatePresentation();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -61,20 +66,7 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
         ? "1 enabled provider"
         : $"{this.Providers.Count} enabled providers";
 
-    public string AppVersionText
-    {
-        get => this._appVersionText;
-        private set
-        {
-            if (this._appVersionText == value)
-            {
-                return;
-            }
-
-            this._appVersionText = value;
-            this.OnPropertyChanged();
-        }
-    }
+    public string AppVersionText => this._appVersionText;
 
     public string ThemeToggleGlyph
     {
@@ -372,14 +364,111 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
     private void ProvidersButton_Click(object sender, RoutedEventArgs e) =>
         ((App)Application.Current).ShowSettingsWindow();
 
+    private async void ProviderStatusFlyout_Opening(object? sender, object e)
+    {
+        this.RefreshProviderStatusPresentation();
+        App app = (App)Application.Current;
+        bool hasAnyStatus = this.Providers.Any(provider =>
+            app.StatusCoordinator.GetSnapshot(provider.Id) is not null);
+        if (!hasAnyStatus && !app.IsProviderStatusRefreshInProgress)
+        {
+            await app.RefreshProviderStatusesAsync();
+        }
+    }
+
+    private async void ProviderStatusRefreshButton_Click(object sender, RoutedEventArgs e) =>
+        await ((App)Application.Current).RefreshProviderStatusesAsync();
+
+    private async void OfficialStatusLink_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement element || element.Tag is not Uri uri)
+        {
+            return;
+        }
+
+        this.ProviderStatusFlyout.Hide();
+        await Windows.System.Launcher.LaunchUriAsync(uri);
+    }
+
+    private async void UpdateActionButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (this._isUpdateOperationInProgress)
+        {
+            return;
+        }
+
+        App app = (App)Application.Current;
+        AppUpdateService updater = app.UpdateService;
+        if (updater.AvailableUpdate is not AppUpdateAvailability available)
+        {
+            this.RefreshUpdatePresentation();
+            return;
+        }
+
+        bool isDownloaded = updater.IsUpdateDownloaded;
+        ContentDialog confirmation = new()
+        {
+            XamlRoot = this.XamlRoot,
+            Title = isDownloaded ? "Restart to update CodexBar?" : "Update CodexBar?",
+            Content = isDownloaded
+                ? $"Version {available.Version} is ready. CodexBar needs to close and restart to finish installing it."
+                : $"Version {available.Version} is available. CodexBar will download it, close, and restart to finish updating.",
+            PrimaryButtonText = isDownloaded ? "Restart now" : "Update",
+            CloseButtonText = "Not now",
+            DefaultButton = ContentDialogButton.Primary,
+        };
+
+        if (await confirmation.ShowAsync() != ContentDialogResult.Primary)
+        {
+            return;
+        }
+
+        this._isUpdateOperationInProgress = true;
+        this.UpdateActionButton.IsEnabled = false;
+        try
+        {
+            if (!isDownloaded)
+            {
+                this.UpdateActionButton.Content = "Downloading… 0%";
+                Progress<int> progress = new(value =>
+                    this.UpdateActionButton.Content = $"Downloading… {value}%");
+                await updater.DownloadUpdateAsync(progress, CancellationToken.None);
+                app.NotifyUpdateStateChanged();
+            }
+
+            this.UpdateActionButton.Content = "Restarting…";
+            app.RestartForUpdate();
+        }
+        catch (Exception exception) when (AppUpdateService.IsExpectedFailure(exception))
+        {
+            app.NotifyUpdateStateChanged();
+            ContentDialog error = new()
+            {
+                XamlRoot = this.XamlRoot,
+                Title = "CodexBar couldn’t update",
+                Content = "The update could not be installed. CodexBar is still running on the current version.",
+                CloseButtonText = "OK",
+                DefaultButton = ContentDialogButton.Close,
+            };
+            await error.ShowAsync();
+        }
+        finally
+        {
+            this._isUpdateOperationInProgress = false;
+            this.RefreshUpdatePresentation();
+        }
+    }
+
     private void MainPage_ActualThemeChanged(FrameworkElement sender, object args)
     {
         this.UpdateThemeToggleAppearance();
+        this.RefreshProviderStatusPresentation();
         this.RefreshVisualStates();
     }
 
     private void App_AccessibilityChanged()
     {
+        this.RefreshProviderStatusPresentation();
         this.RefreshVisualStates();
         if (App.IsHighContrastEnabled)
         {
@@ -390,14 +479,98 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
         this.StartSkeletonShimmer();
     }
 
-    private void App_UpdateStateChanged()
+    private void App_UpdateStateChanged() => this.RefreshUpdatePresentation();
+
+    private void App_ProviderStatusStateChanged() => this.RefreshProviderStatusPresentation();
+
+    private void RefreshProviderStatusPresentation()
+    {
+        App app = (App)Application.Current;
+        bool monitoringEnabled = app.CurrentSettings.IsStatusMonitoringEnabled;
+        foreach (ProviderTabViewModel provider in this.Providers)
+        {
+            provider.ApplyServiceStatus(
+                app.StatusCoordinator.GetSnapshot(provider.Id),
+                app.StatusCoordinator.GetOfficialStatusUri(provider.Id),
+                monitoringEnabled);
+        }
+
+        this.ProviderStatusButton.Visibility = monitoringEnabled
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        if (!monitoringEnabled)
+        {
+            this.ProviderStatusFlyout.Hide();
+            return;
+        }
+
+        bool isRefreshing = app.IsProviderStatusRefreshInProgress;
+        this.ProviderStatusRefreshButton.IsEnabled = !isRefreshing;
+        this.ProviderStatusRefreshGlyph.Visibility = isRefreshing
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+        this.ProviderStatusRefreshRing.IsActive = isRefreshing;
+        this.ProviderStatusRefreshRing.Visibility = isRefreshing
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+        ProviderServiceStatusSnapshot[] snapshots = this.Providers
+            .Select(provider => app.StatusCoordinator.GetSnapshot(provider.Id))
+            .Where(snapshot => snapshot is not null)
+            .Cast<ProviderServiceStatusSnapshot>()
+            .ToArray();
+        int problemCount = snapshots.Count(snapshot => snapshot.HasProblems);
+        int failedCount = snapshots.Count(snapshot => snapshot.IsStale);
+        DateTimeOffset? latestCheck = snapshots
+            .Where(snapshot => snapshot.CheckedAt is not null)
+            .Select(snapshot => snapshot.CheckedAt)
+            .Max();
+        string checkedText = latestCheck is DateTimeOffset checkedAt
+            ? UsageText.FormatAge(checkedAt, DateTimeOffset.Now, TimeDisplayPrecision.ThirtySeconds) is string age
+                ? age == "just now" ? "Checked just now" : $"Checked {age}"
+                : "Checked recently"
+            : isRefreshing ? "Checking…" : "Not checked yet";
+        string providerCount = this.Providers.Count == 1
+            ? "1 enabled provider"
+            : $"{this.Providers.Count} enabled providers";
+        this.ProviderStatusSummaryText.Text = $"{providerCount} · {checkedText}";
+
+        ProviderStatusVisualLevel visualLevel = problemCount > 0 || failedCount > 0
+            ? ProviderStatusVisualLevel.Warning
+            : ProviderStatusVisualLevel.Neutral;
+        this.ProviderStatusButton.Foreground = (Brush)new ProviderStatusBrushConverter().Convert(
+            visualLevel,
+            typeof(Brush),
+            parameter: null!,
+            language: string.Empty);
+        this.ProviderStatusButtonGlyph.Glyph = visualLevel == ProviderStatusVisualLevel.Warning
+            ? "\uE814"
+            : "\uE9D9";
+        string buttonLabel = problemCount switch
+        {
+            1 => "Provider status: 1 provider reports problems",
+            > 1 => $"Provider status: {problemCount} providers report problems",
+            _ when failedCount > 0 => "Provider status: one or more checks could not refresh",
+            _ when isRefreshing => "Provider status: checking enabled providers",
+            _ => "Provider status: no problems reported",
+        };
+        AutomationProperties.SetName(this.ProviderStatusButton, buttonLabel);
+        ToolTipService.SetToolTip(this.ProviderStatusButton, buttonLabel);
+    }
+
+    private void RefreshUpdatePresentation()
     {
         AppUpdateService updater = ((App)Application.Current).UpdateService;
-        this.AppVersionText = updater.IsUpdateDownloaded
-            ? $"v{App.VersionNumber} · Restart to update"
-            : updater.AvailableUpdate is not null
-                ? $"v{App.VersionNumber} · Update available"
-                : $"v{App.VersionNumber}";
+        this.UpdateActionButton.Visibility = updater.AvailableUpdate is null
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+        this.UpdateActionButton.IsEnabled = !this._isUpdateOperationInProgress;
+        if (!this._isUpdateOperationInProgress)
+        {
+            this.UpdateActionButton.Content = updater.IsUpdateDownloaded
+                ? "Restart to update"
+                : "Update available";
+        }
     }
 
     private void RefreshVisualStates()
@@ -461,6 +634,7 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
 
         this.OnPropertyChanged(nameof(this.AllSummaryText));
         this.UpdateThemeToggleAppearance();
+        this.RefreshProviderStatusPresentation();
     }
 
     private void UpdateThemeToggleAppearance()

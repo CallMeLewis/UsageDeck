@@ -32,7 +32,8 @@ public sealed record AppSettings(
     bool UseTranslucentBackground = false,
     bool IsAllTabEnabled = true,
     ApiKeyStorageMode ZaiApiKeyStorage = ApiKeyStorageMode.WindowsCredentialManager,
-    ZaiApiRegion ZaiRegion = ZaiApiRegion.Global)
+    ZaiApiRegion ZaiRegion = ZaiApiRegion.Global,
+    bool IsStatusMonitoringEnabled = true)
 {
     public static AppSettings Default { get; } = new([ProviderId.Codex, ProviderId.Claude], ProviderId.Codex);
 }
@@ -135,7 +136,8 @@ public sealed class AppSettingsStore
                     document.UseTranslucentBackground,
                     isAllTabEnabled,
                     zaiApiKeyStorage,
-                    zaiRegion),
+                    zaiRegion,
+                    document.IsStatusMonitoringEnabled ?? true),
                 warning);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
@@ -188,7 +190,8 @@ public sealed class AppSettingsStore
             settings.UseTranslucentBackground,
             settings.IsAllTabEnabled,
             settings.ZaiApiKeyStorage.ToString(),
-            settings.ZaiRegion.ToString());
+            settings.ZaiRegion.ToString(),
+            settings.IsStatusMonitoringEnabled);
 
         try
         {
@@ -229,6 +232,7 @@ public sealed class AppSettingsStore
         bool? IsAllTabEnabled = null,
         string? ZaiApiKeyStorage = null,
         string? ZaiRegion = null,
+        bool? IsStatusMonitoringEnabled = null,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         string? SelectedProvider = null);
 }

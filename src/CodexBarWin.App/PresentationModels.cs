@@ -4,12 +4,20 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using CodexBarWin.Core.Formatting;
 using CodexBarWin.Core.Providers;
+using CodexBarWin.Infrastructure.Settings;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Media;
 using Windows.UI.ViewManagement;
 
 namespace CodexBarWin.App;
+
+public enum ProviderStatusVisualLevel
+{
+    Neutral,
+    Success,
+    Warning,
+}
 
 public sealed record ProviderSettingsPresentation(
     ProviderId Id,
@@ -115,6 +123,12 @@ public sealed class ProviderTabViewModel : INotifyPropertyChanged
     private string _planText = string.Empty;
     private string _resetCreditsNoticeText = string.Empty;
     private string _resetCreditsSummaryText = string.Empty;
+    private string _serviceStatusDetail = string.Empty;
+    private string _serviceStatusGlyph = "\uE946";
+    private string _serviceStatusText = "Checking status…";
+    private ProviderStatusVisualLevel _serviceStatusVisualLevel;
+    private Uri? _officialStatusUri;
+    private bool _hasServiceProblem;
     private string _statusMessage = string.Empty;
     private string _sourceDescription = "No source";
     private string _summaryUpdatedText = "Not refreshed";
@@ -245,6 +259,68 @@ public sealed class ProviderTabViewModel : INotifyPropertyChanged
 
     public bool HasStatusMessage => !string.IsNullOrEmpty(this.StatusMessage);
 
+    public string ServiceStatusText
+    {
+        get => this._serviceStatusText;
+        private set => this.SetField(ref this._serviceStatusText, value);
+    }
+
+    public string ServiceStatusDetail
+    {
+        get => this._serviceStatusDetail;
+        private set
+        {
+            if (this.SetField(ref this._serviceStatusDetail, value))
+            {
+                this.OnPropertyChanged(nameof(this.HasServiceStatusDetail));
+            }
+        }
+    }
+
+    public bool HasServiceStatusDetail => !string.IsNullOrEmpty(this.ServiceStatusDetail);
+
+    public string ServiceStatusGlyph
+    {
+        get => this._serviceStatusGlyph;
+        private set => this.SetField(ref this._serviceStatusGlyph, value);
+    }
+
+    public ProviderStatusVisualLevel ServiceStatusVisualLevel
+    {
+        get => this._serviceStatusVisualLevel;
+        private set => this.SetField(ref this._serviceStatusVisualLevel, value);
+    }
+
+    public bool HasServiceProblem
+    {
+        get => this._hasServiceProblem;
+        private set => this.SetField(ref this._hasServiceProblem, value);
+    }
+
+    public string ServiceProblemTitle => $"{this.DisplayName} reports a service problem";
+
+    public Uri? OfficialStatusUri
+    {
+        get => this._officialStatusUri;
+        private set
+        {
+            if (this.SetField(ref this._officialStatusUri, value))
+            {
+                this.OnPropertyChanged(nameof(this.HasOfficialStatusPage));
+                this.OnPropertyChanged(nameof(this.ShowServiceStatusLink));
+            }
+        }
+    }
+
+    public bool HasOfficialStatusPage => this.OfficialStatusUri is not null;
+
+    public bool ShowServiceStatusLink => this.HasOfficialStatusPage
+        && (this.HasServiceProblem || this.ServiceStatusText == "Couldn’t refresh");
+
+    public string ServiceStatusAccessibleName => this.HasServiceStatusDetail
+        ? $"{this.DisplayName}, {this.ServiceStatusText}, {this.ServiceStatusDetail}"
+        : $"{this.DisplayName}, {this.ServiceStatusText}";
+
     public bool HasNoUsageData => this.HasLoaded
         && !this.IsLoading
         && this.UsageWindows.Count == 0
@@ -346,6 +422,76 @@ public sealed class ProviderTabViewModel : INotifyPropertyChanged
         this.StatusMessage = message;
     }
 
+    public void ApplyServiceStatus(
+        ProviderServiceStatusSnapshot? snapshot,
+        Uri? officialStatusUri,
+        bool monitoringEnabled)
+    {
+        this.OfficialStatusUri = snapshot?.IncidentUri ?? snapshot?.OfficialStatusUri ?? officialStatusUri;
+        this.HasServiceProblem = false;
+
+        if (!monitoringEnabled)
+        {
+            this.ServiceStatusText = "Status monitoring off";
+            this.ServiceStatusDetail = string.Empty;
+            this.ServiceStatusGlyph = "\uE946";
+            this.ServiceStatusVisualLevel = ProviderStatusVisualLevel.Neutral;
+            this.NotifyServiceStatusAccessibilityChanged();
+            return;
+        }
+
+        if (snapshot is null)
+        {
+            this.ServiceStatusText = officialStatusUri is null
+                ? "Official status unavailable"
+                : "Checking status…";
+            this.ServiceStatusDetail = officialStatusUri is null
+                ? "This provider does not publish a verified public status source."
+                : string.Empty;
+            this.ServiceStatusGlyph = officialStatusUri is null ? "\uE946" : "\uE895";
+            this.ServiceStatusVisualLevel = ProviderStatusVisualLevel.Neutral;
+            this.NotifyServiceStatusAccessibilityChanged();
+            return;
+        }
+
+        if (snapshot.IsStale && !snapshot.HasProblems)
+        {
+            this.ServiceStatusText = "Couldn’t refresh";
+            this.ServiceStatusDetail = snapshot.SafeError ?? snapshot.Summary;
+            this.ServiceStatusGlyph = "\uE814";
+            this.ServiceStatusVisualLevel = ProviderStatusVisualLevel.Warning;
+            this.NotifyServiceStatusAccessibilityChanged();
+            return;
+        }
+
+        this.ServiceStatusText = snapshot.Health switch
+        {
+            ProviderServiceHealth.Operational => "Operational",
+            ProviderServiceHealth.ProblemsReported => "Problems reported",
+            ProviderServiceHealth.OfficialStatusUnavailable => "Official status unavailable",
+            _ => "Couldn’t refresh",
+        };
+        this.ServiceStatusDetail = snapshot.IsStale
+            ? $"{snapshot.Summary} The status refresh failed, so this is the last known result."
+            : snapshot.Health == ProviderServiceHealth.Operational
+                ? string.Empty
+                : snapshot.Summary;
+        this.HasServiceProblem = snapshot.HasProblems;
+        this.ServiceStatusGlyph = snapshot.Health switch
+        {
+            ProviderServiceHealth.Operational => "\uE73E",
+            ProviderServiceHealth.ProblemsReported => "\uE814",
+            _ => "\uE946",
+        };
+        this.ServiceStatusVisualLevel = snapshot.Health switch
+        {
+            ProviderServiceHealth.Operational => ProviderStatusVisualLevel.Success,
+            ProviderServiceHealth.ProblemsReported => ProviderStatusVisualLevel.Warning,
+            _ => ProviderStatusVisualLevel.Neutral,
+        };
+        this.NotifyServiceStatusAccessibilityChanged();
+    }
+
     public void UpdateTime(DateTimeOffset now, TimeDisplayPrecision precision)
     {
         foreach (UsageWindowViewModel usageWindow in this.UsageWindows)
@@ -376,6 +522,15 @@ public sealed class ProviderTabViewModel : INotifyPropertyChanged
         {
             usageWindow.RefreshVisualState();
         }
+
+        this.OnPropertyChanged(nameof(this.ServiceStatusVisualLevel));
+    }
+
+    private void NotifyServiceStatusAccessibilityChanged()
+    {
+        this.OnPropertyChanged(nameof(this.ServiceStatusAccessibleName));
+        this.OnPropertyChanged(nameof(this.ServiceProblemTitle));
+        this.OnPropertyChanged(nameof(this.ShowServiceStatusLink));
     }
 
     private static string FormatPlanName(string? plan)
@@ -587,6 +742,45 @@ public sealed class UsageLevelBrushConverter : IValueConverter
             > 50 => HealthyBrush,
             > 20 => WatchBrush,
             _ => LowBrush,
+        };
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language) =>
+        throw new NotSupportedException();
+}
+
+public sealed class ProviderStatusBrushConverter : IValueConverter
+{
+    private static readonly UISettings SystemColours = new();
+    private static readonly SolidColorBrush DarkThemeSuccessBrush =
+        new(Windows.UI.Color.FromArgb(255, 108, 203, 142));
+    private static readonly SolidColorBrush DarkThemeWarningBrush =
+        new(Windows.UI.Color.FromArgb(255, 251, 191, 36));
+    private static readonly SolidColorBrush LightThemeSuccessBrush =
+        new(Windows.UI.Color.FromArgb(255, 16, 124, 65));
+    private static readonly SolidColorBrush LightThemeWarningBrush =
+        new(Windows.UI.Color.FromArgb(255, 138, 75, 0));
+
+    public object Convert(object value, Type targetType, object parameter, string language)
+    {
+        Windows.UI.Color foreground = SystemColours.GetColorValue(UIColorType.Foreground);
+        if (App.IsHighContrastEnabled || value is not ProviderStatusVisualLevel level)
+        {
+            return new SolidColorBrush(foreground);
+        }
+
+        bool isDark = ((App)Application.Current).CurrentSettings.Theme switch
+        {
+            AppThemePreference.Dark => true,
+            AppThemePreference.Light => false,
+            _ => SystemColours.GetColorValue(UIColorType.Background) is Windows.UI.Color background
+                && background.R + background.G + background.B < 384,
+        };
+        return level switch
+        {
+            ProviderStatusVisualLevel.Success => isDark ? DarkThemeSuccessBrush : LightThemeSuccessBrush,
+            ProviderStatusVisualLevel.Warning => isDark ? DarkThemeWarningBrush : LightThemeWarningBrush,
+            _ => new SolidColorBrush(foreground),
         };
     }
 

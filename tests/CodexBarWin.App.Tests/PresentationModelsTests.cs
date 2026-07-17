@@ -297,4 +297,45 @@ public sealed class PresentationModelsTests
         Assert.False(model.CanRetry);
         Assert.True(model.HasStatusMessage);
     }
+
+    [Fact]
+    public void ServiceIncidentBuildsAnAccessibleWarningPresentation()
+    {
+        ProviderTabViewModel model = new(ProviderId.Codex, "OpenAI Codex");
+        ProviderServiceStatusSnapshot snapshot = new(
+            ProviderId.Codex,
+            ProviderServiceHealth.ProblemsReported,
+            "Increased server-overload errors",
+            DateTimeOffset.UtcNow,
+            new Uri("https://status.openai.com/"),
+            new Uri("https://status.openai.com/incidents/example"));
+
+        model.ApplyServiceStatus(snapshot, snapshot.OfficialStatusUri, monitoringEnabled: true);
+
+        Assert.True(model.HasServiceProblem);
+        Assert.Equal("Problems reported", model.ServiceStatusText);
+        Assert.Equal("Increased server-overload errors", model.ServiceStatusDetail);
+        Assert.Equal(snapshot.IncidentUri, model.OfficialStatusUri);
+        Assert.Contains("OpenAI Codex, Problems reported", model.ServiceStatusAccessibleName, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FailedRefreshDoesNotPresentTheLastKnownOperationalStateAsCurrent()
+    {
+        ProviderTabViewModel model = new(ProviderId.Claude, "Claude");
+        ProviderServiceStatusSnapshot stale = new(
+            ProviderId.Claude,
+            ProviderServiceHealth.Operational,
+            "No problems reported.",
+            DateTimeOffset.UtcNow.AddMinutes(-5),
+            new Uri("https://status.claude.com/"),
+            IsStale: true,
+            SafeError: "Claude status could not be refreshed.");
+
+        model.ApplyServiceStatus(stale, stale.OfficialStatusUri, monitoringEnabled: true);
+
+        Assert.False(model.HasServiceProblem);
+        Assert.Equal("Couldn’t refresh", model.ServiceStatusText);
+        Assert.Equal(ProviderStatusVisualLevel.Warning, model.ServiceStatusVisualLevel);
+    }
 }
