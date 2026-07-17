@@ -82,7 +82,14 @@ jobs:
             throw "No release assets were produced in '$releaseDirectory'."
           }
 
+          $releaseNotesPath = ".github\release-notes\$env:GITHUB_REF_NAME.md"
+          $releaseNotesArguments = if (Test-Path -LiteralPath $releaseNotesPath -PathType Leaf) {
+            @('--notes-file', $releaseNotesPath)
+          } else {
+            @('--generate-notes')
+          }
+
           gh release create $env:GITHUB_REF_NAME @assets `
             --verify-tag `
-            --generate-notes `
+            @releaseNotesArguments `
             --title "CodexBar $($env:GITHUB_REF_NAME.TrimStart('v'))"
