@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CodexBarWin.App/CodexBarWin.App.csproj" />
+    <Project Path="src/CodexBarWin.Core/CodexBarWin.Core.csproj" />
+    <Project Path="src/CodexBarWin.Infrastructure/CodexBarWin.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CodexBarWin.Core.Tests/CodexBarWin.Core.Tests.csproj" />
+    <Project Path="tests/CodexBarWin.Infrastructure.Tests/CodexBarWin.Infrastructure.Tests.csproj" />
+    <Project Path="tests/CodexBarWin.App.Tests/CodexBarWin.App.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/CodexBarWin.Probe/CodexBarWin.Probe.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,300 @@
+using CodexBarWin.App;
+using CodexBarWin.Core.Formatting;
+using CodexBarWin.Core.Providers;
+
+namespace CodexBarWin.App.Tests;
+
+public sealed class PresentationModelsTests
+{
+    [Fact]
+    public void ProviderSettingsCoverEverySupportedProvider()
+    {
+        Assert.Equal(ProviderId.Supported.Count, ProviderSettingsPresentation.All.Count);
+
+        foreach (ProviderId providerId in ProviderId.Supported)
+        {
+            Assert.True(ProviderSettingsPresentation.All.TryGetValue(
+                providerId,
+                out ProviderSettingsPresentation? provider));
+            Assert.Equal(providerId, provider.Id);
+            Assert.Equal(providerId.DisplayName, provider.DisplayName);
+            Assert.Equal(providerId.Value, provider.ProviderKey);
+            Assert.False(string.IsNullOrWhiteSpace(provider.Description));
+            Assert.False(string.IsNullOrWhiteSpace(provider.UsageSource));
+            Assert.False(string.IsNullOrWhiteSpace(provider.ConnectionLabel));
+            Assert.False(string.IsNullOrWhiteSpace(provider.ConnectionValue));
+            Assert.False(string.IsNullOrWhiteSpace(provider.AuthenticationSummary));
+            Assert.False(string.IsNullOrWhiteSpace(provider.PrivacySummary));
+        }
+    }
+
+    [Theory]
+    [InlineData("codex", "codex")]
+    [InlineData("claude", "claude")]
+    [InlineData("antigravity", "agy")]
+    [InlineData("copilot", "gh")]
+    [InlineData("kiro", "kiro-cli")]
+    [InlineData("amp", "amp")]
+    [InlineData("opencode-go", "opencode")]
+    [InlineData("zai", "https://api.z.ai/api/monitor/usage/quota/limit")]
+    public void ProviderSettingsNameTheExpectedConnection(string providerValue, string expectedConnection)
+    {
+        ProviderSettingsPresentation provider =
+            ProviderSettingsPresentation.All[new ProviderId(providerValue)];
+
+        Assert.Equal(expectedConnection, provider.ConnectionValue);
+    }
+
+    [Fact]
+    public void AllTabUsesDedicatedNavigationIdentity()
+    {
+        ProviderTabViewModel model = new(ProviderId.All, ProviderId.All.DisplayName);
+
+        Assert.True(model.IsAll);
+        Assert.Equal("All providers", model.DisplayName);
+        Assert.Equal("all", model.ProviderKey);
+    }
+
+    [Theory]
+    [InlineData(480, 1, 480)]
+    [InlineData(480, 1.25, 600)]
+    [InlineData(401, 1.5, 602)]
+    [InlineData(0, 2, 1)]
+    public void WindowSizingConvertsLogicalUnitsToStablePhysicalPixels(
+        double logicalUnits,
+        double scale,
+        int expectedPixels)
+    {
+        Assert.Equal(expectedPixels, WindowSizing.ToPixels(logicalUnits, scale));
+    }
+
+    [Theory]
+    [InlineData(1, 1, TimeDisplayPrecision.Seconds)]
+    [InlineData(5, 30, TimeDisplayPrecision.ThirtySeconds)]
+    [InlineData(15, 30, TimeDisplayPrecision.ThirtySeconds)]
+    [InlineData(30, 30, TimeDisplayPrecision.ThirtySeconds)]
+    public void PresentationCadenceFollowsTheRefreshSetting(
+        int refreshIntervalMinutes,
+        int expectedTimerSeconds,
+        TimeDisplayPrecision expectedPrecision)
+    {
+        PresentationTimeCadence cadence =
+            PresentationTimeCadence.FromRefreshInterval(refreshIntervalMinutes);
+
+        Assert.Equal(TimeSpan.FromSeconds(expectedTimerSeconds), cadence.TimerInterval);
+        Assert.Equal(expectedPrecision, cadence.Precision);
+    }
+
+    [Fact]
+    public void ApplySnapshotBuildsFreshAccessiblePresentationState()
+    {
+        DateTimeOffset now = new(2026, 7, 16, 12, 0, 0, TimeSpan.Zero);
+        ProviderTabViewModel model = new(ProviderId.Codex, "OpenAI Codex");
+        ProviderSnapshot snapshot = new(
+            ProviderId.Codex,
+            "OpenAI Codex",
+            "Codex CLI",
+            now,
+            UsageDataState.Fresh,
+            [new UsageWindow("session", "Current session", 42, now.AddHours(2))],
+            new AccountIdentity(null, "pro-lite"),
+            cliVersion: "0.144.5");
+
+        model.ApplySnapshot(snapshot, now, TimeDisplayPrecision.Seconds);
+
+        Assert.Equal("Updated just now · Codex CLI", model.UpdatedText);
+        Assert.Equal("Updated just now", model.SummaryUpdatedText);
+        Assert.Equal("Pro Lite", model.PlanText);
+        Assert.Equal("CLI 0.144.5", model.CliVersionText);
+        Assert.True(model.HasCliVersion);
+        Assert.Equal("1 active limit", model.LimitsSummaryText);
+        UsageWindowViewModel usage = Assert.Single(model.UsageWindows);
+        Assert.Equal("42% used", usage.PercentText);
+        Assert.Contains("Current session, 42% used", usage.AccessibleName, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ApplySnapshotMarksAnInitiallyUnloadedProviderAsLoaded()
+    {
+        DateTimeOffset now = new(2026, 7, 16, 12, 0, 0, TimeSpan.Zero);
+        ProviderTabViewModel model = new(ProviderId.Claude, "Claude");
+
+        Assert.False(model.HasLoaded);
+
+        model.ApplySnapshot(new ProviderSnapshot(
+            ProviderId.Claude,
+            "Claude",
+            "Claude CLI",
+            now,
+            UsageDataState.Fresh), now, TimeDisplayPrecision.Seconds);
+
+        Assert.True(model.HasLoaded);
+        Assert.True(model.HasNoUsageData);
+    }
+
+    [Fact]
+    public void OpenCodeGoEmptyStateExplainsTheLocalHistoryRequirement()
+    {
+        DateTimeOffset now = new(2026, 7, 17, 12, 0, 0, TimeSpan.Zero);
+        ProviderTabViewModel model = new(ProviderId.OpenCodeGo, "OpenCode Go");
+
+        model.ApplySnapshot(new ProviderSnapshot(
+            ProviderId.OpenCodeGo,
+            "OpenCode Go",
+            "Local OpenCode history",
+            now,
+            UsageDataState.Fresh), now, TimeDisplayPrecision.Seconds);
+
+        Assert.True(model.HasNoUsageData);
+        Assert.Equal("No OpenCode Go usage found", model.EmptyStateTitle);
+        Assert.Contains("no requests billed through OpenCode Go", model.EmptyStateMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ApplySnapshotPresentsProviderCreditBalances()
+    {
+        DateTimeOffset now = new(2026, 7, 16, 12, 0, 0, TimeSpan.Zero);
+        ProviderTabViewModel model = new(ProviderId.Amp, "Amp");
+
+        model.ApplySnapshot(new ProviderSnapshot(
+            ProviderId.Amp,
+            "Amp",
+            "Amp CLI",
+            now,
+            UsageDataState.Fresh,
+            credits: new CreditBalance("Individual: $12.50", HasCredits: true, IsUnlimited: false)),
+            now,
+            TimeDisplayPrecision.Seconds);
+
+        Assert.True(model.HasCredits);
+        Assert.Equal("Individual: $12.50", model.CreditsText);
+        Assert.False(model.HasUsageWindows);
+        Assert.False(model.HasNoUsageData);
+    }
+
+    [Fact]
+    public void NeedsRefreshUsesTheConfiguredMaximumAge()
+    {
+        DateTimeOffset capturedAt = new(2026, 7, 16, 12, 0, 0, TimeSpan.Zero);
+        ProviderTabViewModel model = new(ProviderId.Claude, "Claude");
+
+        Assert.True(model.NeedsRefresh(capturedAt, TimeSpan.FromMinutes(5)));
+
+        model.ApplySnapshot(new ProviderSnapshot(
+            ProviderId.Claude,
+            "Claude",
+            "Claude CLI",
+            capturedAt,
+            UsageDataState.Fresh), capturedAt, TimeDisplayPrecision.Seconds);
+
+        Assert.False(model.NeedsRefresh(capturedAt.AddMinutes(4), TimeSpan.FromMinutes(5)));
+        Assert.True(model.NeedsRefresh(capturedAt.AddMinutes(5), TimeSpan.FromMinutes(5)));
+    }
+
+    [Fact]
+    public void NeedsRefreshRejectsANegativeMaximumAge()
+    {
+        ProviderTabViewModel model = new(ProviderId.Codex, "OpenAI Codex");
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            model.NeedsRefresh(DateTimeOffset.Now, TimeSpan.FromSeconds(-1)));
+    }
+
+    [Fact]
+    public void UpdateTimeRecomputesStaleAgeAndResetCountdown()
+    {
+        DateTimeOffset capturedAt = new(2026, 7, 16, 12, 0, 0, TimeSpan.Zero);
+        ProviderTabViewModel model = new(ProviderId.Claude, "Claude");
+        model.ApplySnapshot(new ProviderSnapshot(
+            ProviderId.Claude,
+            "Claude",
+            "Claude CLI",
+            capturedAt,
+            UsageDataState.Stale,
+            [new UsageWindow("session", "Current session", 10, capturedAt.AddMinutes(30))]),
+            capturedAt,
+            TimeDisplayPrecision.Seconds);
+
+        model.UpdateTime(capturedAt.AddMinutes(10), TimeDisplayPrecision.Seconds);
+
+        Assert.Equal("Showing saved data from 10m ago · Claude CLI", model.UpdatedText);
+        Assert.Equal("Saved 10m ago", model.SummaryUpdatedText);
+        Assert.Equal("Resets in 20m", Assert.Single(model.UsageWindows).ResetText);
+    }
+
+    [Theory]
+    [InlineData(TimeDisplayPrecision.Seconds, 30, "Updated 30s ago · Claude CLI")]
+    [InlineData(TimeDisplayPrecision.ThirtySeconds, 29, "Updated just now · Claude CLI")]
+    [InlineData(TimeDisplayPrecision.ThirtySeconds, 30, "Updated 30s ago · Claude CLI")]
+    [InlineData(TimeDisplayPrecision.ThirtySeconds, 60, "Updated 1m ago · Claude CLI")]
+    public void UpdateTimeUsesTheConfiguredFreshnessPrecision(
+        TimeDisplayPrecision precision,
+        int elapsedSeconds,
+        string expected)
+    {
+        DateTimeOffset capturedAt = new(2026, 7, 16, 12, 0, 0, TimeSpan.Zero);
+        ProviderTabViewModel model = new(ProviderId.Claude, "Claude");
+        model.ApplySnapshot(new ProviderSnapshot(
+            ProviderId.Claude,
+            "Claude",
+            "Claude CLI",
+            capturedAt,
+            UsageDataState.Fresh), capturedAt, precision);
+
+        model.UpdateTime(capturedAt.AddSeconds(elapsedSeconds), precision);
+
+        Assert.Equal(expected, model.UpdatedText);
+    }
+
+    [Fact]
+    public void RefreshVisualStateInvalidatesBoundUsageColour()
+    {
+        UsageWindowViewModel model = new(
+            new UsageWindow("session", "Current session", 75),
+            DateTimeOffset.UtcNow,
+            TimeDisplayPrecision.Seconds);
+        List<string?> changedProperties = [];
+        model.PropertyChanged += (_, args) => changedProperties.Add(args.PropertyName);
+
+        model.RefreshVisualState();
+
+        Assert.Contains(nameof(UsageWindowViewModel.UsedPercent), changedProperties);
+    }
+
+    [Fact]
+    public void UnlimitedWindowUsesTextInsteadOfAMisleadingMeter()
+    {
+        UsageWindowViewModel model = new(
+            new UsageWindow("chat", "Chat", 0, isUnlimited: true),
+            DateTimeOffset.UtcNow,
+            TimeDisplayPrecision.Seconds);
+
+        Assert.Equal("Unlimited", model.PercentText);
+        Assert.Equal("No quota limit", model.ResetText);
+        Assert.False(model.HasUsageMeter);
+    }
+
+    [Fact]
+    public void ProviderFailureOffersRetryButLocalWarningDoesNot()
+    {
+        DateTimeOffset now = new(2026, 7, 16, 12, 0, 0, TimeSpan.Zero);
+        ProviderTabViewModel model = new(ProviderId.Codex, "OpenAI Codex");
+        ProviderSnapshot failure = new(
+            ProviderId.Codex,
+            "OpenAI Codex",
+            "No source",
+            DateTimeOffset.MinValue,
+            UsageDataState.Unavailable,
+            safeError: "OpenAI Codex usage could not be refreshed.");
+
+        model.ApplySnapshot(failure, now, TimeDisplayPrecision.Seconds);
+
+        Assert.True(model.CanRetry);
+        Assert.True(model.HasStatusMessage);
+
+        model.ShowWarning("The theme preference could not be saved.");
+
+        Assert.False(model.CanRetry);
+        Assert.True(model.HasStatusMessage);
+    }
+}

@@ -1,0 +1,28 @@
+# Build output
+**/bin/
+**/obj/
+**/AppPackages/
+**/BundleArtifacts/
+**/Publish/
+artifacts/
+tmp/
+
+# Local product and implementation notes
+DESIGN.md
+PRODUCT.md
+docs/
+
+# IDE and user settings
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Test output
+TestResults/
+*.coverage
+*.coveragexml
+
+# Local application data and diagnostics
+.codexbarwin/
+*.log

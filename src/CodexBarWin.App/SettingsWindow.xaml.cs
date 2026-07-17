@@ -1,0 +1,664 @@
+using System.Globalization;
+using System.Runtime.InteropServices;
+using CodexBarWin.Core.Providers;
+using CodexBarWin.Infrastructure.Providers.Zai;
+using CodexBarWin.Infrastructure.Security;
+using CodexBarWin.Infrastructure.Settings;
+using Microsoft.UI.System;
+using Microsoft.UI.Windowing;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+
+namespace CodexBarWin.App;
+
+public sealed partial class SettingsWindow : Window, IDisposable
+{
+    private readonly CancellationTokenSource _lifetimeCancellation = new();
+    private bool _isApplyingSettings;
+    private bool _isDisposed;
+    private bool _isExiting;
+    private bool _isUpdateOperationInProgress;
+    private readonly Dictionary<ProviderId, string> _providerVersions = ProviderId.Supported
+        .ToDictionary(provider => provider, _ => "Checking CLI version…");
+    private Task? _providerVersionsTask;
+    private ProviderId? _selectedProvider;
+    private ThemeSettings? _themeSettings;
+
+    public SettingsWindow()
+    {
+        this.InitializeComponent();
+        App app = (App)Application.Current;
+        this.InitialiseThemeSettings(app);
+        App.ApplyWindowAppearance(this, this.RootLayout, this.SolidBackground, app.CurrentSettings);
+        app.SettingsChanged += this.App_SettingsChanged;
+        app.UpdateStateChanged += this.App_UpdateStateChanged;
+
+        this.ExtendsContentIntoTitleBar = true;
+        this.SetTitleBar(this.SettingsTitleBar);
+        this.RootLayout.ActualThemeChanged += this.RootLayout_ActualThemeChanged;
+        App.ApplyCaptionButtonColours(this, this.RootLayout);
+
+        if (this.AppWindow.Presenter is OverlappedPresenter presenter)
+        {
+            presenter.IsMaximizable = true;
+            presenter.IsMinimizable = true;
+        }
+
+        this.AppWindow.SetIcon("Assets/AppIcon.ico");
+        WindowSizing.Configure(this, 900, 700, 680, 480);
+        this.AppWindow.Changed += this.AppWindow_Changed;
+        this.AppWindow.Closing += this.AppWindow_Closing;
+
+        this.SettingsNavigation.SelectedItem = this.SettingsNavigation.MenuItems[0];
+        this.VersionText.Text = $"Version {App.VersionNumber}";
+        this.LoadSettings(app.CurrentSettings);
+        this.RefreshUpdatePresentation();
+    }
+
+    private void LoadSettings(AppSettings settings)
+    {
+        this._isApplyingSettings = true;
+        try
+        {
+            this.AllTabToggle.IsOn = settings.IsAllTabEnabled;
+            this.UpdateSelectedProviderEnabledState(settings);
+            foreach (ComboBoxItem item in this.DefaultProviderComboBox.Items.OfType<ComboBoxItem>())
+            {
+                bool isEnabled = item.Tag is string providerValue
+                    && (string.Equals(providerValue, ProviderId.All.Value, StringComparison.Ordinal)
+                        ? settings.IsAllTabEnabled
+                        : settings.EnabledProviders.Contains(new ProviderId(providerValue)));
+                item.Visibility = isEnabled ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            this.DefaultProviderComboBox.SelectedItem = this.DefaultProviderComboBox.Items
+                .OfType<ComboBoxItem>()
+                .First(item => string.Equals(
+                    item.Tag?.ToString(),
+                    settings.DefaultProvider.Value,
+                    StringComparison.Ordinal));
+            int availableDefaultTabs = settings.EnabledProviders.Count + (settings.IsAllTabEnabled ? 1 : 0);
+            this.DefaultProviderComboBox.IsEnabled = availableDefaultTabs > 1;
+            this.SystemThemeRadio.IsChecked = settings.Theme == AppThemePreference.System;
+            this.LightThemeRadio.IsChecked = settings.Theme == AppThemePreference.Light;
+            this.DarkThemeRadio.IsChecked = settings.Theme == AppThemePreference.Dark;
+            this.TranslucencyToggle.IsOn = settings.UseTranslucentBackground;
+
+            this.ZaiApiKeyStorageComboBox.SelectedItem = this.ZaiApiKeyStorageComboBox.Items
+                .OfType<ComboBoxItem>()
+                .First(item => string.Equals(
+                    item.Tag?.ToString(),
+                    settings.ZaiApiKeyStorage.ToString(),
+                    StringComparison.Ordinal));
+            this.ZaiRegionComboBox.SelectedItem = this.ZaiRegionComboBox.Items
+                .OfType<ComboBoxItem>()
+                .First(item => string.Equals(
+                    item.Tag?.ToString(),
+                    settings.ZaiRegion.ToString(),
+                    StringComparison.Ordinal));
+
+            this.RefreshIntervalComboBox.SelectedItem = this.RefreshIntervalComboBox.Items
+                .OfType<ComboBoxItem>()
+                .First(item => string.Equals(
+                    item.Tag?.ToString(),
+                    settings.RefreshIntervalMinutes.ToString(CultureInfo.InvariantCulture),
+                    StringComparison.Ordinal));
+        }
+        finally
+        {
+            this._isApplyingSettings = false;
+        }
+
+        this.RefreshZaiPresentation(settings);
+    }
+
+    internal void RefreshProviderVersions()
+    {
+        if (this._providerVersionsTask is { IsCompleted: false })
+        {
+            return;
+        }
+
+        foreach (ProviderId provider in ProviderId.Supported)
+        {
+            this._providerVersions[provider] = "Checking CLI version…";
+        }
+
+        this.UpdateSelectedProviderVersion();
+        this._providerVersionsTask = this.RefreshProviderVersionsAsync();
+    }
+
+    private async Task RefreshProviderVersionsAsync()
+    {
+        App app = (App)Application.Current;
+        try
+        {
+            await Task.WhenAll(
+                ProviderId.Supported.Select(provider => this.UpdateProviderVersionAsync(app, provider)));
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private async Task UpdateProviderVersionAsync(App app, ProviderId providerId)
+    {
+        string? version = await app.RefreshCoordinator.ReadCliVersionAsync(
+            providerId,
+            this._lifetimeCancellation.Token);
+        this._providerVersions[providerId] = version is null ? "CLI version unavailable" : $"CLI {version}";
+        if (this._selectedProvider == providerId)
+        {
+            this.UpdateSelectedProviderVersion();
+        }
+    }
+
+    private void SettingsNavigation_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
+    {
+        string tag = (args.SelectedItemContainer?.Tag as string) ?? "general";
+        this.GeneralPanel.Visibility = tag == "general" ? Visibility.Visible : Visibility.Collapsed;
+        this.AppearancePanel.Visibility = tag == "appearance" ? Visibility.Visible : Visibility.Collapsed;
+        this.AboutPanel.Visibility = tag == "about" ? Visibility.Visible : Visibility.Collapsed;
+        if (tag == "about")
+        {
+            this.RefreshUpdatePresentation();
+        }
+
+        bool isProvider = this.TrySelectProvider(tag);
+        this.ProviderPanel.Visibility = isProvider ? Visibility.Visible : Visibility.Collapsed;
+        if (!isProvider)
+        {
+            this._selectedProvider = null;
+        }
+    }
+
+    private async void RefreshIntervalComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (this._isApplyingSettings || this.RefreshIntervalComboBox.SelectedItem is not ComboBoxItem item
+            || !int.TryParse(item.Tag?.ToString(), out int minutes))
+        {
+            return;
+        }
+
+        await this.SaveSettingsAsync(settings => settings with { RefreshIntervalMinutes = minutes });
+    }
+
+    private async void DefaultProviderComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (this._isApplyingSettings
+            || this.DefaultProviderComboBox.SelectedItem is not ComboBoxItem item
+            || item.Tag is not string providerValue)
+        {
+            return;
+        }
+
+        ProviderId defaultProvider = new(providerValue);
+        await this.SaveSettingsAsync(settings => settings with { DefaultProvider = defaultProvider });
+    }
+
+    private async void AllTabToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (this._isApplyingSettings)
+        {
+            return;
+        }
+
+        bool isEnabled = this.AllTabToggle.IsOn;
+        await this.SaveSettingsAsync(settings => settings with
+        {
+            IsAllTabEnabled = isEnabled,
+            DefaultProvider = !isEnabled && settings.DefaultProvider == ProviderId.All
+                ? settings.EnabledProviders[0]
+                : settings.DefaultProvider,
+        });
+    }
+
+    private async void ThemeRadio_Checked(object sender, RoutedEventArgs e)
+    {
+        if (this._isApplyingSettings || sender is not RadioButton radio
+            || !Enum.TryParse(radio.Tag?.ToString(), ignoreCase: true, out AppThemePreference theme))
+        {
+            return;
+        }
+
+        await this.SaveSettingsAsync(settings => settings with { Theme = theme });
+    }
+
+    private async void TranslucencyToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (this._isApplyingSettings)
+        {
+            return;
+        }
+
+        bool isOn = this.TranslucencyToggle.IsOn;
+        await this.SaveSettingsAsync(settings => settings with { UseTranslucentBackground = isOn });
+    }
+
+    private async void SelectedProviderToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (this._isApplyingSettings || this._selectedProvider is not ProviderId selectedProvider)
+        {
+            return;
+        }
+
+        AppSettings current = ((App)Application.Current).CurrentSettings;
+        bool isEnabled = this.SelectedProviderToggle.IsOn;
+        if (!isEnabled && current.EnabledProviders.Count == 1 && current.EnabledProviders.Contains(selectedProvider))
+        {
+            this._isApplyingSettings = true;
+            this.SelectedProviderToggle.IsOn = true;
+            this._isApplyingSettings = false;
+            this.ShowMessage("At least one provider must remain enabled.", InfoBarSeverity.Informational);
+            return;
+        }
+
+        HashSet<ProviderId> enabledProviders = current.EnabledProviders.ToHashSet();
+        if (isEnabled)
+        {
+            enabledProviders.Add(selectedProvider);
+        }
+        else
+        {
+            enabledProviders.Remove(selectedProvider);
+        }
+
+        ProviderId[] enabled = ProviderId.Supported.Where(enabledProviders.Contains).ToArray();
+
+        await this.SaveSettingsAsync(settings => settings with
+        {
+            EnabledProviders = enabled,
+            DefaultProvider = (settings.DefaultProvider == ProviderId.All && settings.IsAllTabEnabled)
+                || enabled.Contains(settings.DefaultProvider)
+                ? settings.DefaultProvider
+                : enabled[0],
+        });
+    }
+
+    private bool TrySelectProvider(string tag)
+    {
+        const string prefix = "provider:";
+        if (!tag.StartsWith(prefix, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        ProviderId providerId = new(tag[prefix.Length..]);
+        if (!ProviderSettingsPresentation.All.TryGetValue(providerId, out ProviderSettingsPresentation? provider))
+        {
+            return false;
+        }
+
+        this._selectedProvider = providerId;
+        this.SelectedProviderLogo.ProviderKey = provider.ProviderKey;
+        this.SelectedProviderTitle.Text = provider.DisplayName;
+        this.SelectedProviderDescription.Text = provider.Description;
+        this.SelectedProviderSource.Text = provider.UsageSource;
+        this.SelectedProviderConnectionLabel.Text = provider.ConnectionLabel;
+        this.SelectedProviderConnection.Text = provider.ConnectionValue;
+        this.SelectedProviderAuthentication.Text = provider.AuthenticationSummary;
+        this.SelectedProviderPrivacy.Text = provider.PrivacySummary;
+        this.SelectedProviderVersionRow.Visibility = provider.ShowsVersion
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        this.UpdateSelectedProviderVersion();
+        AppSettings settings = ((App)Application.Current).CurrentSettings;
+        this.UpdateSelectedProviderEnabledState(settings);
+        this.RefreshZaiPresentation(settings);
+        return true;
+    }
+
+    private void RefreshZaiPresentation(AppSettings settings)
+    {
+        bool isZai = this._selectedProvider == ProviderId.Zai;
+        this.ZaiConfigurationPanel.Visibility = isZai ? Visibility.Visible : Visibility.Collapsed;
+        if (!isZai)
+        {
+            return;
+        }
+
+        this.SelectedProviderConnection.Text = ZaiUsageProvider.EndpointFor(settings.ZaiRegion).AbsoluteUri;
+        bool usesEnvironment = settings.ZaiApiKeyStorage == ApiKeyStorageMode.EnvironmentVariable;
+        this.ZaiManagedKeyPanel.Visibility = usesEnvironment ? Visibility.Collapsed : Visibility.Visible;
+        this.ZaiEnvironmentPanel.Visibility = usesEnvironment ? Visibility.Visible : Visibility.Collapsed;
+        this.SelectedProviderAuthentication.Text = settings.ZaiApiKeyStorage switch
+        {
+            ApiKeyStorageMode.WindowsCredentialManager => "Stored locally in Windows Credential Manager on this PC",
+            ApiKeyStorageMode.EnvironmentVariable => $"Read from {ZaiApiKeyResolver.EnvironmentVariableName} when usage refreshes",
+            ApiKeyStorageMode.SessionOnly => "Held in memory until CodexBar exits",
+            _ => "API-key storage is not configured",
+        };
+        this.SelectedProviderPrivacy.Text = settings.ZaiApiKeyStorage switch
+        {
+            ApiKeyStorageMode.WindowsCredentialManager =>
+                "The key is stored by Windows on this PC and sent only to the fixed Z.AI endpoint for the selected region.",
+            ApiKeyStorageMode.EnvironmentVariable =>
+                "CodexBar only reads Z_AI_API_KEY and sends it to the fixed Z.AI endpoint for the selected region; it never modifies the variable.",
+            ApiKeyStorageMode.SessionOnly =>
+                "The key stays in this process until CodexBar exits and is sent only to the fixed Z.AI endpoint for the selected region.",
+            _ => "The API key is not available to CodexBar.",
+        };
+
+        try
+        {
+            ZaiCredentialStatus status = ((App)Application.Current).GetZaiCredentialStatus();
+            this.ZaiCredentialStatusText.Text = status.IsConfigured
+                ? $"Configured · {status.StorageDescription}"
+                : $"No API key found · {status.StorageDescription}";
+        }
+        catch (SecretStoreException exception)
+        {
+            this.ZaiCredentialStatusText.Text = exception.SafeMessage;
+        }
+    }
+
+    private void UpdateSelectedProviderEnabledState(AppSettings settings)
+    {
+        if (this._selectedProvider is not ProviderId selectedProvider)
+        {
+            return;
+        }
+
+        bool wasApplyingSettings = this._isApplyingSettings;
+        this._isApplyingSettings = true;
+        this.SelectedProviderToggle.IsOn = settings.EnabledProviders.Contains(selectedProvider);
+        this._isApplyingSettings = wasApplyingSettings;
+    }
+
+    private void UpdateSelectedProviderVersion()
+    {
+        if (this._selectedProvider is not ProviderId selectedProvider)
+        {
+            return;
+        }
+
+        this.SelectedProviderVersion.Text = this._providerVersions.GetValueOrDefault(
+            selectedProvider,
+            "CLI version unavailable");
+    }
+
+    private async void ZaiRegionComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (this._isApplyingSettings
+            || this.ZaiRegionComboBox.SelectedItem is not ComboBoxItem item
+            || !Enum.TryParse(item.Tag?.ToString(), ignoreCase: false, out ZaiApiRegion region))
+        {
+            return;
+        }
+
+        await this.SaveSettingsAsync(settings => settings with { ZaiRegion = region });
+    }
+
+    private async void ZaiApiKeyStorageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (this._isApplyingSettings
+            || this.ZaiApiKeyStorageComboBox.SelectedItem is not ComboBoxItem item
+            || !Enum.TryParse(item.Tag?.ToString(), ignoreCase: false, out ApiKeyStorageMode storageMode))
+        {
+            return;
+        }
+
+        await this.SaveSettingsAsync(settings => settings with { ZaiApiKeyStorage = storageMode });
+    }
+
+    private void SaveZaiApiKey_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            ((App)Application.Current).SaveZaiApiKey(this.ZaiApiKeyBox.Password);
+            this.ZaiApiKeyBox.Password = string.Empty;
+            this.RefreshZaiPresentation(((App)Application.Current).CurrentSettings);
+            this.ShowMessage("The Z.AI API key was saved in the selected location.", InfoBarSeverity.Success);
+        }
+        catch (SecretStoreException exception)
+        {
+            this.ShowMessage(exception.SafeMessage, InfoBarSeverity.Error);
+        }
+        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
+        {
+            this.ShowMessage(exception.Message, InfoBarSeverity.Error);
+        }
+    }
+
+    private void RemoveZaiApiKey_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            ((App)Application.Current).DeleteZaiApiKey();
+            this.ZaiApiKeyBox.Password = string.Empty;
+            this.RefreshZaiPresentation(((App)Application.Current).CurrentSettings);
+            this.ShowMessage("The Z.AI API key was removed from the selected location.", InfoBarSeverity.Success);
+        }
+        catch (SecretStoreException exception)
+        {
+            this.ShowMessage(exception.SafeMessage, InfoBarSeverity.Error);
+        }
+        catch (InvalidOperationException exception)
+        {
+            this.ShowMessage(exception.Message, InfoBarSeverity.Error);
+        }
+    }
+
+    private async Task SaveSettingsAsync(Func<AppSettings, AppSettings> update)
+    {
+        try
+        {
+            await ((App)Application.Current).UpdateSettingsAsync(update);
+            this.SettingsInfoBar.IsOpen = false;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+        {
+            this.ShowMessage("That setting could not be saved. Please try again.", InfoBarSeverity.Error);
+            this.LoadSettings(((App)Application.Current).CurrentSettings);
+        }
+    }
+
+    private void ShowMessage(string message, InfoBarSeverity severity)
+    {
+        this.SettingsInfoBar.Message = message;
+        this.SettingsInfoBar.Severity = severity;
+        this.SettingsInfoBar.IsOpen = true;
+    }
+
+    private async void UpdateActionButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (this._isUpdateOperationInProgress)
+        {
+            return;
+        }
+
+        App app = (App)Application.Current;
+        AppUpdateService updater = app.UpdateService;
+        if (updater.IsUpdateDownloaded)
+        {
+            try
+            {
+                app.RestartForUpdate();
+            }
+            catch (Exception exception) when (AppUpdateService.IsExpectedFailure(exception))
+            {
+                this.ShowMessage(
+                    "The update could not be started. CodexBar is still running on the current version.",
+                    InfoBarSeverity.Error);
+            }
+
+            return;
+        }
+
+        this._isUpdateOperationInProgress = true;
+        this.UpdateActionButton.IsEnabled = false;
+        this.UpdateProgressBar.Visibility = Visibility.Visible;
+        try
+        {
+            if (updater.AvailableUpdate is null)
+            {
+                this.UpdateStatusText.Text = "Checking GitHub for updates…";
+                this.UpdateProgressBar.IsIndeterminate = true;
+                await updater.CheckForUpdatesAsync(this._lifetimeCancellation.Token);
+            }
+            else
+            {
+                this.UpdateStatusText.Text = $"Downloading version {updater.AvailableUpdate.Version}…";
+                this.UpdateProgressBar.IsIndeterminate = false;
+                this.UpdateProgressBar.Value = 0;
+                Progress<int> progress = new(value => this.UpdateProgressBar.Value = value);
+                await updater.DownloadUpdateAsync(progress, this._lifetimeCancellation.Token);
+            }
+
+            app.NotifyUpdateStateChanged();
+            this.SettingsInfoBar.IsOpen = false;
+        }
+        catch (OperationCanceledException) when (this._lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception) when (AppUpdateService.IsExpectedFailure(exception))
+        {
+            this.ShowMessage(
+                updater.AvailableUpdate is null
+                    ? "CodexBar could not check for updates. Check your connection and try again."
+                    : "The update could not be downloaded. CodexBar is still running on the current version.",
+                InfoBarSeverity.Error);
+        }
+        finally
+        {
+            this._isUpdateOperationInProgress = false;
+            if (!this._isDisposed)
+            {
+                this.RefreshUpdatePresentation();
+            }
+        }
+    }
+
+    private void App_UpdateStateChanged()
+    {
+        if (!this._isDisposed)
+        {
+            this.RefreshUpdatePresentation();
+        }
+    }
+
+    private void RefreshUpdatePresentation()
+    {
+        if (this._isUpdateOperationInProgress)
+        {
+            return;
+        }
+
+        AppUpdateService updater = ((App)Application.Current).UpdateService;
+        this.UpdateProgressBar.Visibility = Visibility.Collapsed;
+        this.UpdateProgressBar.IsIndeterminate = false;
+        this.UpdateActionButton.IsEnabled = updater.CanCheckForUpdates;
+
+        if (!updater.IsConfigured)
+        {
+            this.UpdateStatusText.Text = "Set a GitHub release repository when packaging to enable automatic updates.";
+            this.UpdateActionButton.Content = "Check for updates";
+            return;
+        }
+
+        if (!updater.CanCheckForUpdates)
+        {
+            this.UpdateStatusText.Text = "Update checks are available in Velopack release builds.";
+            this.UpdateActionButton.Content = "Check for updates";
+            return;
+        }
+
+        if (updater.IsUpdateDownloaded && updater.AvailableUpdate is AppUpdateAvailability downloaded)
+        {
+            this.UpdateStatusText.Text = $"Version {downloaded.Version} is ready to install.";
+            this.UpdateActionButton.Content = "Restart to update";
+            return;
+        }
+
+        if (updater.AvailableUpdate is AppUpdateAvailability available)
+        {
+            this.UpdateStatusText.Text = $"Version {available.Version} is available.";
+            this.UpdateActionButton.Content = "Download update";
+            return;
+        }
+
+        this.UpdateStatusText.Text = updater.HasCheckedForUpdates
+            ? "You’re up to date."
+            : "Check GitHub Releases for a newer version.";
+        this.UpdateActionButton.Content = "Check for updates";
+    }
+
+    private void App_SettingsChanged(AppSettings settings)
+    {
+        App.ApplyWindowAppearance(this, this.RootLayout, this.SolidBackground, settings);
+        this.LoadSettings(settings);
+    }
+
+    private void RootLayout_ActualThemeChanged(FrameworkElement sender, object args) =>
+        App.ApplyCaptionButtonColours(this, this.RootLayout);
+
+    internal void PrepareForShutdown()
+    {
+        this._isExiting = true;
+        if (this._themeSettings is not null)
+        {
+            this._themeSettings.Changed -= this.ThemeSettings_Changed;
+        }
+
+        this.Dispose();
+    }
+
+    public void Dispose()
+    {
+        if (this._isDisposed)
+        {
+            return;
+        }
+
+        this._isDisposed = true;
+        if (Application.Current is App app)
+        {
+            app.UpdateStateChanged -= this.App_UpdateStateChanged;
+        }
+
+        this._lifetimeCancellation.Cancel();
+        this._lifetimeCancellation.Dispose();
+        GC.SuppressFinalize(this);
+    }
+
+    internal void RefreshAppearance(AppSettings settings)
+    {
+        App.ApplyWindowAppearance(this, this.RootLayout, this.SolidBackground, settings);
+        App.ApplyCaptionButtonColours(this, this.RootLayout);
+    }
+
+    private void InitialiseThemeSettings(App app)
+    {
+        try
+        {
+            ThemeSettings themeSettings = ThemeSettings.CreateForWindowId(this.AppWindow.Id);
+            themeSettings.Changed += this.ThemeSettings_Changed;
+            this._themeSettings = themeSettings;
+            app.SetHighContrastEnabled(themeSettings.HighContrast);
+        }
+        catch (COMException)
+        {
+            // XAML theme resources still follow Windows high contrast if notifications are unavailable.
+        }
+    }
+
+    private void ThemeSettings_Changed(ThemeSettings sender, object args) =>
+        ((App)Application.Current).SetHighContrastEnabled(sender.HighContrast);
+
+    private void AppWindow_Closing(AppWindow sender, AppWindowClosingEventArgs args)
+    {
+        if (!this._isExiting)
+        {
+            args.Cancel = true;
+            sender.Hide();
+        }
+    }
+
+    private void AppWindow_Changed(AppWindow sender, AppWindowChangedEventArgs args)
+    {
+        if (args.DidPositionChange)
+        {
+            WindowSizing.UpdateMinimumSize(this, 680, 480);
+        }
+    }
+}

@@ -1,0 +1,11 @@
+[
+  {
+    "Name": "CodexBarWin",
+    "Projects": [
+      {
+        "Path": "src\\CodexBarWin.App\\CodexBarWin.App.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]

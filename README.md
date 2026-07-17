@@ -1,0 +1,83 @@
+<div align="center">
+  <img src="src/CodexBarWin.App/Assets/AppIcon.png" width="112" alt="CodexBar for Windows icon">
+  <h1>CodexBar for Windows</h1>
+  <p>A native Windows tray app for keeping an eye on AI coding usage, limits, and reset times.</p>
+  <p>
+    <a href="https://github.com/CallMeLewis/CodexBarWin/releases/latest"><img src="https://img.shields.io/github/v/release/CallMeLewis/CodexBarWin?display_name=tag&amp;sort=semver" alt="Latest release"></a>
+    <a href="https://github.com/CallMeLewis/CodexBarWin/actions/workflows/ci.yml"><img src="https://github.com/CallMeLewis/CodexBarWin/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  </p>
+</div>
+
+CodexBar brings usage from several coding assistants into one compact WinUI 3 window. It lives in the notification area, refreshes quietly in the background, and keeps each provider's data separate and easy to scan.
+
+## Highlights
+
+- One compact view for every enabled provider, plus an optional **All** summary.
+- Usage percentages, quota windows, reset countdowns, freshness, and error states.
+- Automatic refresh every 1, 5, 15, or 30 minutes, with manual refresh at any time.
+- System, light, and dark themes with optional Mica.
+- Settings stored per Windows user under `%LOCALAPPDATA%\CodexBarWin`.
+- Built-in updates through versioned Velopack releases.
+
+## Supported providers
+
+| Provider | Source |
+| --- | --- |
+| Codex | Installed Codex CLI app server |
+| Claude Code | Authenticated `/usage` view through an isolated terminal session |
+| Antigravity | `agy` CLI |
+| GitHub Copilot | Authenticated GitHub CLI (`gh`) |
+| Kiro | `kiro-cli` |
+| Amp | `amp` CLI |
+| OpenCode Go | Read-only local `opencode.db` usage history |
+| Z.AI | Personal Coding Plan quota API |
+
+## Install
+
+CodexBar requires **Windows 11 24H2 or later on x64**.
+
+1. Open the [latest release](https://github.com/CallMeLewis/CodexBarWin/releases/latest).
+2. Download `CodexBarWin-win-Setup.exe`, or choose the portable ZIP if you do not want an installed copy.
+3. Start CodexBar and enable the providers you use in Settings.
+
+The release includes the .NET and Windows App SDK runtimes. Current development builds are unsigned, so Windows may show an unknown-publisher or SmartScreen warning.
+
+Provider-owned CLIs must already be installed and signed in. Z.AI does not require a CLI; add its API key under **Settings → Providers → Z.AI** using Windows Credential Manager, the `Z_AI_API_KEY` environment variable, or session-only storage.
+
+## Privacy
+
+Most usage collection happens locally through provider-owned tools. CodexBar does not log tokens, cookies, raw provider responses, or captured terminal output.
+
+- Codex, Claude, Antigravity, Copilot, Kiro, and Amp keep authentication under their own tools.
+- OpenCode Go reads usage history only and never reads `auth.json` or browser cookies.
+- Z.AI sends its key only to the fixed endpoint for the selected region and never writes it to the settings file.
+
+## Development
+
+Install the .NET 10 SDK, then run:
+
+```powershell
+dotnet restore src/CodexBarWin.App/CodexBarWin.App.csproj -r win-x64
+dotnet build src/CodexBarWin.App/CodexBarWin.App.csproj -c Debug --no-restore
+dotnet test CodexBarWin.slnx -c Debug -p:SkipReleaseArtifacts=true
+& src/CodexBarWin.App/bin/Debug/net10.0-windows10.0.26100.0/win-x64/CodexBarWin.App.exe
+```
+
+Visual Studio users can open `CodexBarWin.slnx` and select the shared **CodexBarWin** launch profile.
+
+## Releases
+
+`Directory.Build.props` contains the release version. After a version change reaches `main` and CI passes, push the matching tag:
+
+```powershell
+git tag -a v0.1.1 -m "CodexBar 0.1.1"
+git push origin v0.1.1
+```
+
+The Release workflow verifies the version and successful CI run, builds the Velopack packages, and publishes the installer, portable ZIP, update package, and release feed automatically.
+
+For local packaging:
+
+```powershell
+.\tools\Publish-Release.ps1 -RepositoryUrl https://github.com/CallMeLewis/CodexBarWin
+```

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Application
+    x:Class="CodexBarWin.App.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:CodexBarWin.App">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+            </ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Default">
+                    <SolidColorBrush x:Key="BrandAccentBrush" Color="#FF6B5B" />
+                    <SolidColorBrush x:Key="BrandAccentSubtleBrush" Color="#22FF6B5B" />
+                    <SolidColorBrush x:Key="UsageProgressTrackBrush" Color="#42FFFFFF" />
+                    <Color x:Key="SkeletonFillColor">#18FFFFFF</Color>
+                    <Color x:Key="SkeletonShimmerColor">#30FFFFFF</Color>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="BrandAccentBrush" Color="#D84034" />
+                    <SolidColorBrush x:Key="BrandAccentSubtleBrush" Color="#22D84034" />
+                    <SolidColorBrush x:Key="UsageProgressTrackBrush" Color="#30000000" />
+                    <Color x:Key="SkeletonFillColor">#14000000</Color>
+                    <Color x:Key="SkeletonShimmerColor">#26000000</Color>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="HighContrast">
+                    <SolidColorBrush
+                        x:Key="BrandAccentBrush"
+                        Color="{ThemeResource SystemColorHighlightColor}" />
+                    <SolidColorBrush
+                        x:Key="BrandAccentSubtleBrush"
+                        Color="{ThemeResource SystemColorButtonFaceColor}" />
+                    <SolidColorBrush
+                        x:Key="UsageProgressTrackBrush"
+                        Color="{ThemeResource SystemColorGrayTextColor}" />
+                    <Color x:Key="SkeletonFillColor">{ThemeResource SystemColorGrayTextColor}</Color>
+                    <Color x:Key="SkeletonShimmerColor">{ThemeResource SystemColorGrayTextColor}</Color>
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+            <ThemeShadow x:Key="CardThemeShadow" />
+            <Style x:Key="ElevatedCardBorderStyle" TargetType="Border">
+                <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="12" />
+                <Setter Property="Shadow" Value="{StaticResource CardThemeShadow}" />
+            </Style>
+            <Style x:Key="RaisedRowBorderStyle" TargetType="Border">
+                <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="10" />
+                <Setter Property="Shadow" Value="{StaticResource CardThemeShadow}" />
+            </Style>
+            <Style x:Key="SettingsGroupBorderStyle" TargetType="Border">
+                <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="8" />
+            </Style>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>
