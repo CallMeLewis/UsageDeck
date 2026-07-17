@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Runtime.InteropServices;
 using CodexBarWin.Core.Formatting;
 using CodexBarWin.Core.Providers;
+using CodexBarWin.Infrastructure.Providers.OpenCodeGo;
 using CodexBarWin.Infrastructure.Providers.Zai;
 using CodexBarWin.Infrastructure.Security;
 using CodexBarWin.Infrastructure.Settings;
@@ -106,6 +107,18 @@ public sealed partial class SettingsWindow : Window, IDisposable
                     item.Tag?.ToString(),
                     settings.ZaiRegion.ToString(),
                     StringComparison.Ordinal));
+            this.OpenCodeGoApiKeyStorageComboBox.SelectedItem = this.OpenCodeGoApiKeyStorageComboBox.Items
+                .OfType<ComboBoxItem>()
+                .First(item => string.Equals(
+                    item.Tag?.ToString(),
+                    settings.OpenCodeGoApiKeyStorage.ToString(),
+                    StringComparison.Ordinal));
+            this.OpenCodeGoUsageRangeComboBox.SelectedItem = this.OpenCodeGoUsageRangeComboBox.Items
+                .OfType<ComboBoxItem>()
+                .First(item => string.Equals(
+                    item.Tag?.ToString(),
+                    settings.OpenCodeGoUsageRange.ToString(),
+                    StringComparison.Ordinal));
 
             this.RefreshIntervalComboBox.SelectedItem = this.RefreshIntervalComboBox.Items
                 .OfType<ComboBoxItem>()
@@ -120,6 +133,7 @@ public sealed partial class SettingsWindow : Window, IDisposable
         }
 
         this.RefreshCodexPresentation();
+        this.RefreshOpenCodeGoPresentation(settings);
         this.RefreshZaiPresentation(settings);
         this.RefreshSelectedProviderStatus(settings);
     }
@@ -366,6 +380,7 @@ public sealed partial class SettingsWindow : Window, IDisposable
         AppSettings settings = ((App)Application.Current).CurrentSettings;
         this.UpdateSelectedProviderEnabledState(settings);
         this.RefreshCodexPresentation();
+        this.RefreshOpenCodeGoPresentation(settings);
         this.RefreshZaiPresentation(settings);
         this.RefreshSelectedProviderStatus(settings);
         return true;
@@ -375,6 +390,42 @@ public sealed partial class SettingsWindow : Window, IDisposable
         this.CodexConfigurationPanel.Visibility = this._selectedProvider == ProviderId.Codex
             ? Visibility.Visible
             : Visibility.Collapsed;
+
+    private void RefreshOpenCodeGoPresentation(AppSettings settings)
+    {
+        bool isOpenCodeGo = this._selectedProvider == ProviderId.OpenCodeGo;
+        this.OpenCodeGoConfigurationPanel.Visibility = isOpenCodeGo ? Visibility.Visible : Visibility.Collapsed;
+        if (!isOpenCodeGo)
+        {
+            return;
+        }
+
+        bool usesEnvironment = settings.OpenCodeGoApiKeyStorage == ApiKeyStorageMode.EnvironmentVariable;
+        this.OpenCodeGoManagedKeyPanel.Visibility = usesEnvironment ? Visibility.Collapsed : Visibility.Visible;
+        this.OpenCodeGoEnvironmentPanel.Visibility = usesEnvironment ? Visibility.Visible : Visibility.Collapsed;
+        this.SelectedProviderAuthentication.Text = settings.OpenCodeGoApiKeyStorage switch
+        {
+            ApiKeyStorageMode.WindowsCredentialManager => "Optional OpenCode Console service key stored in Windows Credential Manager",
+            ApiKeyStorageMode.EnvironmentVariable => $"Optional OpenCode Console service key read from {OpenCodeGoApiKeyResolver.EnvironmentVariableName}",
+            ApiKeyStorageMode.SessionOnly => "Optional OpenCode Console service key held in memory until CodexBar exits",
+            _ => "OpenCode Console API-key storage is not configured",
+        };
+        try
+        {
+            OpenCodeGoCredentialStatus status = ((App)Application.Current).GetOpenCodeGoCredentialStatus();
+            this.OpenCodeGoCredentialStatusText.Text = status.IsConfigured
+                ? $"Configured · {status.StorageDescription} · API billing will be used"
+                : $"No service key found · {status.StorageDescription} · local history will be used";
+            this.SelectedProviderSource.Text = status.IsConfigured
+                ? "OpenCode Console API billing export"
+                : "Local OpenCode history";
+        }
+        catch (SecretStoreException exception)
+        {
+            this.OpenCodeGoCredentialStatusText.Text = exception.SafeMessage;
+            this.SelectedProviderSource.Text = "OpenCode usage source unavailable";
+        }
+    }
 
     private void RefreshSelectedProviderStatus(AppSettings? settings = null)
     {
@@ -525,6 +576,30 @@ public sealed partial class SettingsWindow : Window, IDisposable
         await this.SaveSettingsAsync(settings => settings with { ZaiApiKeyStorage = storageMode });
     }
 
+    private async void OpenCodeGoApiKeyStorageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (this._isApplyingSettings
+            || this.OpenCodeGoApiKeyStorageComboBox.SelectedItem is not ComboBoxItem item
+            || !Enum.TryParse(item.Tag?.ToString(), ignoreCase: false, out ApiKeyStorageMode storageMode))
+        {
+            return;
+        }
+
+        await this.SaveSettingsAsync(settings => settings with { OpenCodeGoApiKeyStorage = storageMode });
+    }
+
+    private async void OpenCodeGoUsageRangeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (this._isApplyingSettings
+            || this.OpenCodeGoUsageRangeComboBox.SelectedItem is not ComboBoxItem item
+            || !Enum.TryParse(item.Tag?.ToString(), ignoreCase: false, out OpenCodeGoUsageRange range))
+        {
+            return;
+        }
+
+        await this.SaveSettingsAsync(settings => settings with { OpenCodeGoUsageRange = range });
+    }
+
     private void SaveZaiApiKey_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -658,6 +733,44 @@ public sealed partial class SettingsWindow : Window, IDisposable
         if (!this._isDisposed)
         {
             this.RefreshUpdatePresentation();
+        }
+    }
+
+    private void SaveOpenCodeGoApiKey_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            ((App)Application.Current).SaveOpenCodeGoApiKey(this.OpenCodeGoApiKeyBox.Password);
+            this.OpenCodeGoApiKeyBox.Password = string.Empty;
+            this.RefreshOpenCodeGoPresentation(((App)Application.Current).CurrentSettings);
+            this.ShowMessage("The OpenCode Console service-account key was saved in the selected location.", InfoBarSeverity.Success);
+        }
+        catch (SecretStoreException exception)
+        {
+            this.ShowMessage(exception.SafeMessage, InfoBarSeverity.Error);
+        }
+        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
+        {
+            this.ShowMessage(exception.Message, InfoBarSeverity.Error);
+        }
+    }
+
+    private void RemoveOpenCodeGoApiKey_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            ((App)Application.Current).DeleteOpenCodeGoApiKey();
+            this.OpenCodeGoApiKeyBox.Password = string.Empty;
+            this.RefreshOpenCodeGoPresentation(((App)Application.Current).CurrentSettings);
+            this.ShowMessage("The OpenCode Console service-account key was removed from the selected location.", InfoBarSeverity.Success);
+        }
+        catch (SecretStoreException exception)
+        {
+            this.ShowMessage(exception.SafeMessage, InfoBarSeverity.Error);
+        }
+        catch (InvalidOperationException exception)
+        {
+            this.ShowMessage(exception.Message, InfoBarSeverity.Error);
         }
     }
 

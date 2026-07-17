@@ -36,6 +36,13 @@ public enum ZaiApiRegion
     BigModelChina,
 }
 
+public enum OpenCodeGoUsageRange
+{
+    OneDay,
+    SevenDays,
+    ThirtyDays,
+}
+
 public sealed record AppSettings(
     IReadOnlyList<ProviderId> EnabledProviders,
     ProviderId DefaultProvider,
@@ -48,7 +55,9 @@ public sealed record AppSettings(
     bool IsStatusMonitoringEnabled = true,
     bool ShowCodexSparkCard = true,
     ResetTimeDisplayMode ResetTimeDisplay = ResetTimeDisplayMode.Countdown,
-    UsageValueDisplayMode UsageValueDisplay = UsageValueDisplayMode.Used)
+    UsageValueDisplayMode UsageValueDisplay = UsageValueDisplayMode.Used,
+    ApiKeyStorageMode OpenCodeGoApiKeyStorage = ApiKeyStorageMode.WindowsCredentialManager,
+    OpenCodeGoUsageRange OpenCodeGoUsageRange = OpenCodeGoUsageRange.ThirtyDays)
 {
     public static AppSettings Default { get; } = new([ProviderId.Codex, ProviderId.Claude], ProviderId.Codex);
 }
@@ -152,6 +161,20 @@ public sealed class AppSettingsStore
                 && Enum.IsDefined(parsedUsageValueDisplay)
                     ? parsedUsageValueDisplay
                     : UsageValueDisplayMode.Used;
+            ApiKeyStorageMode openCodeGoApiKeyStorage = Enum.TryParse(
+                document.OpenCodeGoApiKeyStorage,
+                ignoreCase: true,
+                out ApiKeyStorageMode parsedOpenCodeGoStorage)
+                && Enum.IsDefined(parsedOpenCodeGoStorage)
+                    ? parsedOpenCodeGoStorage
+                    : ApiKeyStorageMode.WindowsCredentialManager;
+            OpenCodeGoUsageRange openCodeGoUsageRange = Enum.TryParse(
+                document.OpenCodeGoUsageRange,
+                ignoreCase: true,
+                out OpenCodeGoUsageRange parsedOpenCodeGoUsageRange)
+                && Enum.IsDefined(parsedOpenCodeGoUsageRange)
+                    ? parsedOpenCodeGoUsageRange
+                    : OpenCodeGoUsageRange.ThirtyDays;
 
             string? warning = savedEnabled.Length == enabled.Length
                 ? null
@@ -169,7 +192,9 @@ public sealed class AppSettingsStore
                     document.IsStatusMonitoringEnabled ?? true,
                     document.ShowCodexSparkCard ?? true,
                     resetTimeDisplay,
-                    usageValueDisplay),
+                    usageValueDisplay,
+                    openCodeGoApiKeyStorage,
+                    openCodeGoUsageRange),
                 warning);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
@@ -226,7 +251,9 @@ public sealed class AppSettingsStore
             settings.IsStatusMonitoringEnabled,
             settings.ShowCodexSparkCard,
             settings.ResetTimeDisplay.ToString(),
-            settings.UsageValueDisplay.ToString());
+            settings.UsageValueDisplay.ToString(),
+            settings.OpenCodeGoApiKeyStorage.ToString(),
+            settings.OpenCodeGoUsageRange.ToString());
 
         try
         {
@@ -271,6 +298,8 @@ public sealed class AppSettingsStore
         bool? ShowCodexSparkCard = null,
         string? ResetTimeDisplay = null,
         string? UsageValueDisplay = null,
+        string? OpenCodeGoApiKeyStorage = null,
+        string? OpenCodeGoUsageRange = null,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         string? SelectedProvider = null);
 }

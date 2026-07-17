@@ -536,6 +536,123 @@
                         </Border>
 
                         <StackPanel
+                            x:Name="OpenCodeGoConfigurationPanel"
+                            Spacing="10"
+                            Visibility="Collapsed">
+                            <TextBlock FontWeight="SemiBold" Text="OpenCode API billing" />
+                            <Border Style="{StaticResource SettingsGroupBorderStyle}">
+                                <StackPanel>
+                                    <Border
+                                        BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                        BorderThickness="0,0,0,1"
+                                        Padding="16">
+                                        <StackPanel Spacing="6">
+                                            <TextBlock FontWeight="SemiBold" Text="Service-account key required" />
+                                            <TextBlock
+                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                Style="{StaticResource CaptionTextBlockStyle}"
+                                                Text="Use an OpenCode Console service-account API key beginning oc_sk_. Standard OpenCode Go or Zen inference keys cannot export billing usage."
+                                                TextWrapping="Wrap" />
+                                            <HyperlinkButton
+                                                HorizontalAlignment="Left"
+                                                NavigateUri="https://console.opencode.ai/guides/usage"
+                                                Padding="0"
+                                                Content="Open the Usage API guide" />
+                                        </StackPanel>
+                                    </Border>
+                                    <Border
+                                        BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                        BorderThickness="0,0,0,1"
+                                        Padding="16">
+                                        <Grid ColumnSpacing="24">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="150" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel VerticalAlignment="Center" Spacing="3">
+                                                <TextBlock FontWeight="SemiBold" Text="Billing history" />
+                                                <TextBlock
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                                    Text="Longer exports add more estimated usage windows."
+                                                    TextWrapping="Wrap" />
+                                            </StackPanel>
+                                            <ComboBox
+                                                x:Name="OpenCodeGoUsageRangeComboBox"
+                                                Grid.Column="1"
+                                                HorizontalAlignment="Stretch"
+                                                AutomationProperties.Name="OpenCode API billing history range"
+                                                SelectionChanged="OpenCodeGoUsageRangeComboBox_SelectionChanged">
+                                                <ComboBoxItem Content="1 day · 5-hour estimate" Tag="OneDay" />
+                                                <ComboBoxItem Content="7 days · adds 7-day estimate" Tag="SevenDays" />
+                                                <ComboBoxItem Content="30 days · all estimates" Tag="ThirtyDays" />
+                                            </ComboBox>
+                                        </Grid>
+                                    </Border>
+                                    <Border
+                                        BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                        BorderThickness="0,0,0,1"
+                                        Padding="16">
+                                        <Grid ColumnSpacing="24">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="150" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel VerticalAlignment="Center" Spacing="3">
+                                                <TextBlock FontWeight="SemiBold" Text="API-key storage" />
+                                                <TextBlock
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                                    Text="Changing this does not copy keys between locations."
+                                                    TextWrapping="Wrap" />
+                                            </StackPanel>
+                                            <ComboBox
+                                                x:Name="OpenCodeGoApiKeyStorageComboBox"
+                                                Grid.Column="1"
+                                                HorizontalAlignment="Stretch"
+                                                SelectionChanged="OpenCodeGoApiKeyStorageComboBox_SelectionChanged">
+                                                <ComboBoxItem Content="Windows Credential Manager (recommended)" Tag="WindowsCredentialManager" />
+                                                <ComboBoxItem Content="Environment variable" Tag="EnvironmentVariable" />
+                                                <ComboBoxItem Content="This session only" Tag="SessionOnly" />
+                                            </ComboBox>
+                                        </Grid>
+                                    </Border>
+                                    <Border Padding="16">
+                                        <StackPanel Spacing="10">
+                                            <StackPanel x:Name="OpenCodeGoManagedKeyPanel" Spacing="8">
+                                                <TextBlock FontWeight="SemiBold" Text="Service-account API key" />
+                                                <PasswordBox
+                                                    x:Name="OpenCodeGoApiKeyBox"
+                                                    MaxLength="1024"
+                                                    PasswordRevealMode="Peek"
+                                                    PlaceholderText="oc_sk_…" />
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <Button Click="SaveOpenCodeGoApiKey_Click" Content="Save or replace" />
+                                                    <Button Click="RemoveOpenCodeGoApiKey_Click" Content="Remove" />
+                                                </StackPanel>
+                                            </StackPanel>
+                                            <StackPanel
+                                                x:Name="OpenCodeGoEnvironmentPanel"
+                                                Spacing="4"
+                                                Visibility="Collapsed">
+                                                <TextBlock FontWeight="SemiBold" Text="Environment variable" />
+                                                <TextBlock
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Text="Set OPENCODE_CONSOLE_SERVICE_API_KEY outside CodexBar, then restart the app. CodexBar will never write or remove it."
+                                                    TextWrapping="Wrap" />
+                                            </StackPanel>
+                                            <TextBlock
+                                                x:Name="OpenCodeGoCredentialStatusText"
+                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                Style="{StaticResource CaptionTextBlockStyle}"
+                                                TextWrapping="Wrap" />
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <StackPanel
                             x:Name="ZaiConfigurationPanel"
                             Spacing="10"
                             Visibility="Collapsed">

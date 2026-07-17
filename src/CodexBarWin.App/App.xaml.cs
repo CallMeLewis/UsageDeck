@@ -25,6 +25,7 @@ public partial class App : Application, IDisposable
     private readonly CancellationTokenSource _shutdown = new();
     private readonly DispatcherQueue _dispatcherQueue;
     private readonly HttpClient _httpClient;
+    private readonly OpenCodeGoApiKeyResolver _openCodeGoApiKeys;
     private readonly SemaphoreSlim _providerStatusRefreshLock = new(1, 1);
     private readonly DispatcherTimer _providerStatusTimer = new() { Interval = TimeSpan.FromMinutes(5) };
     private readonly ZaiApiKeyResolver _zaiApiKeys;
@@ -50,6 +51,9 @@ public partial class App : Application, IDisposable
         this._zaiApiKeys = new ZaiApiKeyResolver(
             new WindowsCredentialManagerSecretStore("CodexBarWin"),
             () => this.CurrentSettings.ZaiApiKeyStorage);
+        this._openCodeGoApiKeys = new OpenCodeGoApiKeyResolver(
+            new WindowsCredentialManagerSecretStore("CodexBarWin"),
+            () => this.CurrentSettings.OpenCodeGoApiKeyStorage);
         this.UpdateService = new AppUpdateService(BuildInformation.UpdateRepository);
         ProcessSessionFactory processSessionFactory = new();
         PtySessionFactory ptySessionFactory = new();
@@ -74,7 +78,10 @@ public partial class App : Application, IDisposable
                 new OpenCodeGoDataLocator(),
                 new OpenCodeGoUsageReader(),
                 executableLocator,
-                cliVersionReader),
+                cliVersionReader,
+                httpClient: this._httpClient,
+                apiKeySource: this._openCodeGoApiKeys,
+                usageRange: () => this.CurrentSettings.OpenCodeGoUsageRange),
             new ZaiUsageProvider(
                 this._httpClient,
                 this._zaiApiKeys,
@@ -123,6 +130,12 @@ public partial class App : Application, IDisposable
     internal void SaveZaiApiKey(string apiKey) => this._zaiApiKeys.Save(apiKey);
 
     internal void DeleteZaiApiKey() => this._zaiApiKeys.Delete();
+
+    internal OpenCodeGoCredentialStatus GetOpenCodeGoCredentialStatus() => this._openCodeGoApiKeys.GetStatus();
+
+    internal void SaveOpenCodeGoApiKey(string apiKey) => this._openCodeGoApiKeys.Save(apiKey);
+
+    internal void DeleteOpenCodeGoApiKey() => this._openCodeGoApiKeys.Delete();
 
     public void ShowSettingsWindow()
     {
@@ -374,6 +387,7 @@ public partial class App : Application, IDisposable
         }
 
         this._settingsManager.Dispose();
+        this._openCodeGoApiKeys.Dispose();
         this._zaiApiKeys.Dispose();
         this._httpClient.Dispose();
 

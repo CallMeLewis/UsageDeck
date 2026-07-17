@@ -30,7 +30,7 @@ CodexBar brings usage from several coding assistants into one compact WinUI 3 wi
 | GitHub Copilot | Authenticated GitHub CLI (`gh`) |
 | Kiro | `kiro-cli` |
 | Amp | `amp` CLI |
-| OpenCode Go | Read-only local `opencode.db` usage history |
+| OpenCode Go | OpenCode Console API billing export or read-only local `opencode.db` history |
 | Z.AI | Personal Coding Plan quota API |
 
 ## Install
@@ -43,14 +43,14 @@ CodexBar requires **Windows 11 24H2 or later on x64**.
 
 The release includes the .NET and Windows App SDK runtimes. Current development builds are unsigned, so Windows may show an unknown-publisher or SmartScreen warning.
 
-Provider-owned CLIs must already be installed and signed in. Z.AI does not require a CLI; add its API key under **Settings → Providers → Z.AI** using Windows Credential Manager, the `Z_AI_API_KEY` environment variable, or session-only storage.
+Provider-owned CLIs must already be installed and signed in. OpenCode Go can instead use an OpenCode Console service-account key (`oc_sk_…`) under **Settings → Providers → OpenCode Go**; ordinary Go or Zen inference keys cannot access the billing export. Z.AI does not require a CLI; add its API key under **Settings → Providers → Z.AI** using Windows Credential Manager, the `Z_AI_API_KEY` environment variable, or session-only storage.
 
 ## Privacy
 
 Most usage collection happens locally through provider-owned tools. CodexBar does not log tokens, cookies, raw provider responses, or captured terminal output.
 
 - Codex, Claude, Antigravity, Copilot, Kiro, and Amp keep authentication under their own tools.
-- OpenCode Go reads usage history only and never reads `auth.json` or browser cookies.
+- OpenCode Go sends a configured service-account key only to `https://console.opencode.ai/api/v1/usage/export`. Without one, it reads `opencode.db` locally and never reads `auth.json` or browser cookies. Keys can be held in Windows Credential Manager, `OPENCODE_CONSOLE_SERVICE_API_KEY`, or session memory and are never written to the settings file.
 - Z.AI sends its key only to the fixed endpoint for the selected region and never writes it to the settings file.
 - Service-status checks use public official endpoints and do not send provider credentials. Providers without a verified public source are labelled unavailable rather than inferred to be operational.
 

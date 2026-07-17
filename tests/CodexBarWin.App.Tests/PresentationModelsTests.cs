@@ -36,7 +36,7 @@ public sealed class PresentationModelsTests
     [InlineData("copilot", "gh")]
     [InlineData("kiro", "kiro-cli")]
     [InlineData("amp", "amp")]
-    [InlineData("opencode-go", "opencode")]
+    [InlineData("opencode-go", "https://console.opencode.ai/api/v1/usage/export")]
     [InlineData("zai", "https://api.z.ai/api/monitor/usage/quota/limit")]
     public void ProviderSettingsNameTheExpectedConnection(string providerValue, string expectedConnection)
     {
@@ -176,7 +176,7 @@ public sealed class PresentationModelsTests
     }
 
     [Fact]
-    public void OpenCodeGoEmptyStateExplainsTheLocalHistoryRequirement()
+    public void OpenCodeGoEmptyStateExplainsApiAndLocalSources()
     {
         DateTimeOffset now = new(2026, 7, 17, 12, 0, 0, TimeSpan.Zero);
         ProviderTabViewModel model = new(ProviderId.OpenCodeGo, "OpenCode Go");
@@ -190,7 +190,7 @@ public sealed class PresentationModelsTests
 
         Assert.True(model.HasNoUsageData);
         Assert.Equal("No OpenCode Go usage found", model.EmptyStateTitle);
-        Assert.Contains("no requests billed through OpenCode Go", model.EmptyStateMessage, StringComparison.Ordinal);
+        Assert.Contains("API billing range or local OpenCode history", model.EmptyStateMessage, StringComparison.Ordinal);
     }
 
     [Fact]

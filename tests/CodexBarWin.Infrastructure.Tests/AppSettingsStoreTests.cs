@@ -35,6 +35,8 @@ public sealed class AppSettingsStoreTests : IDisposable
         Assert.True(actual.Settings.ShowCodexSparkCard);
         Assert.Equal(ResetTimeDisplayMode.Countdown, actual.Settings.ResetTimeDisplay);
         Assert.Equal(UsageValueDisplayMode.Used, actual.Settings.UsageValueDisplay);
+        Assert.Equal(ApiKeyStorageMode.WindowsCredentialManager, actual.Settings.OpenCodeGoApiKeyStorage);
+        Assert.Equal(OpenCodeGoUsageRange.ThirtyDays, actual.Settings.OpenCodeGoUsageRange);
 
         string savedJson = await File.ReadAllTextAsync(Path.Combine(this._directory, "settings.json"));
         Assert.Contains("\"defaultProvider\": \"antigravity\"", savedJson, StringComparison.Ordinal);
@@ -214,6 +216,27 @@ public sealed class AppSettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task SaveAndLoadRoundTripsNonSecretOpenCodePreferences()
+    {
+        AppSettingsStore store = new(Path.Combine(this._directory, "settings.json"));
+        AppSettings expected = AppSettings.Default with
+        {
+            OpenCodeGoApiKeyStorage = ApiKeyStorageMode.SessionOnly,
+            OpenCodeGoUsageRange = OpenCodeGoUsageRange.SevenDays,
+        };
+
+        await store.SaveAsync(expected);
+        AppSettingsLoadResult actual = store.Load();
+
+        Assert.Equal(ApiKeyStorageMode.SessionOnly, actual.Settings.OpenCodeGoApiKeyStorage);
+        Assert.Equal(OpenCodeGoUsageRange.SevenDays, actual.Settings.OpenCodeGoUsageRange);
+        string savedJson = await File.ReadAllTextAsync(Path.Combine(this._directory, "settings.json"));
+        Assert.Contains("\"openCodeGoApiKeyStorage\": \"SessionOnly\"", savedJson, StringComparison.Ordinal);
+        Assert.Contains("\"openCodeGoUsageRange\": \"SevenDays\"", savedJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"openCodeGoApiKey\":", savedJson, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task SaveAndLoadRoundTripsStatusMonitoringPreference()
     {
         AppSettingsStore store = new(Path.Combine(this._directory, "settings.json"));
@@ -329,6 +352,26 @@ public sealed class AppSettingsStoreTests : IDisposable
 
         Assert.Equal(ApiKeyStorageMode.WindowsCredentialManager, settings.ZaiApiKeyStorage);
         Assert.Equal(ZaiApiRegion.Global, settings.ZaiRegion);
+    }
+
+    [Fact]
+    public void LoadInvalidOpenCodePreferencesFallsBackSafely()
+    {
+        Directory.CreateDirectory(this._directory);
+        string path = Path.Combine(this._directory, "settings.json");
+        File.WriteAllText(path, """
+            {
+              "enabledProviders": ["opencode-go"],
+              "defaultProvider": "opencode-go",
+              "openCodeGoApiKeyStorage": "PlainText",
+              "openCodeGoUsageRange": "NinetyDays"
+            }
+            """);
+
+        AppSettings settings = new AppSettingsStore(path).Load().Settings;
+
+        Assert.Equal(ApiKeyStorageMode.WindowsCredentialManager, settings.OpenCodeGoApiKeyStorage);
+        Assert.Equal(OpenCodeGoUsageRange.ThirtyDays, settings.OpenCodeGoUsageRange);
     }
 
     [Fact]

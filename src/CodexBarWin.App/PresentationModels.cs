@@ -88,13 +88,13 @@ public sealed record ProviderSettingsPresentation(
                 "CodexBar uses the provider-owned sign-in and does not store credentials from the Amp CLI."),
             [ProviderId.OpenCodeGo] = new(
                 ProviderId.OpenCodeGo,
-                "Shows estimated OpenCode Go plan usage derived from local assistant costs.",
-                "Local OpenCode history",
-                "Command-line tool",
-                "opencode",
+                "Shows estimated OpenCode usage from Console API billing or local assistant costs.",
+                "OpenCode Console API billing or local history",
+                "API endpoint",
+                "https://console.opencode.ai/api/v1/usage/export",
                 true,
-                "Owned by OpenCode; CodexBar does not read its credentials",
-                "CodexBar opens opencode.db read-only and reads only timestamps and costs. It never reads auth.json."),
+                "Uses the optional service-account key storage selected below",
+                "CodexBar sends a configured service key only to the fixed OpenCode Console usage endpoint. Without one, it opens opencode.db read-only and never reads auth.json."),
             [ProviderId.Zai] = new(
                 ProviderId.Zai,
                 "Shows personal Z.AI Coding Plan limits from the selected regional API.",
@@ -332,7 +332,7 @@ public sealed class ProviderTabViewModel : INotifyPropertyChanged
         : "No rate-limit data reported";
 
     public string EmptyStateMessage => this.Id == ProviderId.OpenCodeGo
-        ? "CodexBar found the local OpenCode database, but it contains no requests billed through OpenCode Go. Local-only stats appear after you use an OpenCode Go model."
+        ? "No charged OpenCode usage was found in the configured API billing range or local OpenCode history."
         : "This provider did not return any rate-limit windows.";
 
     public bool CanRetry
