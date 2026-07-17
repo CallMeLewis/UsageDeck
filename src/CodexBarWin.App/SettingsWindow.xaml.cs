@@ -84,10 +84,15 @@ public sealed partial class SettingsWindow : Window, IDisposable
                     StringComparison.Ordinal));
             int availableDefaultTabs = settings.EnabledProviders.Count + (settings.IsAllTabEnabled ? 1 : 0);
             this.DefaultProviderComboBox.IsEnabled = availableDefaultTabs > 1;
-            this.SystemThemeRadio.IsChecked = settings.Theme == AppThemePreference.System;
-            this.LightThemeRadio.IsChecked = settings.Theme == AppThemePreference.Light;
-            this.DarkThemeRadio.IsChecked = settings.Theme == AppThemePreference.Dark;
+            this.ThemeComboBox.SelectedItem = this.ThemeComboBox.Items
+                .OfType<ComboBoxItem>()
+                .First(item => string.Equals(
+                    item.Tag?.ToString(),
+                    settings.Theme.ToString(),
+                    StringComparison.Ordinal));
             this.TranslucencyToggle.IsOn = settings.UseTranslucentBackground;
+            this.ResetTimeDisplayToggle.IsOn = settings.ResetTimeDisplay == ResetTimeDisplayMode.ExactDateTime;
+            this.UsageValueDisplayToggle.IsOn = settings.UsageValueDisplay == UsageValueDisplayMode.Remaining;
 
             this.ZaiApiKeyStorageComboBox.SelectedItem = this.ZaiApiKeyStorageComboBox.Items
                 .OfType<ComboBoxItem>()
@@ -220,10 +225,11 @@ public sealed partial class SettingsWindow : Window, IDisposable
         });
     }
 
-    private async void ThemeRadio_Checked(object sender, RoutedEventArgs e)
+    private async void ThemeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (this._isApplyingSettings || sender is not RadioButton radio
-            || !Enum.TryParse(radio.Tag?.ToString(), ignoreCase: true, out AppThemePreference theme))
+        if (this._isApplyingSettings
+            || this.ThemeComboBox.SelectedItem is not ComboBoxItem item
+            || !Enum.TryParse(item.Tag?.ToString(), ignoreCase: true, out AppThemePreference theme))
         {
             return;
         }
@@ -240,6 +246,32 @@ public sealed partial class SettingsWindow : Window, IDisposable
 
         bool isOn = this.TranslucencyToggle.IsOn;
         await this.SaveSettingsAsync(settings => settings with { UseTranslucentBackground = isOn });
+    }
+
+    private async void ResetTimeDisplayToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (this._isApplyingSettings)
+        {
+            return;
+        }
+
+        ResetTimeDisplayMode mode = this.ResetTimeDisplayToggle.IsOn
+            ? ResetTimeDisplayMode.ExactDateTime
+            : ResetTimeDisplayMode.Countdown;
+        await this.SaveSettingsAsync(settings => settings with { ResetTimeDisplay = mode });
+    }
+
+    private async void UsageValueDisplayToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (this._isApplyingSettings)
+        {
+            return;
+        }
+
+        UsageValueDisplayMode mode = this.UsageValueDisplayToggle.IsOn
+            ? UsageValueDisplayMode.Remaining
+            : UsageValueDisplayMode.Used;
+        await this.SaveSettingsAsync(settings => settings with { UsageValueDisplay = mode });
     }
 
     private async void StatusMonitoringToggle_Toggled(object sender, RoutedEventArgs e)

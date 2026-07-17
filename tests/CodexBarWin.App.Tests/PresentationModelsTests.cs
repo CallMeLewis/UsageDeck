@@ -1,6 +1,7 @@
 using CodexBarWin.App;
 using CodexBarWin.Core.Formatting;
 using CodexBarWin.Core.Providers;
+using CodexBarWin.Infrastructure.Settings;
 
 namespace CodexBarWin.App.Tests;
 
@@ -262,6 +263,56 @@ public sealed class PresentationModelsTests
         Assert.Equal("Showing saved data from 10m ago · Claude CLI", model.UpdatedText);
         Assert.Equal("Saved 10m ago", model.SummaryUpdatedText);
         Assert.Equal("Resets in 20m", Assert.Single(model.UsageWindows).ResetText);
+    }
+
+    [Fact]
+    public void ResetTimeDisplaySwitchesBetweenCountdownAndExactLocalTime()
+    {
+        DateTimeOffset now = new(2026, 7, 16, 12, 0, 0, TimeSpan.Zero);
+        UsageWindowViewModel model = new(
+            new UsageWindow("session", "Current session", 10, now.AddMinutes(30)),
+            now,
+            TimeDisplayPrecision.Seconds);
+        string exactResetText = model.ExactResetText;
+
+        Assert.Equal("Resets in 30m", model.ResetText);
+        Assert.Equal(exactResetText, model.AlternateResetText);
+
+        model.UpdateTime(
+            now.AddMinutes(10),
+            TimeDisplayPrecision.Seconds,
+            ResetTimeDisplayMode.ExactDateTime);
+
+        Assert.Equal(exactResetText, model.ResetText);
+        Assert.Equal("Resets in 20m", model.AlternateResetText);
+        Assert.Contains(exactResetText, model.AccessibleName, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void UsageValueDisplaySwitchesBetweenUsedAndRemaining()
+    {
+        DateTimeOffset now = new(2026, 7, 16, 12, 0, 0, TimeSpan.Zero);
+        UsageWindowViewModel model = new(
+            new UsageWindow("session", "Current session", 42),
+            now,
+            TimeDisplayPrecision.Seconds);
+        List<string?> changedProperties = [];
+        model.PropertyChanged += (_, args) => changedProperties.Add(args.PropertyName);
+
+        Assert.Equal(42, model.DisplayPercent);
+        Assert.Equal("42% used", model.PercentText);
+
+        model.UpdateTime(
+            now,
+            TimeDisplayPrecision.Seconds,
+            ResetTimeDisplayMode.Countdown,
+            UsageValueDisplayMode.Remaining);
+
+        Assert.Equal(58, model.DisplayPercent);
+        Assert.Equal("58% remaining", model.PercentText);
+        Assert.Contains("58% remaining", model.AccessibleName, StringComparison.Ordinal);
+        Assert.Contains(nameof(UsageWindowViewModel.DisplayPercent), changedProperties);
+        Assert.Contains(nameof(UsageWindowViewModel.PercentText), changedProperties);
     }
 
     [Theory]

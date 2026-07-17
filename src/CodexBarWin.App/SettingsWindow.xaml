@@ -161,7 +161,7 @@
                     Grid.Row="1"
                     HorizontalScrollBarVisibility="Disabled"
                     Padding="0,8,0,0">
-                    <StackPanel MaxWidth="620" HorizontalAlignment="Left" Spacing="24">
+                    <StackPanel MaxWidth="620" HorizontalAlignment="Left" Spacing="20">
                         <StackPanel Spacing="5">
                             <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="General" />
                             <TextBlock
@@ -170,66 +170,70 @@
                                 TextWrapping="Wrap" />
                         </StackPanel>
 
-                        <StackPanel Spacing="10">
-                            <TextBlock FontWeight="SemiBold" Text="Usage" />
+                        <StackPanel Spacing="8">
+                            <TextBlock FontWeight="SemiBold" Text="Updates" />
                             <Border Style="{StaticResource SettingsGroupBorderStyle}">
-                                <Grid Padding="16" ColumnSpacing="24">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel VerticalAlignment="Center" Spacing="3">
-                                        <TextBlock FontWeight="SemiBold" Text="Refresh interval" />
-                                        <TextBlock
-                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                            Style="{StaticResource CaptionTextBlockStyle}"
-                                            Text="CodexBar also refreshes once when it starts."
-                                            TextWrapping="Wrap" />
-                                    </StackPanel>
-                                    <ComboBox
-                                        x:Name="RefreshIntervalComboBox"
-                                        Grid.Column="1"
-                                        MinWidth="150"
-                                        AutomationProperties.Name="Automatic refresh interval"
-                                        SelectionChanged="RefreshIntervalComboBox_SelectionChanged">
-                                        <ComboBoxItem Content="Every minute" Tag="1" />
-                                        <ComboBoxItem Content="Every 5 minutes" Tag="5" />
-                                        <ComboBoxItem Content="Every 15 minutes" Tag="15" />
-                                        <ComboBoxItem Content="Every 30 minutes" Tag="30" />
-                                    </ComboBox>
-                                </Grid>
+                                <StackPanel>
+                                    <Border
+                                        Padding="16"
+                                        BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                        BorderThickness="0,0,0,1">
+                                        <Grid ColumnSpacing="24">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel VerticalAlignment="Center" Spacing="3">
+                                                <TextBlock FontWeight="SemiBold" Text="Usage refresh" />
+                                                <TextBlock
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                                    Text="CodexBar also refreshes once when it starts."
+                                                    TextWrapping="Wrap" />
+                                            </StackPanel>
+                                            <ComboBox
+                                                x:Name="RefreshIntervalComboBox"
+                                                Grid.Column="1"
+                                                MinWidth="160"
+                                                VerticalAlignment="Center"
+                                                AutomationProperties.Name="Automatic refresh interval"
+                                                SelectionChanged="RefreshIntervalComboBox_SelectionChanged">
+                                                <ComboBoxItem Content="Every minute" Tag="1" />
+                                                <ComboBoxItem Content="Every 5 minutes" Tag="5" />
+                                                <ComboBoxItem Content="Every 15 minutes" Tag="15" />
+                                                <ComboBoxItem Content="Every 30 minutes" Tag="30" />
+                                            </ComboBox>
+                                        </Grid>
+                                    </Border>
+                                    <Grid Padding="16" ColumnSpacing="24">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="160" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel VerticalAlignment="Center" Spacing="3">
+                                            <TextBlock FontWeight="SemiBold" Text="Provider status" />
+                                            <TextBlock
+                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                Style="{StaticResource CaptionTextBlockStyle}"
+                                                Text="Check official public status sources every five minutes. No credentials are sent."
+                                                TextWrapping="Wrap" />
+                                        </StackPanel>
+                                        <ToggleSwitch
+                                            x:Name="StatusMonitoringToggle"
+                                            Grid.Column="1"
+                                            MinWidth="0"
+                                            VerticalAlignment="Center"
+                                            HorizontalAlignment="Left"
+                                            AutomationProperties.Name="Monitor official provider service status"
+                                            OffContent="Off"
+                                            OnContent="On"
+                                            Toggled="StatusMonitoringToggle_Toggled" />
+                                    </Grid>
+                                </StackPanel>
                             </Border>
                         </StackPanel>
 
-                        <StackPanel Spacing="10">
-                            <TextBlock FontWeight="SemiBold" Text="Service status" />
-                            <Border Style="{StaticResource SettingsGroupBorderStyle}">
-                                <Grid Padding="16" ColumnSpacing="24">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel VerticalAlignment="Center" Spacing="3">
-                                        <TextBlock FontWeight="SemiBold" Text="Provider status monitoring" />
-                                        <TextBlock
-                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                            Style="{StaticResource CaptionTextBlockStyle}"
-                                            Text="Check official public status sources for enabled providers every five minutes. No provider credentials are sent."
-                                            TextWrapping="Wrap" />
-                                    </StackPanel>
-                                    <ToggleSwitch
-                                        x:Name="StatusMonitoringToggle"
-                                        Grid.Column="1"
-                                        VerticalAlignment="Center"
-                                        AutomationProperties.Name="Monitor official provider service status"
-                                        OffContent="Off"
-                                        OnContent="On"
-                                        Toggled="StatusMonitoringToggle_Toggled" />
-                                </Grid>
-                            </Border>
-                        </StackPanel>
-
-                        <StackPanel Spacing="10">
+                        <StackPanel Spacing="8">
                             <TextBlock FontWeight="SemiBold" Text="Provider tabs" />
                             <Border Style="{StaticResource SettingsGroupBorderStyle}">
                                 <StackPanel>
@@ -303,74 +307,135 @@
                     HorizontalScrollBarVisibility="Disabled"
                     Padding="0,8,0,0"
                     Visibility="Collapsed">
-                    <StackPanel MaxWidth="620" HorizontalAlignment="Left" Spacing="24">
+                    <StackPanel MaxWidth="620" HorizontalAlignment="Left" Spacing="20">
                         <StackPanel Spacing="5">
                             <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="Appearance" />
                             <TextBlock
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                Text="Choose how CodexBar looks on this PC."
+                                Text="Choose how CodexBar looks and presents usage on this PC."
                                 TextWrapping="Wrap" />
                         </StackPanel>
 
-                        <StackPanel Spacing="10">
-                            <TextBlock FontWeight="SemiBold" Text="Theme" />
+                        <StackPanel Spacing="8">
+                            <TextBlock FontWeight="SemiBold" Text="Interface" />
                             <Border Style="{StaticResource SettingsGroupBorderStyle}">
-                                <StackPanel Padding="16" Spacing="12">
-                                    <TextBlock
-                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                        Style="{StaticResource CaptionTextBlockStyle}"
-                                        Text="Theme changes apply immediately to every CodexBar window."
-                                        TextWrapping="Wrap" />
-                                    <StackPanel AutomationProperties.Name="App theme" Spacing="6">
-                                        <RadioButton
-                                            x:Name="SystemThemeRadio"
-                                            AutomationProperties.Name="Use Windows theme"
-                                            Checked="ThemeRadio_Checked"
-                                            Content="Use Windows setting"
-                                            GroupName="AppTheme"
-                                            Tag="System" />
-                                        <RadioButton
-                                            x:Name="LightThemeRadio"
-                                            Checked="ThemeRadio_Checked"
-                                            Content="Light"
-                                            GroupName="AppTheme"
-                                            Tag="Light" />
-                                        <RadioButton
-                                            x:Name="DarkThemeRadio"
-                                            Checked="ThemeRadio_Checked"
-                                            Content="Dark"
-                                            GroupName="AppTheme"
-                                            Tag="Dark" />
-                                    </StackPanel>
+                                <StackPanel>
+                                    <Border
+                                        Padding="16"
+                                        BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                        BorderThickness="0,0,0,1">
+                                        <Grid ColumnSpacing="24">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel VerticalAlignment="Center" Spacing="3">
+                                                <TextBlock FontWeight="SemiBold" Text="Theme" />
+                                                <TextBlock
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                                    Text="Changes apply immediately to every CodexBar window."
+                                                    TextWrapping="Wrap" />
+                                            </StackPanel>
+                                            <ComboBox
+                                                x:Name="ThemeComboBox"
+                                                Grid.Column="1"
+                                                MinWidth="160"
+                                                VerticalAlignment="Center"
+                                                AutomationProperties.Name="App theme"
+                                                SelectionChanged="ThemeComboBox_SelectionChanged">
+                                                <ComboBoxItem Content="Windows setting" Tag="System" />
+                                                <ComboBoxItem Content="Light" Tag="Light" />
+                                                <ComboBoxItem Content="Dark" Tag="Dark" />
+                                            </ComboBox>
+                                        </Grid>
+                                    </Border>
+                                    <Grid Padding="16" ColumnSpacing="24">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="160" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel VerticalAlignment="Center" Spacing="3">
+                                            <TextBlock FontWeight="SemiBold" Text="Translucent background" />
+                                            <TextBlock
+                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                Style="{StaticResource CaptionTextBlockStyle}"
+                                                Text="Use the Windows Mica material behind the app."
+                                                TextWrapping="Wrap" />
+                                        </StackPanel>
+                                        <ToggleSwitch
+                                            x:Name="TranslucencyToggle"
+                                            Grid.Column="1"
+                                            MinWidth="0"
+                                            VerticalAlignment="Center"
+                                            HorizontalAlignment="Left"
+                                            AutomationProperties.Name="Use translucent window backgrounds"
+                                            OffContent="Off"
+                                            OnContent="On"
+                                            Toggled="TranslucencyToggle_Toggled" />
+                                    </Grid>
                                 </StackPanel>
                             </Border>
                         </StackPanel>
 
-                        <StackPanel Spacing="10">
-                            <TextBlock FontWeight="SemiBold" Text="Window material" />
+                        <StackPanel Spacing="8">
+                            <TextBlock FontWeight="SemiBold" Text="Usage display" />
                             <Border Style="{StaticResource SettingsGroupBorderStyle}">
-                                <Grid Padding="16" ColumnSpacing="24">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel VerticalAlignment="Center" Spacing="3">
-                                        <TextBlock FontWeight="SemiBold" Text="Translucent backgrounds" />
-                                        <TextBlock
-                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                            Style="{StaticResource CaptionTextBlockStyle}"
-                                            Text="Use the Windows Mica material behind the app."
-                                            TextWrapping="Wrap" />
-                                    </StackPanel>
-                                    <ToggleSwitch
-                                        x:Name="TranslucencyToggle"
-                                        Grid.Column="1"
-                                        VerticalAlignment="Center"
-                                        AutomationProperties.Name="Use translucent window backgrounds"
-                                        OffContent="Off"
-                                        OnContent="On"
-                                        Toggled="TranslucencyToggle_Toggled" />
-                                </Grid>
+                                <StackPanel>
+                                    <Border
+                                        Padding="16"
+                                        BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                        BorderThickness="0,0,0,1">
+                                        <Grid ColumnSpacing="24">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="160" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel VerticalAlignment="Center" Spacing="3">
+                                                <TextBlock FontWeight="SemiBold" Text="Usage amount" />
+                                                <TextBlock
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                                    Text="Show quota consumption or the amount still available."
+                                                    TextWrapping="Wrap" />
+                                            </StackPanel>
+                                            <ToggleSwitch
+                                                x:Name="UsageValueDisplayToggle"
+                                                Grid.Column="1"
+                                                MinWidth="0"
+                                                VerticalAlignment="Center"
+                                                HorizontalAlignment="Left"
+                                                AutomationProperties.Name="Show remaining usage instead of used usage"
+                                                OffContent="Used"
+                                                OnContent="Remaining"
+                                                Toggled="UsageValueDisplayToggle_Toggled" />
+                                        </Grid>
+                                    </Border>
+                                    <Grid Padding="16" ColumnSpacing="24">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="160" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel VerticalAlignment="Center" Spacing="3">
+                                            <TextBlock FontWeight="SemiBold" Text="Reset time" />
+                                            <TextBlock
+                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                Style="{StaticResource CaptionTextBlockStyle}"
+                                                Text="Show a countdown or the exact local date and time."
+                                                TextWrapping="Wrap" />
+                                        </StackPanel>
+                                        <ToggleSwitch
+                                            x:Name="ResetTimeDisplayToggle"
+                                            Grid.Column="1"
+                                            MinWidth="0"
+                                            VerticalAlignment="Center"
+                                            HorizontalAlignment="Left"
+                                            AutomationProperties.Name="Show exact reset date and time"
+                                            OffContent="Countdown"
+                                            OnContent="Exact"
+                                            Toggled="ResetTimeDisplayToggle_Toggled" />
+                                    </Grid>
+                                </StackPanel>
                             </Border>
                         </StackPanel>
                     </StackPanel>

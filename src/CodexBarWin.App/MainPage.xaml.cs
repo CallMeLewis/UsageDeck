@@ -27,11 +27,13 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
     private bool _isUpdateOperationInProgress;
     private bool _showCodexSparkCard = true;
     private int _refreshOperationsInProgress;
+    private ResetTimeDisplayMode _resetTimeDisplay = ResetTimeDisplayMode.Countdown;
     private Storyboard? _skeletonShimmerStoryboard;
     private ProviderTabViewModel _selectedProvider = null!;
     private TimeDisplayPrecision _timeDisplayPrecision = TimeDisplayPrecision.Seconds;
     private string _themeToggleGlyph = "\uE708";
     private string _themeToggleLabel = "Switch to dark theme";
+    private UsageValueDisplayMode _usageValueDisplay = UsageValueDisplayMode.Used;
 
     public MainPage()
     {
@@ -39,6 +41,8 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
         this._refreshCoordinator = ((App)Application.Current).RefreshCoordinator;
         App app = (App)Application.Current;
         this._showCodexSparkCard = app.CurrentSettings.ShowCodexSparkCard;
+        this._resetTimeDisplay = app.CurrentSettings.ResetTimeDisplay;
+        this._usageValueDisplay = app.CurrentSettings.UsageValueDisplay;
         this._refreshTimer.Interval = TimeSpan.FromMinutes(app.CurrentSettings.RefreshIntervalMinutes);
         this.ApplyPresentationCadence(app.CurrentSettings.RefreshIntervalMinutes);
         app.SettingsChanged += this.App_SettingsChanged;
@@ -149,7 +153,9 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
             snapshot,
             DateTimeOffset.Now,
             this._timeDisplayPrecision,
-            this._showCodexSparkCard);
+            this._showCodexSparkCard,
+            this._resetTimeDisplay,
+            this._usageValueDisplay);
         if (ReferenceEquals(provider, this.SelectedProvider))
         {
             this.ShowInitialContent();
@@ -312,7 +318,11 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
     {
         foreach (ProviderTabViewModel provider in this.Providers)
         {
-            provider.UpdateTime(now, this._timeDisplayPrecision);
+            provider.UpdateTime(
+                now,
+                this._timeDisplayPrecision,
+                this._resetTimeDisplay,
+                this._usageValueDisplay);
         }
     }
 
@@ -654,6 +664,10 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
     {
         bool codexSparkCardChanged = this._showCodexSparkCard != settings.ShowCodexSparkCard;
         this._showCodexSparkCard = settings.ShowCodexSparkCard;
+        bool resetTimeDisplayChanged = this._resetTimeDisplay != settings.ResetTimeDisplay;
+        this._resetTimeDisplay = settings.ResetTimeDisplay;
+        bool usageValueDisplayChanged = this._usageValueDisplay != settings.UsageValueDisplay;
+        this._usageValueDisplay = settings.UsageValueDisplay;
         if (codexSparkCardChanged
             && this.Providers.FirstOrDefault(provider => provider.Id == ProviderId.Codex) is { } codexProvider
             && this._refreshCoordinator.GetSnapshot(ProviderId.Codex) is { } codexSnapshot)
@@ -662,13 +676,17 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
                 codexSnapshot,
                 DateTimeOffset.Now,
                 this._timeDisplayPrecision,
-                this._showCodexSparkCard);
+                this._showCodexSparkCard,
+                this._resetTimeDisplay,
+                this._usageValueDisplay);
         }
 
         TimeSpan refreshInterval = TimeSpan.FromMinutes(settings.RefreshIntervalMinutes);
         bool refreshIntervalChanged = this._refreshTimer.Interval != refreshInterval;
         this._refreshTimer.Interval = refreshInterval;
-        if (this.ApplyPresentationCadence(settings.RefreshIntervalMinutes))
+        if (this.ApplyPresentationCadence(settings.RefreshIntervalMinutes)
+            || resetTimeDisplayChanged
+            || usageValueDisplayChanged)
         {
             this.UpdatePresentationTime(DateTimeOffset.Now);
         }

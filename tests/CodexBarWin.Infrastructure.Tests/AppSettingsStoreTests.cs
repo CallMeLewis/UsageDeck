@@ -33,6 +33,8 @@ public sealed class AppSettingsStoreTests : IDisposable
         Assert.Equal(ZaiApiRegion.Global, actual.Settings.ZaiRegion);
         Assert.True(actual.Settings.IsStatusMonitoringEnabled);
         Assert.True(actual.Settings.ShowCodexSparkCard);
+        Assert.Equal(ResetTimeDisplayMode.Countdown, actual.Settings.ResetTimeDisplay);
+        Assert.Equal(UsageValueDisplayMode.Used, actual.Settings.UsageValueDisplay);
 
         string savedJson = await File.ReadAllTextAsync(Path.Combine(this._directory, "settings.json"));
         Assert.Contains("\"defaultProvider\": \"antigravity\"", savedJson, StringComparison.Ordinal);
@@ -72,6 +74,8 @@ public sealed class AppSettingsStoreTests : IDisposable
         Assert.True(result.Settings.IsAllTabEnabled);
         Assert.True(result.Settings.IsStatusMonitoringEnabled);
         Assert.True(result.Settings.ShowCodexSparkCard);
+        Assert.Equal(ResetTimeDisplayMode.Countdown, result.Settings.ResetTimeDisplay);
+        Assert.Equal(UsageValueDisplayMode.Used, result.Settings.UsageValueDisplay);
         Assert.Equal(ProviderId.Codex, result.Settings.DefaultProvider);
         Assert.Null(result.SafeWarning);
     }
@@ -235,6 +239,76 @@ public sealed class AppSettingsStoreTests : IDisposable
         Assert.False(actual.Settings.ShowCodexSparkCard);
         string savedJson = await File.ReadAllTextAsync(Path.Combine(this._directory, "settings.json"));
         Assert.Contains("\"showCodexSparkCard\": false", savedJson, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task SaveAndLoadRoundTripsResetTimeDisplayPreference()
+    {
+        AppSettingsStore store = new(Path.Combine(this._directory, "settings.json"));
+        AppSettings expected = AppSettings.Default with
+        {
+            ResetTimeDisplay = ResetTimeDisplayMode.ExactDateTime,
+        };
+
+        await store.SaveAsync(expected);
+        AppSettingsLoadResult actual = store.Load();
+
+        Assert.Equal(ResetTimeDisplayMode.ExactDateTime, actual.Settings.ResetTimeDisplay);
+        string savedJson = await File.ReadAllTextAsync(Path.Combine(this._directory, "settings.json"));
+        Assert.Contains("\"resetTimeDisplay\": \"ExactDateTime\"", savedJson, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LoadInvalidResetTimeDisplayFallsBackToCountdown()
+    {
+        Directory.CreateDirectory(this._directory);
+        string path = Path.Combine(this._directory, "settings.json");
+        File.WriteAllText(path, """
+            {
+              "enabledProviders": ["codex"],
+              "defaultProvider": "codex",
+              "resetTimeDisplay": "ProviderDefault"
+            }
+            """);
+
+        AppSettings settings = new AppSettingsStore(path).Load().Settings;
+
+        Assert.Equal(ResetTimeDisplayMode.Countdown, settings.ResetTimeDisplay);
+    }
+
+    [Fact]
+    public async Task SaveAndLoadRoundTripsUsageValueDisplayPreference()
+    {
+        AppSettingsStore store = new(Path.Combine(this._directory, "settings.json"));
+        AppSettings expected = AppSettings.Default with
+        {
+            UsageValueDisplay = UsageValueDisplayMode.Remaining,
+        };
+
+        await store.SaveAsync(expected);
+        AppSettingsLoadResult actual = store.Load();
+
+        Assert.Equal(UsageValueDisplayMode.Remaining, actual.Settings.UsageValueDisplay);
+        string savedJson = await File.ReadAllTextAsync(Path.Combine(this._directory, "settings.json"));
+        Assert.Contains("\"usageValueDisplay\": \"Remaining\"", savedJson, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LoadInvalidUsageValueDisplayFallsBackToUsed()
+    {
+        Directory.CreateDirectory(this._directory);
+        string path = Path.Combine(this._directory, "settings.json");
+        File.WriteAllText(path, """
+            {
+              "enabledProviders": ["codex"],
+              "defaultProvider": "codex",
+              "usageValueDisplay": "Both"
+            }
+            """);
+
+        AppSettings settings = new AppSettingsStore(path).Load().Settings;
+
+        Assert.Equal(UsageValueDisplayMode.Used, settings.UsageValueDisplay);
     }
 
     [Fact]

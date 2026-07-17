@@ -377,7 +377,9 @@ public sealed class ProviderTabViewModel : INotifyPropertyChanged
         ProviderSnapshot snapshot,
         DateTimeOffset now,
         TimeDisplayPrecision precision,
-        bool showCodexSparkCard = true)
+        bool showCodexSparkCard = true,
+        ResetTimeDisplayMode resetTimeDisplay = ResetTimeDisplayMode.Countdown,
+        UsageValueDisplayMode usageValueDisplay = UsageValueDisplayMode.Used)
     {
         this.HasLoaded = true;
         this.IsLoading = false;
@@ -404,7 +406,12 @@ public sealed class ProviderTabViewModel : INotifyPropertyChanged
                 continue;
             }
 
-            this.UsageWindows.Add(new UsageWindowViewModel(window, now, precision));
+            this.UsageWindows.Add(new UsageWindowViewModel(
+                window,
+                now,
+                precision,
+                resetTimeDisplay,
+                usageValueDisplay));
         }
 
         this.ResetCredits.Clear();
@@ -421,7 +428,7 @@ public sealed class ProviderTabViewModel : INotifyPropertyChanged
         this.OnPropertyChanged(nameof(this.LimitsSummaryText));
         this.OnPropertyChanged(nameof(this.HasUsageWindows));
         this.OnPropertyChanged(nameof(this.HasNoUsageData));
-        this.UpdateTime(now, precision);
+        this.UpdateTime(now, precision, resetTimeDisplay, usageValueDisplay);
     }
 
     private static bool IsCodexSparkWindow(UsageWindow window) =>
@@ -505,11 +512,15 @@ public sealed class ProviderTabViewModel : INotifyPropertyChanged
         this.NotifyServiceStatusAccessibilityChanged();
     }
 
-    public void UpdateTime(DateTimeOffset now, TimeDisplayPrecision precision)
+    public void UpdateTime(
+        DateTimeOffset now,
+        TimeDisplayPrecision precision,
+        ResetTimeDisplayMode resetTimeDisplay = ResetTimeDisplayMode.Countdown,
+        UsageValueDisplayMode usageValueDisplay = UsageValueDisplayMode.Used)
     {
         foreach (UsageWindowViewModel usageWindow in this.UsageWindows)
         {
-            usageWindow.UpdateTime(now, precision);
+            usageWindow.UpdateTime(now, precision, resetTimeDisplay, usageValueDisplay);
         }
 
         if (this._capturedAt == DateTimeOffset.MinValue)
@@ -620,28 +631,30 @@ public sealed class UsageWindowViewModel : INotifyPropertyChanged
 {
     private readonly DateTimeOffset? _resetsAt;
     private readonly bool _isUnlimited;
+    private readonly bool _usageKnown;
     private string _accessibleName = string.Empty;
+    private string _alternateResetText = string.Empty;
     private string _resetText = string.Empty;
+    private UsageValueDisplayMode _usageValueDisplay;
 
     public UsageWindowViewModel(
         UsageWindow window,
         DateTimeOffset now,
-        TimeDisplayPrecision precision)
+        TimeDisplayPrecision precision,
+        ResetTimeDisplayMode resetTimeDisplay = ResetTimeDisplayMode.Countdown,
+        UsageValueDisplayMode usageValueDisplay = UsageValueDisplayMode.Used)
     {
         this.DisplayName = window.DisplayName;
         this.UsedPercent = window.UsedPercent;
         this.HasUsageMeter = window.UsageKnown && !window.IsUnlimited;
-        this.PercentText = window.IsUnlimited
-            ? "Unlimited"
-            : window.UsageKnown
-                ? UsageText.FormatPercentage(window.UsedPercent) + " used"
-                : "Usage unavailable";
         this._resetsAt = window.ResetsAt;
         this._isUnlimited = window.IsUnlimited;
+        this._usageKnown = window.UsageKnown;
+        this._usageValueDisplay = usageValueDisplay;
         this.ExactResetText = window.IsUnlimited
             ? "No quota limit"
             : UsageText.FormatExactReset(window.ResetsAt);
-        this.UpdateTime(now, precision);
+        this.UpdateTime(now, precision, resetTimeDisplay, usageValueDisplay);
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -650,7 +663,16 @@ public sealed class UsageWindowViewModel : INotifyPropertyChanged
 
     public double UsedPercent { get; }
 
-    public string PercentText { get; }
+    public double DisplayPercent => this._usageValueDisplay == UsageValueDisplayMode.Remaining
+        ? Math.Clamp(100 - this.UsedPercent, 0, 100)
+        : this.UsedPercent;
+
+    public string PercentText => this._isUnlimited
+        ? "Unlimited"
+        : this._usageKnown
+            ? UsageText.FormatPercentage(this.DisplayPercent)
+                + (this._usageValueDisplay == UsageValueDisplayMode.Remaining ? " remaining" : " used")
+            : "Usage unavailable";
 
     public bool HasUsageMeter { get; }
 
@@ -671,6 +693,21 @@ public sealed class UsageWindowViewModel : INotifyPropertyChanged
 
     public string ExactResetText { get; }
 
+    public string AlternateResetText
+    {
+        get => this._alternateResetText;
+        private set
+        {
+            if (this._alternateResetText == value)
+            {
+                return;
+            }
+
+            this._alternateResetText = value;
+            this.OnPropertyChanged();
+        }
+    }
+
     public string AccessibleName
     {
         get => this._accessibleName;
@@ -686,11 +723,28 @@ public sealed class UsageWindowViewModel : INotifyPropertyChanged
         }
     }
 
-    public void UpdateTime(DateTimeOffset now, TimeDisplayPrecision precision)
+    public void UpdateTime(
+        DateTimeOffset now,
+        TimeDisplayPrecision precision,
+        ResetTimeDisplayMode resetTimeDisplay = ResetTimeDisplayMode.Countdown,
+        UsageValueDisplayMode usageValueDisplay = UsageValueDisplayMode.Used)
     {
-        this.ResetText = this._isUnlimited
+        if (this._usageValueDisplay != usageValueDisplay)
+        {
+            this._usageValueDisplay = usageValueDisplay;
+            this.OnPropertyChanged(nameof(this.DisplayPercent));
+            this.OnPropertyChanged(nameof(this.PercentText));
+        }
+
+        string countdownResetText = this._isUnlimited
             ? "No quota limit"
             : UsageText.FormatResetCountdown(this._resetsAt, now, precision);
+        this.ResetText = resetTimeDisplay == ResetTimeDisplayMode.ExactDateTime
+            ? this.ExactResetText
+            : countdownResetText;
+        this.AlternateResetText = resetTimeDisplay == ResetTimeDisplayMode.ExactDateTime
+            ? countdownResetText
+            : this.ExactResetText;
         this.AccessibleName = $"{this.DisplayName}, {this.PercentText}, {this.ResetText}";
     }
 

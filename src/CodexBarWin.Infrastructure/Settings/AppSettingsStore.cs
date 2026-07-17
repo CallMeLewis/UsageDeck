@@ -11,6 +11,18 @@ public enum AppThemePreference
     Dark,
 }
 
+public enum ResetTimeDisplayMode
+{
+    Countdown,
+    ExactDateTime,
+}
+
+public enum UsageValueDisplayMode
+{
+    Used,
+    Remaining,
+}
+
 public enum ApiKeyStorageMode
 {
     WindowsCredentialManager,
@@ -34,7 +46,9 @@ public sealed record AppSettings(
     ApiKeyStorageMode ZaiApiKeyStorage = ApiKeyStorageMode.WindowsCredentialManager,
     ZaiApiRegion ZaiRegion = ZaiApiRegion.Global,
     bool IsStatusMonitoringEnabled = true,
-    bool ShowCodexSparkCard = true)
+    bool ShowCodexSparkCard = true,
+    ResetTimeDisplayMode ResetTimeDisplay = ResetTimeDisplayMode.Countdown,
+    UsageValueDisplayMode UsageValueDisplay = UsageValueDisplayMode.Used)
 {
     public static AppSettings Default { get; } = new([ProviderId.Codex, ProviderId.Claude], ProviderId.Codex);
 }
@@ -124,6 +138,20 @@ public sealed class AppSettingsStore
                 && Enum.IsDefined(parsedRegion)
                     ? parsedRegion
                     : ZaiApiRegion.Global;
+            ResetTimeDisplayMode resetTimeDisplay = Enum.TryParse(
+                document.ResetTimeDisplay,
+                ignoreCase: true,
+                out ResetTimeDisplayMode parsedResetTimeDisplay)
+                && Enum.IsDefined(parsedResetTimeDisplay)
+                    ? parsedResetTimeDisplay
+                    : ResetTimeDisplayMode.Countdown;
+            UsageValueDisplayMode usageValueDisplay = Enum.TryParse(
+                document.UsageValueDisplay,
+                ignoreCase: true,
+                out UsageValueDisplayMode parsedUsageValueDisplay)
+                && Enum.IsDefined(parsedUsageValueDisplay)
+                    ? parsedUsageValueDisplay
+                    : UsageValueDisplayMode.Used;
 
             string? warning = savedEnabled.Length == enabled.Length
                 ? null
@@ -139,7 +167,9 @@ public sealed class AppSettingsStore
                     zaiApiKeyStorage,
                     zaiRegion,
                     document.IsStatusMonitoringEnabled ?? true,
-                    document.ShowCodexSparkCard ?? true),
+                    document.ShowCodexSparkCard ?? true,
+                    resetTimeDisplay,
+                    usageValueDisplay),
                 warning);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
@@ -194,7 +224,9 @@ public sealed class AppSettingsStore
             settings.ZaiApiKeyStorage.ToString(),
             settings.ZaiRegion.ToString(),
             settings.IsStatusMonitoringEnabled,
-            settings.ShowCodexSparkCard);
+            settings.ShowCodexSparkCard,
+            settings.ResetTimeDisplay.ToString(),
+            settings.UsageValueDisplay.ToString());
 
         try
         {
@@ -237,6 +269,8 @@ public sealed class AppSettingsStore
         string? ZaiRegion = null,
         bool? IsStatusMonitoringEnabled = null,
         bool? ShowCodexSparkCard = null,
+        string? ResetTimeDisplay = null,
+        string? UsageValueDisplay = null,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         string? SelectedProvider = null);
 }

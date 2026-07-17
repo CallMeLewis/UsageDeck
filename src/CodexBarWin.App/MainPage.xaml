@@ -222,14 +222,14 @@
                                                                     TextWrapping="Wrap">
                                                                     <Run Text="{x:Bind DisplayName}" />
                                                                     <Run Text=" · " />
-                                                                    <Run FontWeight="SemiBold" Text="{x:Bind PercentText}" />
+                                                                    <Run FontWeight="SemiBold" Text="{x:Bind PercentText, Mode=OneWay}" />
                                                                 </TextBlock>
                                                                 <TextBlock
                                                                     Grid.Column="1"
                                                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                                     Style="{StaticResource CaptionTextBlockStyle}"
                                                                     Text="{x:Bind ResetText, Mode=OneWay}"
-                                                                    ToolTipService.ToolTip="{x:Bind ExactResetText}" />
+                                                                    ToolTipService.ToolTip="{x:Bind AlternateResetText, Mode=OneWay}" />
                                                             </Grid>
                                                             <ProgressBar
                                                                 Height="6"
@@ -239,7 +239,7 @@
                                                                 Maximum="100"
                                                                 MinHeight="6"
                                                                 Visibility="{x:Bind HasUsageMeter, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                                                Value="{x:Bind UsedPercent}">
+                                                                Value="{x:Bind DisplayPercent, Mode=OneWay}">
                                                                 <ProgressBar.Resources>
                                                                     <x:Double x:Key="ProgressBarTrackHeight">6</x:Double>
                                                                     <CornerRadius x:Key="ProgressBarTrackCornerRadius">3</CornerRadius>
@@ -426,7 +426,7 @@
                                             Grid.Column="1"
                                             FontWeight="SemiBold"
                                             Foreground="{ThemeResource TextFillColorPrimaryBrush}"
-                                            Text="{x:Bind PercentText}" />
+                                            Text="{x:Bind PercentText, Mode=OneWay}" />
                                     </Grid>
                                     <ProgressBar
                                         Background="{ThemeResource UsageProgressTrackBrush}"
@@ -436,7 +436,7 @@
                                         Maximum="100"
                                         MinHeight="6"
                                         Visibility="{x:Bind HasUsageMeter, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                        Value="{x:Bind UsedPercent}">
+                                        Value="{x:Bind DisplayPercent, Mode=OneWay}">
                                         <ProgressBar.Resources>
                                             <x:Double x:Key="ProgressBarTrackHeight">6</x:Double>
                                             <CornerRadius x:Key="ProgressBarTrackCornerRadius">3</CornerRadius>
@@ -451,7 +451,7 @@
                                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                             Style="{StaticResource CaptionTextBlockStyle}"
                                             Text="{x:Bind ResetText, Mode=OneWay}"
-                                            ToolTipService.ToolTip="{x:Bind ExactResetText}" />
+                                            ToolTipService.ToolTip="{x:Bind AlternateResetText, Mode=OneWay}" />
                                     </StackPanel>
                                 </StackPanel>
                             </Border>
