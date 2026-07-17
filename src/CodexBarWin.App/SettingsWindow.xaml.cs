@@ -65,6 +65,7 @@ public sealed partial class SettingsWindow : Window, IDisposable
         {
             this.AllTabToggle.IsOn = settings.IsAllTabEnabled;
             this.StatusMonitoringToggle.IsOn = settings.IsStatusMonitoringEnabled;
+            this.CodexSparkCardToggle.IsOn = settings.ShowCodexSparkCard;
             this.UpdateSelectedProviderEnabledState(settings);
             foreach (ComboBoxItem item in this.DefaultProviderComboBox.Items.OfType<ComboBoxItem>())
             {
@@ -113,6 +114,7 @@ public sealed partial class SettingsWindow : Window, IDisposable
             this._isApplyingSettings = false;
         }
 
+        this.RefreshCodexPresentation();
         this.RefreshZaiPresentation(settings);
         this.RefreshSelectedProviderStatus(settings);
     }
@@ -253,6 +255,19 @@ public sealed partial class SettingsWindow : Window, IDisposable
         });
     }
 
+    private async void CodexSparkCardToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (this._isApplyingSettings)
+        {
+            return;
+        }
+
+        await this.SaveSettingsAsync(settings => settings with
+        {
+            ShowCodexSparkCard = this.CodexSparkCardToggle.IsOn,
+        });
+    }
+
     private async void SelectedProviderToggle_Toggled(object sender, RoutedEventArgs e)
     {
         if (this._isApplyingSettings || this._selectedProvider is not ProviderId selectedProvider)
@@ -310,28 +325,29 @@ public sealed partial class SettingsWindow : Window, IDisposable
         this._selectedProvider = providerId;
         this.SelectedProviderLogo.ProviderKey = provider.ProviderKey;
         this.SelectedProviderTitle.Text = provider.DisplayName;
-        this.SelectedProviderDescription.Text = provider.Description;
         this.SelectedProviderSource.Text = provider.UsageSource;
-        this.SelectedProviderConnectionLabel.Text = provider.ConnectionLabel;
-        this.SelectedProviderConnection.Text = provider.ConnectionValue;
         this.SelectedProviderAuthentication.Text = provider.AuthenticationSummary;
-        this.SelectedProviderPrivacy.Text = provider.PrivacySummary;
         this.SelectedProviderVersionRow.Visibility = provider.ShowsVersion
             ? Visibility.Visible
             : Visibility.Collapsed;
         this.UpdateSelectedProviderVersion();
         AppSettings settings = ((App)Application.Current).CurrentSettings;
         this.UpdateSelectedProviderEnabledState(settings);
+        this.RefreshCodexPresentation();
         this.RefreshZaiPresentation(settings);
         this.RefreshSelectedProviderStatus(settings);
         return true;
     }
 
+    private void RefreshCodexPresentation() =>
+        this.CodexConfigurationPanel.Visibility = this._selectedProvider == ProviderId.Codex
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
     private void RefreshSelectedProviderStatus(AppSettings? settings = null)
     {
         if (this._selectedProvider is not ProviderId selectedProvider)
         {
-            this.SelectedProviderStatusInfoBar.IsOpen = false;
             return;
         }
 
@@ -386,13 +402,6 @@ public sealed partial class SettingsWindow : Window, IDisposable
             ? Visibility.Visible
             : Visibility.Collapsed;
 
-        this.SelectedProviderStatusInfoBar.Title = presentation.ServiceProblemTitle;
-        this.SelectedProviderStatusInfoBar.Message = presentation.ServiceStatusDetail;
-        this.SelectedProviderStatusInfoBar.IsOpen = monitorThisProvider && presentation.HasServiceProblem;
-        this.SelectedProviderIncidentLink.Tag = presentation.OfficialStatusUri;
-        this.SelectedProviderIncidentLink.Visibility = presentation.HasOfficialStatusPage
-            ? Visibility.Visible
-            : Visibility.Collapsed;
     }
 
     private async void OfficialStatusLink_Click(object sender, RoutedEventArgs e)
@@ -412,7 +421,6 @@ public sealed partial class SettingsWindow : Window, IDisposable
             return;
         }
 
-        this.SelectedProviderConnection.Text = ZaiUsageProvider.EndpointFor(settings.ZaiRegion).AbsoluteUri;
         bool usesEnvironment = settings.ZaiApiKeyStorage == ApiKeyStorageMode.EnvironmentVariable;
         this.ZaiManagedKeyPanel.Visibility = usesEnvironment ? Visibility.Collapsed : Visibility.Visible;
         this.ZaiEnvironmentPanel.Visibility = usesEnvironment ? Visibility.Visible : Visibility.Collapsed;
@@ -423,17 +431,6 @@ public sealed partial class SettingsWindow : Window, IDisposable
             ApiKeyStorageMode.SessionOnly => "Held in memory until CodexBar exits",
             _ => "API-key storage is not configured",
         };
-        this.SelectedProviderPrivacy.Text = settings.ZaiApiKeyStorage switch
-        {
-            ApiKeyStorageMode.WindowsCredentialManager =>
-                "The key is stored by Windows on this PC and sent only to the fixed Z.AI endpoint for the selected region.",
-            ApiKeyStorageMode.EnvironmentVariable =>
-                "CodexBar only reads Z_AI_API_KEY and sends it to the fixed Z.AI endpoint for the selected region; it never modifies the variable.",
-            ApiKeyStorageMode.SessionOnly =>
-                "The key stays in this process until CodexBar exits and is sent only to the fixed Z.AI endpoint for the selected region.",
-            _ => "The API key is not available to CodexBar.",
-        };
-
         try
         {
             ZaiCredentialStatus status = ((App)Application.Current).GetZaiCredentialStatus();

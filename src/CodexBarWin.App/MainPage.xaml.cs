@@ -25,6 +25,7 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
     private bool _hasCompletedInitialLoad;
     private bool _hasShownInitialContent;
     private bool _isUpdateOperationInProgress;
+    private bool _showCodexSparkCard = true;
     private int _refreshOperationsInProgress;
     private Storyboard? _skeletonShimmerStoryboard;
     private ProviderTabViewModel _selectedProvider = null!;
@@ -37,6 +38,7 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
         this.InitializeComponent();
         this._refreshCoordinator = ((App)Application.Current).RefreshCoordinator;
         App app = (App)Application.Current;
+        this._showCodexSparkCard = app.CurrentSettings.ShowCodexSparkCard;
         this._refreshTimer.Interval = TimeSpan.FromMinutes(app.CurrentSettings.RefreshIntervalMinutes);
         this.ApplyPresentationCadence(app.CurrentSettings.RefreshIntervalMinutes);
         app.SettingsChanged += this.App_SettingsChanged;
@@ -143,7 +145,11 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
     {
         provider.IsLoading = true;
         ProviderSnapshot snapshot = await this._refreshCoordinator.RefreshAsync(provider.Id);
-        provider.ApplySnapshot(snapshot, DateTimeOffset.Now, this._timeDisplayPrecision);
+        provider.ApplySnapshot(
+            snapshot,
+            DateTimeOffset.Now,
+            this._timeDisplayPrecision,
+            this._showCodexSparkCard);
         if (ReferenceEquals(provider, this.SelectedProvider))
         {
             this.ShowInitialContent();
@@ -646,6 +652,19 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
 
     private async void App_SettingsChanged(AppSettings settings)
     {
+        bool codexSparkCardChanged = this._showCodexSparkCard != settings.ShowCodexSparkCard;
+        this._showCodexSparkCard = settings.ShowCodexSparkCard;
+        if (codexSparkCardChanged
+            && this.Providers.FirstOrDefault(provider => provider.Id == ProviderId.Codex) is { } codexProvider
+            && this._refreshCoordinator.GetSnapshot(ProviderId.Codex) is { } codexSnapshot)
+        {
+            codexProvider.ApplySnapshot(
+                codexSnapshot,
+                DateTimeOffset.Now,
+                this._timeDisplayPrecision,
+                this._showCodexSparkCard);
+        }
+
         TimeSpan refreshInterval = TimeSpan.FromMinutes(settings.RefreshIntervalMinutes);
         bool refreshIntervalChanged = this._refreshTimer.Interval != refreshInterval;
         this._refreshTimer.Interval = refreshInterval;

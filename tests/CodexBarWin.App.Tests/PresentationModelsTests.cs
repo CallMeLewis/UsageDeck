@@ -133,6 +133,48 @@ public sealed class PresentationModelsTests
     }
 
     [Fact]
+    public void ApplySnapshotCanHideCodexSparkUsageCards()
+    {
+        DateTimeOffset now = new(2026, 7, 17, 12, 0, 0, TimeSpan.Zero);
+        ProviderTabViewModel model = new(ProviderId.Codex, "OpenAI Codex");
+        ProviderSnapshot snapshot = new(
+            ProviderId.Codex,
+            "OpenAI Codex",
+            "Codex CLI",
+            now,
+            UsageDataState.Fresh,
+            [
+                new UsageWindow("session", "Session", 42),
+                new UsageWindow("codex-spark", "GPT-5.3 Spark", 21),
+                new UsageWindow("opaque-weekly-limit", "GPT-5.3 Spark Weekly", 18),
+            ]);
+
+        model.ApplySnapshot(snapshot, now, TimeDisplayPrecision.Seconds, showCodexSparkCard: false);
+
+        UsageWindowViewModel remaining = Assert.Single(model.UsageWindows);
+        Assert.Equal("Session", remaining.DisplayName);
+        Assert.Equal("1 active limit", model.LimitsSummaryText);
+    }
+
+    [Fact]
+    public void ApplySnapshotDoesNotHideSparkWindowsForOtherProviders()
+    {
+        DateTimeOffset now = new(2026, 7, 17, 12, 0, 0, TimeSpan.Zero);
+        ProviderTabViewModel model = new(ProviderId.Claude, "Claude");
+        ProviderSnapshot snapshot = new(
+            ProviderId.Claude,
+            "Claude",
+            "Claude CLI",
+            now,
+            UsageDataState.Fresh,
+            [new UsageWindow("codex-spark", "Spark", 21)]);
+
+        model.ApplySnapshot(snapshot, now, TimeDisplayPrecision.Seconds, showCodexSparkCard: false);
+
+        Assert.Single(model.UsageWindows);
+    }
+
+    [Fact]
     public void OpenCodeGoEmptyStateExplainsTheLocalHistoryRequirement()
     {
         DateTimeOffset now = new(2026, 7, 17, 12, 0, 0, TimeSpan.Zero);

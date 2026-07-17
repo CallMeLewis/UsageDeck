@@ -32,6 +32,7 @@ public sealed class AppSettingsStoreTests : IDisposable
         Assert.Equal(ApiKeyStorageMode.WindowsCredentialManager, actual.Settings.ZaiApiKeyStorage);
         Assert.Equal(ZaiApiRegion.Global, actual.Settings.ZaiRegion);
         Assert.True(actual.Settings.IsStatusMonitoringEnabled);
+        Assert.True(actual.Settings.ShowCodexSparkCard);
 
         string savedJson = await File.ReadAllTextAsync(Path.Combine(this._directory, "settings.json"));
         Assert.Contains("\"defaultProvider\": \"antigravity\"", savedJson, StringComparison.Ordinal);
@@ -70,6 +71,7 @@ public sealed class AppSettingsStoreTests : IDisposable
         Assert.False(result.Settings.UseTranslucentBackground);
         Assert.True(result.Settings.IsAllTabEnabled);
         Assert.True(result.Settings.IsStatusMonitoringEnabled);
+        Assert.True(result.Settings.ShowCodexSparkCard);
         Assert.Equal(ProviderId.Codex, result.Settings.DefaultProvider);
         Assert.Null(result.SafeWarning);
     }
@@ -219,6 +221,20 @@ public sealed class AppSettingsStoreTests : IDisposable
         Assert.False(actual.Settings.IsStatusMonitoringEnabled);
         string savedJson = await File.ReadAllTextAsync(Path.Combine(this._directory, "settings.json"));
         Assert.Contains("\"isStatusMonitoringEnabled\": false", savedJson, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task SaveAndLoadRoundTripsCodexSparkCardPreference()
+    {
+        AppSettingsStore store = new(Path.Combine(this._directory, "settings.json"));
+        AppSettings expected = AppSettings.Default with { ShowCodexSparkCard = false };
+
+        await store.SaveAsync(expected);
+        AppSettingsLoadResult actual = store.Load();
+
+        Assert.False(actual.Settings.ShowCodexSparkCard);
+        string savedJson = await File.ReadAllTextAsync(Path.Combine(this._directory, "settings.json"));
+        Assert.Contains("\"showCodexSparkCard\": false", savedJson, StringComparison.Ordinal);
     }
 
     [Fact]

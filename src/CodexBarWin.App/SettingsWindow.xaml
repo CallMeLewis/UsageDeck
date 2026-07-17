@@ -379,213 +379,96 @@
                 <ScrollViewer
                     x:Name="ProviderPanel"
                     Grid.Row="1"
+                    HorizontalContentAlignment="Stretch"
                     HorizontalScrollBarVisibility="Disabled"
-                    Padding="0,8,0,0"
+                    Padding="0,8,12,0"
                     Visibility="Collapsed">
-                    <StackPanel MaxWidth="620" HorizontalAlignment="Left" Spacing="24">
-                        <Grid ColumnSpacing="14">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <local:ProviderLogo
-                                x:Name="SelectedProviderLogo"
-                                Width="44"
-                                Height="44"
-                                VerticalAlignment="Center" />
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
-                                <TextBlock
-                                    x:Name="SelectedProviderTitle"
-                                    Style="{StaticResource TitleTextBlockStyle}" />
-                                <TextBlock
-                                    x:Name="SelectedProviderDescription"
-                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                    TextWrapping="Wrap" />
-                            </StackPanel>
-                        </Grid>
-
-                        <InfoBar
-                            x:Name="SelectedProviderStatusInfoBar"
-                            IsClosable="False"
-                            IsOpen="False"
-                            Severity="Warning">
-                            <InfoBar.ActionButton>
-                                <HyperlinkButton
-                                    x:Name="SelectedProviderIncidentLink"
-                                    AutomationProperties.Name="Open the provider's official service status"
-                                    Click="OfficialStatusLink_Click"
-                                    Content="Open official status" />
-                            </InfoBar.ActionButton>
-                        </InfoBar>
-
+                    <StackPanel MaxWidth="620" HorizontalAlignment="Stretch" Spacing="20">
                         <Border Style="{StaticResource SettingsGroupBorderStyle}">
-                            <Grid Padding="16" ColumnSpacing="24">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel VerticalAlignment="Center" Spacing="3">
-                                    <TextBlock FontWeight="SemiBold" Text="Enabled in usage window" />
-                                    <TextBlock
-                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                        Style="{StaticResource CaptionTextBlockStyle}"
-                                        Text="Disabled providers remain available here and keep their settings."
-                                        TextWrapping="Wrap" />
-                                </StackPanel>
-                                <ToggleSwitch
-                                    x:Name="SelectedProviderToggle"
-                                    Grid.Column="1"
-                                    VerticalAlignment="Center"
-                                    AutomationProperties.Name="Enable this provider in the usage window"
-                                    OffContent="Off"
-                                    OnContent="On"
-                                    Toggled="SelectedProviderToggle_Toggled" />
-                            </Grid>
-                        </Border>
-
-                        <StackPanel Spacing="10">
-                            <TextBlock FontWeight="SemiBold" Text="Service status" />
-                            <Border Style="{StaticResource SettingsGroupBorderStyle}">
-                                <StackPanel>
-                                    <Border
-                                        BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
-                                        BorderThickness="0,0,0,1"
-                                        Padding="16">
-                                        <Grid ColumnSpacing="24">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="150" />
-                                                <ColumnDefinition Width="*" />
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock FontWeight="SemiBold" Text="Current status" />
-                                            <StackPanel Grid.Column="1" Spacing="4">
-                                                <StackPanel Orientation="Horizontal" Spacing="7">
-                                                    <FontIcon
-                                                        x:Name="SelectedProviderStatusGlyph"
-                                                        FontSize="13"
-                                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                        Glyph="&#xE946;" />
-                                                    <TextBlock
-                                                        x:Name="SelectedProviderStatusText"
-                                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                        Text="Checking status…"
-                                                        TextWrapping="Wrap" />
-                                                </StackPanel>
-                                                <TextBlock
-                                                    x:Name="SelectedProviderStatusDetail"
-                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                    Style="{StaticResource CaptionTextBlockStyle}"
-                                                    TextWrapping="Wrap"
-                                                    Visibility="Collapsed" />
-                                                <TextBlock
-                                                    x:Name="SelectedProviderStatusCheckedText"
-                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                    Style="{StaticResource CaptionTextBlockStyle}"
-                                                    TextWrapping="Wrap" />
-                                            </StackPanel>
-                                        </Grid>
-                                    </Border>
-                                    <Grid Padding="16" ColumnSpacing="24">
+                            <StackPanel>
+                                <Border
+                                    BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                    BorderThickness="0,0,0,1"
+                                    Padding="16">
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="80" />
+                                        </Grid.ColumnDefinitions>
+                                        <local:ProviderLogo
+                                            x:Name="SelectedProviderLogo"
+                                            Width="36"
+                                            Height="36"
+                                            VerticalAlignment="Center" />
+                                        <TextBlock
+                                            x:Name="SelectedProviderTitle"
+                                            Grid.Column="1"
+                                            VerticalAlignment="Center"
+                                            Style="{StaticResource SubtitleTextBlockStyle}" />
+                                        <ToggleSwitch
+                                            x:Name="SelectedProviderToggle"
+                                            Grid.Column="2"
+                                            MinWidth="0"
+                                            VerticalAlignment="Center"
+                                            HorizontalAlignment="Right"
+                                            AutomationProperties.Name="Enable this provider in the usage window"
+                                            OffContent="Off"
+                                            OnContent="On"
+                                            Toggled="SelectedProviderToggle_Toggled" />
+                                    </Grid>
+                                </Border>
+                                <Border
+                                    BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                    BorderThickness="0,0,0,1"
+                                    Padding="16">
+                                    <Grid ColumnSpacing="24">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="150" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock FontWeight="SemiBold" Text="Official source" />
-                                        <StackPanel Grid.Column="1">
-                                            <HyperlinkButton
-                                                x:Name="SelectedProviderStatusSourceLink"
-                                                Margin="-8,-6,0,-6"
-                                                HorizontalAlignment="Left"
-                                                Click="OfficialStatusLink_Click"
-                                                Content="Open official status" />
-                                            <TextBlock
-                                                x:Name="SelectedProviderStatusSourceUnavailable"
-                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                Text="No verified public source"
-                                                Visibility="Collapsed" />
-                                        </StackPanel>
+                                        <TextBlock FontWeight="SemiBold" Text="Usage source" />
+                                        <TextBlock
+                                            x:Name="SelectedProviderSource"
+                                            Grid.Column="1"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            TextWrapping="Wrap" />
                                     </Grid>
-                                </StackPanel>
-                            </Border>
-                        </StackPanel>
-
-                        <StackPanel Spacing="10">
-                            <TextBlock FontWeight="SemiBold" Text="Connection" />
-                            <Border Style="{StaticResource SettingsGroupBorderStyle}">
-                                <StackPanel>
-                                    <Border
-                                        x:Name="SelectedProviderConnectionRow"
-                                        BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
-                                        BorderThickness="0,0,0,1"
-                                        Padding="16">
-                                        <Grid ColumnSpacing="24">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="150" />
-                                                <ColumnDefinition Width="*" />
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock FontWeight="SemiBold" Text="Usage source" />
-                                            <TextBlock
-                                                x:Name="SelectedProviderSource"
-                                                Grid.Column="1"
-                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                TextWrapping="Wrap" />
-                                        </Grid>
-                                    </Border>
-                                    <Border
-                                        BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
-                                        BorderThickness="0,0,0,1"
-                                        Padding="16">
-                                        <Grid ColumnSpacing="24">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="150" />
-                                                <ColumnDefinition Width="*" />
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock
-                                                x:Name="SelectedProviderConnectionLabel"
-                                                FontWeight="SemiBold"
-                                                Text="Command-line tool" />
-                                            <TextBlock
-                                                x:Name="SelectedProviderConnection"
-                                                Grid.Column="1"
-                                                FontFamily="Consolas"
-                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                TextWrapping="Wrap" />
-                                        </Grid>
-                                    </Border>
-                                    <Border
-                                        x:Name="SelectedProviderVersionRow"
-                                        BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
-                                        BorderThickness="0,0,0,1"
-                                        Padding="16">
-                                        <Grid ColumnSpacing="24">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="150" />
-                                                <ColumnDefinition Width="*" />
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock FontWeight="SemiBold" Text="Detected version" />
-                                            <TextBlock
-                                                x:Name="SelectedProviderVersion"
-                                                Grid.Column="1"
-                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                TextWrapping="Wrap" />
-                                        </Grid>
-                                    </Border>
-                                    <Border Padding="16">
-                                        <Grid ColumnSpacing="24">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="150" />
-                                                <ColumnDefinition Width="*" />
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock FontWeight="SemiBold" Text="Authentication" />
-                                            <TextBlock
-                                                x:Name="SelectedProviderAuthentication"
-                                                Grid.Column="1"
-                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                TextWrapping="Wrap" />
-                                        </Grid>
-                                    </Border>
-                                </StackPanel>
-                            </Border>
-                        </StackPanel>
+                                </Border>
+                                <Border
+                                    x:Name="SelectedProviderVersionRow"
+                                    BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                    BorderThickness="0,0,0,1"
+                                    Padding="16">
+                                    <Grid ColumnSpacing="24">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="150" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock FontWeight="SemiBold" Text="Detected version" />
+                                        <TextBlock
+                                            x:Name="SelectedProviderVersion"
+                                            Grid.Column="1"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            TextWrapping="Wrap" />
+                                    </Grid>
+                                </Border>
+                                <Border Padding="16">
+                                    <Grid ColumnSpacing="24">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="150" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock FontWeight="SemiBold" Text="Authentication" />
+                                        <TextBlock
+                                            x:Name="SelectedProviderAuthentication"
+                                            Grid.Column="1"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            TextWrapping="Wrap" />
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
+                        </Border>
 
                         <StackPanel
                             x:Name="ZaiConfigurationPanel"
@@ -684,22 +567,104 @@
                             </Border>
                         </StackPanel>
 
-                        <Grid Margin="4,0" ColumnSpacing="8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <FontIcon
-                                FontSize="13"
-                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                Glyph="&#xE946;" />
-                            <TextBlock
-                                x:Name="SelectedProviderPrivacy"
-                                Grid.Column="1"
-                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                Style="{StaticResource CaptionTextBlockStyle}"
-                                TextWrapping="Wrap" />
-                        </Grid>
+                        <StackPanel Spacing="10">
+                            <TextBlock FontWeight="SemiBold" Text="Service status" />
+                            <Border Style="{StaticResource SettingsGroupBorderStyle}">
+                                <StackPanel>
+                                    <Border
+                                        BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                        BorderThickness="0,0,0,1"
+                                        Padding="16">
+                                        <Grid ColumnSpacing="24">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="150" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock FontWeight="SemiBold" Text="Current status" />
+                                            <StackPanel Grid.Column="1" Spacing="4">
+                                                <StackPanel Orientation="Horizontal" Spacing="7">
+                                                    <FontIcon
+                                                        x:Name="SelectedProviderStatusGlyph"
+                                                        FontSize="13"
+                                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                        Glyph="&#xE946;" />
+                                                    <TextBlock
+                                                        x:Name="SelectedProviderStatusText"
+                                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                        Text="Checking status…"
+                                                        TextWrapping="Wrap" />
+                                                </StackPanel>
+                                                <TextBlock
+                                                    x:Name="SelectedProviderStatusDetail"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                                    TextWrapping="Wrap"
+                                                    Visibility="Collapsed" />
+                                                <TextBlock
+                                                    x:Name="SelectedProviderStatusCheckedText"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                                    TextWrapping="Wrap" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                    <Grid Padding="16" ColumnSpacing="24">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="150" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock FontWeight="SemiBold" Text="Official source" />
+                                        <StackPanel Grid.Column="1">
+                                            <HyperlinkButton
+                                                x:Name="SelectedProviderStatusSourceLink"
+                                                Margin="-8,-6,0,-6"
+                                                HorizontalAlignment="Left"
+                                                Click="OfficialStatusLink_Click"
+                                                Content="Open official status" />
+                                            <TextBlock
+                                                x:Name="SelectedProviderStatusSourceUnavailable"
+                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                Text="No verified public source"
+                                                Visibility="Collapsed" />
+                                        </StackPanel>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <StackPanel
+                            x:Name="CodexConfigurationPanel"
+                            Spacing="10"
+                            Visibility="Collapsed">
+                            <TextBlock FontWeight="SemiBold" Text="Options" />
+                            <Border Style="{StaticResource SettingsGroupBorderStyle}">
+                                <Grid Padding="16" ColumnSpacing="24">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="80" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel VerticalAlignment="Center" Spacing="3">
+                                        <TextBlock FontWeight="SemiBold" Text="GPT-5.3 Spark" />
+                                        <TextBlock
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Style="{StaticResource CaptionTextBlockStyle}"
+                                            Text="Show the separate Spark rate-limit card when Codex reports it."
+                                            TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <ToggleSwitch
+                                        x:Name="CodexSparkCardToggle"
+                                        Grid.Column="1"
+                                        MinWidth="0"
+                                        VerticalAlignment="Center"
+                                        HorizontalAlignment="Right"
+                                        AutomationProperties.Name="Show the GPT-5.3 Spark usage card"
+                                        OffContent="Off"
+                                        OnContent="On"
+                                        Toggled="CodexSparkCardToggle_Toggled" />
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+
                     </StackPanel>
                 </ScrollViewer>
 

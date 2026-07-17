@@ -33,7 +33,8 @@ public sealed record AppSettings(
     bool IsAllTabEnabled = true,
     ApiKeyStorageMode ZaiApiKeyStorage = ApiKeyStorageMode.WindowsCredentialManager,
     ZaiApiRegion ZaiRegion = ZaiApiRegion.Global,
-    bool IsStatusMonitoringEnabled = true)
+    bool IsStatusMonitoringEnabled = true,
+    bool ShowCodexSparkCard = true)
 {
     public static AppSettings Default { get; } = new([ProviderId.Codex, ProviderId.Claude], ProviderId.Codex);
 }
@@ -137,7 +138,8 @@ public sealed class AppSettingsStore
                     isAllTabEnabled,
                     zaiApiKeyStorage,
                     zaiRegion,
-                    document.IsStatusMonitoringEnabled ?? true),
+                    document.IsStatusMonitoringEnabled ?? true,
+                    document.ShowCodexSparkCard ?? true),
                 warning);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
@@ -191,7 +193,8 @@ public sealed class AppSettingsStore
             settings.IsAllTabEnabled,
             settings.ZaiApiKeyStorage.ToString(),
             settings.ZaiRegion.ToString(),
-            settings.IsStatusMonitoringEnabled);
+            settings.IsStatusMonitoringEnabled,
+            settings.ShowCodexSparkCard);
 
         try
         {
@@ -233,6 +236,7 @@ public sealed class AppSettingsStore
         string? ZaiApiKeyStorage = null,
         string? ZaiRegion = null,
         bool? IsStatusMonitoringEnabled = null,
+        bool? ShowCodexSparkCard = null,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         string? SelectedProvider = null);
 }

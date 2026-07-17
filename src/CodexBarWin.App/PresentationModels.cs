@@ -376,7 +376,8 @@ public sealed class ProviderTabViewModel : INotifyPropertyChanged
     public void ApplySnapshot(
         ProviderSnapshot snapshot,
         DateTimeOffset now,
-        TimeDisplayPrecision precision)
+        TimeDisplayPrecision precision,
+        bool showCodexSparkCard = true)
     {
         this.HasLoaded = true;
         this.IsLoading = false;
@@ -396,6 +397,13 @@ public sealed class ProviderTabViewModel : INotifyPropertyChanged
         this.UsageWindows.Clear();
         foreach (UsageWindow window in snapshot.UsageWindows)
         {
+            if (!showCodexSparkCard
+                && snapshot.ProviderId == ProviderId.Codex
+                && IsCodexSparkWindow(window))
+            {
+                continue;
+            }
+
             this.UsageWindows.Add(new UsageWindowViewModel(window, now, precision));
         }
 
@@ -415,6 +423,11 @@ public sealed class ProviderTabViewModel : INotifyPropertyChanged
         this.OnPropertyChanged(nameof(this.HasNoUsageData));
         this.UpdateTime(now, precision);
     }
+
+    private static bool IsCodexSparkWindow(UsageWindow window) =>
+        window.Id.Equals("codex-spark", StringComparison.OrdinalIgnoreCase)
+        || window.Id.StartsWith("codex-spark-", StringComparison.OrdinalIgnoreCase)
+        || window.DisplayName.Contains("spark", StringComparison.OrdinalIgnoreCase);
 
     public void ShowWarning(string message)
     {
