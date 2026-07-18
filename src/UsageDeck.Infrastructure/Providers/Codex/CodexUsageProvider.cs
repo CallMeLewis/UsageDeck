@@ -205,6 +205,12 @@ public sealed class CodexUsageProvider : IUsageProvider, ICliVersionProvider
         AddWindow(windows, "session", "Session", rateLimits, "primary", inferWindowKind: true);
         AddWindow(windows, "weekly", "Weekly", rateLimits, "secondary", inferWindowKind: true);
 
+        HashSet<string> mappedLimitIds = new(StringComparer.Ordinal);
+        if (GetString(rateLimits, "limitId", "limit_id") is { } topLevelLimitId)
+        {
+            mappedLimitIds.Add(NormaliseWindowId(topLevelLimitId));
+        }
+
         if (TryGetProperty(rateLimitsResult, "rateLimitsByLimitId", "rate_limits_by_limit_id", out JsonElement additional)
             && additional.ValueKind == JsonValueKind.Object)
         {
@@ -214,6 +220,10 @@ public sealed class CodexUsageProvider : IUsageProvider, ICliVersionProvider
                 string fallbackName = HumaniseIdentifier(entry.Name);
                 string displayName = GetString(value, "limitName", "limit_name") ?? fallbackName;
                 string normalizedId = NormaliseWindowId(GetString(value, "limitId", "limit_id") ?? entry.Name);
+                if (!mappedLimitIds.Add(normalizedId))
+                {
+                    continue;
+                }
 
                 AddWindow(windows, normalizedId, displayName, value, "primary", inferWindowKind: true);
                 AddWindow(windows, normalizedId + "-weekly", displayName + " Weekly", value, "secondary", inferWindowKind: true);
@@ -384,15 +394,6 @@ public sealed class CodexUsageProvider : IUsageProvider, ICliVersionProvider
                     }
                 }
             }
-        }
-
-        bool duplicatesExistingWindow = windows.Any(window =>
-            window.ResetsAt == resetsAt
-            && window.Duration == duration
-            && Math.Abs(window.UsedPercent - usedPercent) < 0.001);
-        if (duplicatesExistingWindow)
-        {
-            return;
         }
 
         if (windows.Any(window => string.Equals(window.Id, id, StringComparison.Ordinal)))

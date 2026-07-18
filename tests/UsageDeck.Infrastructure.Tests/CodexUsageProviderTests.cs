@@ -41,6 +41,27 @@ public sealed class CodexUsageProviderTests
     }
 
     [Fact]
+    public async Task FetchKeepsDistinctLimitsWhenTheirWindowValuesMatch()
+    {
+        FakeProcessSession session = new([
+            "{\"id\":1,\"result\":{}}",
+            "{\"id\":2,\"result\":{\"rateLimits\":{\"limitId\":\"codex\",\"primary\":{\"usedPercent\":0,\"windowDurationMins\":10080,\"resetsAt\":1784979589}},\"rateLimitsByLimitId\":{\"codex\":{\"limitId\":\"codex\",\"primary\":{\"usedPercent\":0,\"windowDurationMins\":10080,\"resetsAt\":1784979589}},\"codex_bengalfox\":{\"limitId\":\"codex_bengalfox\",\"limitName\":\"GPT-5.3-Codex-Spark\",\"primary\":{\"usedPercent\":0,\"windowDurationMins\":10080,\"resetsAt\":1784979589}}}}}",
+            "{\"id\":3,\"result\":{}}",
+        ]);
+        CodexUsageProvider provider = CreateProvider(new FixedProcessSessionFactory(session));
+
+        ProviderSnapshot result = await provider.FetchAsync(CancellationToken.None);
+
+        Assert.Collection(
+            result.UsageWindows,
+            window => Assert.Equal(("weekly", "Weekly"), (window.Id, window.DisplayName)),
+            window => Assert.Equal(
+                ("codex-bengalfox-weekly", "GPT-5.3-Codex-Spark Weekly"),
+                (window.Id, window.DisplayName)));
+        Assert.All(result.UsageWindows, window => Assert.Equal(0, window.UsedPercent));
+    }
+
+    [Fact]
     public async Task FetchMapsSnakeCaseResetCreditSummaryWithoutDetails()
     {
         FakeProcessSession session = new([
