@@ -23,6 +23,7 @@ public static class ProviderStatusSources
                 new Uri("https://status.claude.com/"),
                 ["Claude Code", "Claude API (api.anthropic.com)"],
                 ["Claude Code", "Claude API"]),
+            [ProviderId.Antigravity] = new AiStudioStatusProvider(httpClient),
             [ProviderId.Copilot] = new StatusPageProvider(
                 httpClient,
                 ProviderId.Copilot,
