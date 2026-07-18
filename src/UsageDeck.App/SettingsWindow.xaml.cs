@@ -446,17 +446,17 @@ public sealed partial class SettingsWindow : Window, IDisposable
         this.OpenCodeGoEnvironmentPanel.Visibility = usesEnvironment ? Visibility.Visible : Visibility.Collapsed;
         this.SelectedProviderAuthentication.Text = settings.OpenCodeGoApiKeyStorage switch
         {
-            ApiKeyStorageMode.WindowsCredentialManager => "Optional OpenCode Console service key stored in Windows Credential Manager",
-            ApiKeyStorageMode.EnvironmentVariable => $"Optional OpenCode Console service key read from {OpenCodeGoApiKeyResolver.EnvironmentVariableName}",
-            ApiKeyStorageMode.SessionOnly => "Optional OpenCode Console service key held in memory until UsageDeck exits",
-            _ => "OpenCode Console API-key storage is not configured",
+            ApiKeyStorageMode.WindowsCredentialManager => "Optional OpenCode Console service-account key stored in Windows Credential Manager",
+            ApiKeyStorageMode.EnvironmentVariable => $"Optional OpenCode Console service-account key read from {OpenCodeGoApiKeyResolver.EnvironmentVariableName}",
+            ApiKeyStorageMode.SessionOnly => "Optional OpenCode Console service-account key held in memory until UsageDeck closes",
+            _ => "OpenCode Console API key storage is not configured",
         };
         try
         {
             OpenCodeGoCredentialStatus status = ((App)Application.Current).GetOpenCodeGoCredentialStatus();
             this.OpenCodeGoCredentialStatusText.Text = status.IsConfigured
                 ? $"Configured · {status.StorageDescription} · API billing will be used"
-                : $"No service key found · {status.StorageDescription} · local history will be used";
+                : $"No service-account key found · {status.StorageDescription} · local history will be used";
             this.SelectedProviderSource.Text = status.IsConfigured
                 ? "OpenCode Console API billing export"
                 : "Local OpenCode history";
@@ -490,7 +490,7 @@ public sealed partial class SettingsWindow : Window, IDisposable
         {
             presentation.ApplyServiceStatus(snapshot, officialStatusUri, monitoringEnabled: false);
             this.SelectedProviderStatusText.Text = "Not monitored";
-            this.SelectedProviderStatusDetail.Text = "Enable this provider in the usage window to monitor its service status.";
+            this.SelectedProviderStatusDetail.Text = "Enable this provider in the usage window to monitor its status.";
             this.SelectedProviderStatusDetail.Visibility = Visibility.Visible;
         }
         else
@@ -550,10 +550,10 @@ public sealed partial class SettingsWindow : Window, IDisposable
         this.ZaiEnvironmentPanel.Visibility = usesEnvironment ? Visibility.Visible : Visibility.Collapsed;
         this.SelectedProviderAuthentication.Text = settings.ZaiApiKeyStorage switch
         {
-            ApiKeyStorageMode.WindowsCredentialManager => "Stored locally in Windows Credential Manager on this PC",
+            ApiKeyStorageMode.WindowsCredentialManager => "Stored in Windows Credential Manager",
             ApiKeyStorageMode.EnvironmentVariable => $"Read from {ZaiApiKeyResolver.EnvironmentVariableName} when usage refreshes",
-            ApiKeyStorageMode.SessionOnly => "Held in memory until UsageDeck exits",
-            _ => "API-key storage is not configured",
+            ApiKeyStorageMode.SessionOnly => "Held in memory until UsageDeck closes",
+            _ => "API key storage is not configured",
         };
         try
         {
@@ -733,20 +733,15 @@ public sealed partial class SettingsWindow : Window, IDisposable
             if (updater.AvailableUpdate is null)
             {
                 this.UpdateActionButton.Content = "Checking…";
+                this.UpdateStatusText.Text = "Checking for updates…";
                 this.UpdateProgressBar.IsIndeterminate = true;
                 await updater.CheckForUpdatesAsync(this._lifetimeCancellation.Token);
-                if (updater.AvailableUpdate is null)
-                {
-                    this.ShowMessage("UsageDeck is up to date.", InfoBarSeverity.Success);
-                }
-                else
-                {
-                    this.SettingsInfoBar.IsOpen = false;
-                }
+                this.SettingsInfoBar.IsOpen = false;
             }
             else
             {
                 this.UpdateActionButton.Content = "Downloading…";
+                this.UpdateStatusText.Text = $"Downloading version {updater.AvailableUpdate.Version}…";
                 this.UpdateProgressBar.IsIndeterminate = false;
                 this.UpdateProgressBar.Value = 0;
                 Progress<int> progress = new(value => this.UpdateProgressBar.Value = value);
@@ -845,6 +840,7 @@ public sealed partial class SettingsWindow : Window, IDisposable
 
         if (!updater.IsConfigured)
         {
+            this.UpdateStatusText.Text = "Updates are not configured for this build.";
             this.UpdateActionButton.Content = "Check for updates";
             this.SetUpdateActionHelpText(
                 "Set a GitHub release repository when packaging to enable automatic updates.");
@@ -853,6 +849,7 @@ public sealed partial class SettingsWindow : Window, IDisposable
 
         if (!updater.CanCheckForUpdates)
         {
+            this.UpdateStatusText.Text = "Update checks are available in release builds.";
             this.UpdateActionButton.Content = "Check for updates";
             this.SetUpdateActionHelpText("Update checks are available in Velopack release builds.");
             return;
@@ -860,6 +857,7 @@ public sealed partial class SettingsWindow : Window, IDisposable
 
         if (updater.IsUpdateDownloaded && updater.AvailableUpdate is AppUpdateAvailability downloaded)
         {
+            this.UpdateStatusText.Text = $"Version {downloaded.Version} is ready to install.";
             this.UpdateActionButton.Content = "Restart to update";
             this.SetUpdateActionHelpText($"Version {downloaded.Version} is ready to install.");
             return;
@@ -867,11 +865,15 @@ public sealed partial class SettingsWindow : Window, IDisposable
 
         if (updater.AvailableUpdate is AppUpdateAvailability available)
         {
+            this.UpdateStatusText.Text = $"Version {available.Version} is available.";
             this.UpdateActionButton.Content = "Download update";
             this.SetUpdateActionHelpText($"Version {available.Version} is available.");
             return;
         }
 
+        this.UpdateStatusText.Text = updater.HasCheckedForUpdates
+            ? $"Version {App.VersionNumber} is up to date."
+            : $"Current version: {App.VersionNumber}";
         this.UpdateActionButton.Content = "Check for updates";
         this.SetUpdateActionHelpText(updater.HasCheckedForUpdates
             ? "UsageDeck is up to date. Check again for updates."

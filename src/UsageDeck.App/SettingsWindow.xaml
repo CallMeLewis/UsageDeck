@@ -167,75 +167,74 @@
                             <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="General" />
                             <TextBlock
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                Text="Control refresh timing and the tabs shown in the usage window."
+                                Text="Choose how UsageDeck refreshes usage, monitors provider status, and opens the usage window."
                                 TextWrapping="Wrap" />
                         </StackPanel>
 
                         <StackPanel Spacing="8">
-                            <TextBlock FontWeight="SemiBold" Text="Updates" />
+                            <TextBlock FontWeight="SemiBold" Text="Usage data" />
                             <Border Style="{StaticResource SettingsGroupBorderStyle}">
-                                <StackPanel>
-                                    <Border
-                                        Padding="16"
-                                        BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
-                                        BorderThickness="0,0,0,1">
-                                        <Grid ColumnSpacing="24">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel VerticalAlignment="Center" Spacing="3">
-                                                <TextBlock FontWeight="SemiBold" Text="Usage refresh" />
-                                                <TextBlock
-                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                    Style="{StaticResource CaptionTextBlockStyle}"
-                                                    Text="UsageDeck also refreshes once when it starts."
-                                                    TextWrapping="Wrap" />
-                                            </StackPanel>
-                                            <ComboBox
-                                                x:Name="RefreshIntervalComboBox"
-                                                Grid.Column="1"
-                                                MinWidth="160"
-                                                VerticalAlignment="Center"
-                                                AutomationProperties.Name="Automatic refresh interval"
-                                                SelectionChanged="RefreshIntervalComboBox_SelectionChanged">
-                                                <ComboBoxItem Content="Every minute" Tag="1" />
-                                                <ComboBoxItem Content="Every 5 minutes" Tag="5" />
-                                                <ComboBoxItem Content="Every 15 minutes" Tag="15" />
-                                                <ComboBoxItem Content="Every 30 minutes" Tag="30" />
-                                            </ComboBox>
-                                        </Grid>
-                                    </Border>
-                                    <Grid Padding="16" ColumnSpacing="24">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="160" />
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel VerticalAlignment="Center" Spacing="3">
-                                            <TextBlock FontWeight="SemiBold" Text="Provider status" />
-                                            <TextBlock
-                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                Style="{StaticResource CaptionTextBlockStyle}"
-                                                Text="Check official public status sources every five minutes. No credentials are sent."
-                                                TextWrapping="Wrap" />
-                                        </StackPanel>
-                                        <ToggleSwitch
-                                            x:Name="StatusMonitoringToggle"
-                                            Grid.Column="1"
-                                            MinWidth="0"
-                                            VerticalAlignment="Center"
-                                            HorizontalAlignment="Right"
-                                            AutomationProperties.Name="Monitor official provider service status"
-                                            OffContent=""
-                                            OnContent=""
-                                            Toggled="StatusMonitoringToggle_Toggled" />
-                                    </Grid>
-                                </StackPanel>
+                                <Grid Padding="16" ColumnSpacing="24">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel VerticalAlignment="Center" Spacing="3">
+                                        <TextBlock FontWeight="SemiBold" Text="Automatic refresh" />
+                                        <TextBlock
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Style="{StaticResource CaptionTextBlockStyle}"
+                                            Text="Choose how often UsageDeck refreshes provider usage. It also refreshes when the app starts."
+                                            TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <ComboBox
+                                        x:Name="RefreshIntervalComboBox"
+                                        Grid.Column="1"
+                                        MinWidth="160"
+                                        VerticalAlignment="Center"
+                                        AutomationProperties.Name="Automatic refresh interval"
+                                        SelectionChanged="RefreshIntervalComboBox_SelectionChanged">
+                                        <ComboBoxItem Content="Every minute" Tag="1" />
+                                        <ComboBoxItem Content="Every 5 minutes" Tag="5" />
+                                        <ComboBoxItem Content="Every 15 minutes" Tag="15" />
+                                        <ComboBoxItem Content="Every 30 minutes" Tag="30" />
+                                    </ComboBox>
+                                </Grid>
                             </Border>
                         </StackPanel>
 
                         <StackPanel Spacing="8">
-                            <TextBlock FontWeight="SemiBold" Text="Provider tabs" />
+                            <TextBlock FontWeight="SemiBold" Text="Provider status" />
+                            <Border Style="{StaticResource SettingsGroupBorderStyle}">
+                                <Grid Padding="16" ColumnSpacing="24">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="160" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel VerticalAlignment="Center" Spacing="3">
+                                        <TextBlock FontWeight="SemiBold" Text="Monitor provider status" />
+                                        <TextBlock
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Style="{StaticResource CaptionTextBlockStyle}"
+                                            Text="Check official provider status pages every five minutes."
+                                            TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <ToggleSwitch
+                                        x:Name="StatusMonitoringToggle"
+                                        Grid.Column="1"
+                                        MinWidth="0"
+                                        VerticalAlignment="Center"
+                                        HorizontalAlignment="Right"
+                                        AutomationProperties.Name="Monitor official provider service status"
+                                        OffContent=""
+                                        OnContent=""
+                                        Toggled="StatusMonitoringToggle_Toggled" />
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+
+                        <StackPanel Spacing="8">
+                            <TextBlock FontWeight="SemiBold" Text="Usage window" />
                             <Border Style="{StaticResource SettingsGroupBorderStyle}">
                                 <StackPanel>
                                     <Border
@@ -252,7 +251,7 @@
                                                 <TextBlock
                                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                     Style="{StaticResource CaptionTextBlockStyle}"
-                                                    Text="Show one compact summary containing every enabled provider."
+                                                    Text="Show a compact summary of every enabled provider."
                                                     TextWrapping="Wrap" />
                                             </StackPanel>
                                             <ToggleSwitch
@@ -277,7 +276,7 @@
                                             <TextBlock
                                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                 Style="{StaticResource CaptionTextBlockStyle}"
-                                                Text="Choose the tab shown when UsageDeck starts."
+                                                Text="Choose which tab opens when UsageDeck starts."
                                                 TextWrapping="Wrap" />
                                         </StackPanel>
                                         <ComboBox
@@ -316,7 +315,7 @@
                             <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="Appearance" />
                             <TextBlock
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                Text="Choose how UsageDeck looks and presents usage on this PC."
+                                Text="Choose how UsageDeck looks and presents usage."
                                 TextWrapping="Wrap" />
                         </StackPanel>
 
@@ -338,7 +337,7 @@
                                                 <TextBlock
                                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                     Style="{StaticResource CaptionTextBlockStyle}"
-                                                    Text="Changes apply immediately to every UsageDeck window."
+                                                    Text="Apply theme changes to every UsageDeck window."
                                                     TextWrapping="Wrap" />
                                             </StackPanel>
                                             <ComboBox
@@ -364,7 +363,7 @@
                                             <TextBlock
                                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                 Style="{StaticResource CaptionTextBlockStyle}"
-                                                Text="Use the Windows Mica material behind the app."
+                                                Text="Use Windows Mica for the app background."
                                                 TextWrapping="Wrap" />
                                         </StackPanel>
                                         <ToggleSwitch
@@ -400,7 +399,7 @@
                                                 <TextBlock
                                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                     Style="{StaticResource CaptionTextBlockStyle}"
-                                                    Text="Show quota consumption or the amount still available."
+                                                    Text="Show how much quota is used or remains."
                                                     TextWrapping="Wrap" />
                                             </StackPanel>
                                             <ComboBox
@@ -425,7 +424,7 @@
                                             <TextBlock
                                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                 Style="{StaticResource CaptionTextBlockStyle}"
-                                                Text="Show a countdown or the exact local date and time."
+                                                Text="Show reset times as a countdown or a local date and time."
                                                 TextWrapping="Wrap" />
                                         </StackPanel>
                                         <ComboBox
@@ -436,7 +435,7 @@
                                             AutomationProperties.Name="Reset time display"
                                             SelectionChanged="ResetTimeDisplayComboBox_SelectionChanged">
                                             <ComboBoxItem Content="Countdown" Tag="Countdown" />
-                                            <ComboBoxItem Content="Time and date" Tag="ExactDateTime" />
+                                            <ComboBoxItem Content="Date and time" Tag="ExactDateTime" />
                                         </ComboBox>
                                     </Grid>
                                 </StackPanel>
@@ -555,13 +554,13 @@
                                             <TextBlock
                                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                 Style="{StaticResource CaptionTextBlockStyle}"
-                                                Text="Use an OpenCode Console service-account API key beginning oc_sk_. Standard OpenCode Go or Zen inference keys cannot export billing usage."
+                                                Text="Use an OpenCode Console service-account API key beginning with oc_sk_. OpenCode Go and Zen inference keys cannot export billing usage."
                                                 TextWrapping="Wrap" />
                                             <HyperlinkButton
                                                 HorizontalAlignment="Left"
                                                 NavigateUri="https://console.opencode.ai/guides/usage"
                                                 Padding="0"
-                                                Content="Open the Usage API guide" />
+                                                Content="Open Usage API guide" />
                                         </StackPanel>
                                     </Border>
                                     <Border
@@ -578,7 +577,7 @@
                                                 <TextBlock
                                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                     Style="{StaticResource CaptionTextBlockStyle}"
-                                                    Text="Longer exports add more estimated usage windows."
+                                                    Text="Choose how much billing history to export. Longer periods add more usage estimates."
                                                     TextWrapping="Wrap" />
                                             </StackPanel>
                                             <ComboBox
@@ -588,8 +587,8 @@
                                                 AutomationProperties.Name="OpenCode API billing history range"
                                                 SelectionChanged="OpenCodeGoUsageRangeComboBox_SelectionChanged">
                                                 <ComboBoxItem Content="1 day · 5-hour estimate" Tag="OneDay" />
-                                                <ComboBoxItem Content="7 days · adds 7-day estimate" Tag="SevenDays" />
-                                                <ComboBoxItem Content="30 days · all estimates" Tag="ThirtyDays" />
+                                                <ComboBoxItem Content="7 days · includes 7-day estimate" Tag="SevenDays" />
+                                                <ComboBoxItem Content="30 days · includes all estimates" Tag="ThirtyDays" />
                                             </ComboBox>
                                         </Grid>
                                     </Border>
@@ -603,11 +602,11 @@
                                                 <ColumnDefinition Width="*" />
                                             </Grid.ColumnDefinitions>
                                             <StackPanel VerticalAlignment="Center" Spacing="3">
-                                                <TextBlock FontWeight="SemiBold" Text="API-key storage" />
+                                                <TextBlock FontWeight="SemiBold" Text="API key storage" />
                                                 <TextBlock
                                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                     Style="{StaticResource CaptionTextBlockStyle}"
-                                                    Text="Changing this does not copy keys between locations."
+                                                    Text="Changing the storage location does not copy the API key."
                                                     TextWrapping="Wrap" />
                                             </StackPanel>
                                             <ComboBox
@@ -642,7 +641,7 @@
                                                 <TextBlock FontWeight="SemiBold" Text="Environment variable" />
                                                 <TextBlock
                                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                    Text="Set OPENCODE_CONSOLE_SERVICE_API_KEY outside UsageDeck, then restart the app. UsageDeck will never write or remove it."
+                                                    Text="Set OPENCODE_CONSOLE_SERVICE_API_KEY outside UsageDeck, then restart the app. UsageDeck reads this variable but does not change it."
                                                     TextWrapping="Wrap" />
                                             </StackPanel>
                                             <TextBlock
@@ -660,7 +659,7 @@
                             x:Name="ZaiConfigurationPanel"
                             Spacing="10"
                             Visibility="Collapsed">
-                            <TextBlock FontWeight="SemiBold" Text="Z.AI access" />
+                            <TextBlock FontWeight="SemiBold" Text="Z.AI API access" />
                             <Border Style="{StaticResource SettingsGroupBorderStyle}">
                                 <StackPanel>
                                     <Border
@@ -677,7 +676,7 @@
                                                 <TextBlock
                                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                     Style="{StaticResource CaptionTextBlockStyle}"
-                                                    Text="Select the region that owns your account."
+                                                Text="Choose the region associated with your account."
                                                     TextWrapping="Wrap" />
                                             </StackPanel>
                                             <ComboBox
@@ -700,11 +699,11 @@
                                                 <ColumnDefinition Width="*" />
                                             </Grid.ColumnDefinitions>
                                             <StackPanel VerticalAlignment="Center" Spacing="3">
-                                                <TextBlock FontWeight="SemiBold" Text="API-key storage" />
+                                                <TextBlock FontWeight="SemiBold" Text="API key storage" />
                                                 <TextBlock
                                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                     Style="{StaticResource CaptionTextBlockStyle}"
-                                                    Text="Changing this does not copy keys between locations."
+                                                    Text="Changing the storage location does not copy the API key."
                                                     TextWrapping="Wrap" />
                                             </StackPanel>
                                             <ComboBox
@@ -739,7 +738,7 @@
                                                 <TextBlock FontWeight="SemiBold" Text="Environment variable" />
                                                 <TextBlock
                                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                    Text="Set Z_AI_API_KEY outside UsageDeck, then restart the app. UsageDeck will never write or remove it."
+                                                    Text="Set Z_AI_API_KEY outside UsageDeck, then restart the app. UsageDeck reads this variable but does not change it."
                                                     TextWrapping="Wrap" />
                                             </StackPanel>
                                             <TextBlock
@@ -799,18 +798,18 @@
                                             <ColumnDefinition Width="150" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock FontWeight="SemiBold" Text="Official source" />
+                                        <TextBlock FontWeight="SemiBold" Text="Status page" />
                                         <StackPanel Grid.Column="1">
                                             <HyperlinkButton
                                                 x:Name="SelectedProviderStatusSourceLink"
                                                 Margin="-8,-6,0,-6"
                                                 HorizontalAlignment="Left"
                                                 Click="OfficialStatusLink_Click"
-                                                Content="Open official status" />
+                                                Content="Open status page" />
                                             <TextBlock
                                                 x:Name="SelectedProviderStatusSourceUnavailable"
                                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                Text="No verified public source"
+                                                Text="No verified status page available"
                                                 Visibility="Collapsed" />
                                         </StackPanel>
                                     </Grid>
@@ -822,7 +821,7 @@
                             x:Name="CodexConfigurationPanel"
                             Spacing="10"
                             Visibility="Collapsed">
-                            <TextBlock FontWeight="SemiBold" Text="Options" />
+                            <TextBlock FontWeight="SemiBold" Text="Usage cards" />
                             <Border Style="{StaticResource SettingsGroupBorderStyle}">
                                 <Grid Padding="16" ColumnSpacing="24">
                                     <Grid.ColumnDefinitions>
@@ -834,7 +833,7 @@
                                         <TextBlock
                                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                             Style="{StaticResource CaptionTextBlockStyle}"
-                                            Text="Show the separate Spark rate-limit card when Codex reports it."
+                                            Text="Show a separate Spark rate-limit card when Codex reports one."
                                             TextWrapping="Wrap" />
                                     </StackPanel>
                                     <ToggleSwitch
@@ -869,6 +868,44 @@
                                 Text="A private, native Windows usage monitor for coding providers."
                                 TextWrapping="Wrap" />
                         </StackPanel>
+
+                        <Border Padding="16" Style="{StaticResource ElevatedCardBorderStyle}">
+                            <Grid ColumnSpacing="16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="60" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <Image
+                                    Width="60"
+                                    Height="60"
+                                    VerticalAlignment="Center"
+                                    AutomationProperties.Name="UsageDeck app logo"
+                                    Source="ms-appx:///Assets/AppIcon.png"
+                                    Stretch="Uniform" />
+
+                                <StackPanel
+                                    Grid.Column="1"
+                                    VerticalAlignment="Center"
+                                    Spacing="4">
+                                    <TextBlock
+                                        FontSize="20"
+                                        FontWeight="SemiBold"
+                                        Text="UsageDeck" />
+                                    <TextBlock
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="Private, native usage monitoring."
+                                        TextWrapping="Wrap" />
+                                    <TextBlock
+                                        x:Name="VersionText"
+                                        Margin="0,2,0,0"
+                                        HorizontalAlignment="Left"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Style="{StaticResource CaptionTextBlockStyle}" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
 
                         <StackPanel Spacing="8">
                             <TextBlock FontWeight="SemiBold" Text="Updates" />
@@ -936,7 +973,11 @@
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <StackPanel VerticalAlignment="Center">
-                                            <TextBlock x:Name="VersionText" FontWeight="SemiBold" />
+                                            <TextBlock
+                                                x:Name="UpdateStatusText"
+                                                AutomationProperties.LiveSetting="Polite"
+                                                FontWeight="SemiBold"
+                                                TextWrapping="Wrap" />
                                             <ProgressBar
                                                 x:Name="UpdateProgressBar"
                                                 Height="4"
@@ -957,15 +998,6 @@
                             </Border>
                         </StackPanel>
 
-                        <Border Padding="16" Style="{StaticResource SettingsGroupBorderStyle}">
-                            <StackPanel Spacing="8">
-                                <TextBlock FontWeight="SemiBold" Text="UsageDeck" />
-                                <TextBlock
-                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                    Text="Usage is collected through local provider tools and fixed provider APIs. App-owned API keys use only the storage location you select, and raw responses are not stored."
-                                    TextWrapping="Wrap" />
-                            </StackPanel>
-                        </Border>
                     </StackPanel>
                 </ScrollViewer>
             </Grid>

@@ -39,7 +39,7 @@ public sealed record ProviderSettingsPresentation(
                 "Command-line tool",
                 "codex",
                 true,
-                "Owned by the Codex CLI",
+                "Managed by the Codex CLI",
                 "UsageDeck uses the provider-owned sign-in and does not store credentials from the Codex CLI."),
             [ProviderId.Claude] = new(
                 ProviderId.Claude,
@@ -48,7 +48,7 @@ public sealed record ProviderSettingsPresentation(
                 "Command-line tool",
                 "claude",
                 true,
-                "Owned by the Claude Code CLI",
+                "Managed by the Claude Code CLI",
                 "UsageDeck uses the provider-owned sign-in and does not store credentials from the Claude Code CLI."),
             [ProviderId.Antigravity] = new(
                 ProviderId.Antigravity,
@@ -57,7 +57,7 @@ public sealed record ProviderSettingsPresentation(
                 "Command-line tool",
                 "agy",
                 true,
-                "Owned by the Antigravity CLI",
+                "Managed by the Antigravity CLI",
                 "UsageDeck uses the provider-owned sign-in and does not store credentials from the Antigravity CLI."),
             [ProviderId.Copilot] = new(
                 ProviderId.Copilot,
@@ -66,7 +66,7 @@ public sealed record ProviderSettingsPresentation(
                 "Command-line tool",
                 "gh",
                 true,
-                "Owned by the GitHub CLI",
+                "Managed by the GitHub CLI",
                 "UsageDeck uses the provider-owned sign-in and does not store credentials from the GitHub CLI."),
             [ProviderId.Kiro] = new(
                 ProviderId.Kiro,
@@ -75,7 +75,7 @@ public sealed record ProviderSettingsPresentation(
                 "Command-line tool",
                 "kiro-cli",
                 true,
-                "Owned by the Kiro CLI",
+                "Managed by the Kiro CLI",
                 "UsageDeck uses the provider-owned sign-in and does not store credentials from the Kiro CLI."),
             [ProviderId.Amp] = new(
                 ProviderId.Amp,
@@ -84,7 +84,7 @@ public sealed record ProviderSettingsPresentation(
                 "Command-line tool",
                 "amp",
                 true,
-                "Owned by the Amp CLI",
+                "Managed by the Amp CLI",
                 "UsageDeck uses the provider-owned sign-in and does not store credentials from the Amp CLI."),
             [ProviderId.OpenCodeGo] = new(
                 ProviderId.OpenCodeGo,
