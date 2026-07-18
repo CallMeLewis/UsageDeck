@@ -21,6 +21,16 @@ public sealed class BuildInformationTests
     }
 
     [Theory]
+    [InlineData("1.2.3", false)]
+    [InlineData("1.2.3+build.9", false)]
+    [InlineData("1.2.3-beta.4", true)]
+    [InlineData("1.2.3-rc.1+build.9", true)]
+    public void HasPrereleaseSuffixDetectsSemVerPrereleases(string version, bool expected)
+    {
+        Assert.Equal(expected, BuildInformation.HasPrereleaseSuffix(version));
+    }
+
+    [Theory]
     [InlineData("https://github.com/example/UsageDeck", "https://github.com/example/UsageDeck")]
     [InlineData(" https://github.com/example/UsageDeck/ ", "https://github.com/example/UsageDeck")]
     public void ParseUpdateRepositoryUrlAcceptsAbsoluteHttpsUrls(string value, string expected)

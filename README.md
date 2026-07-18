@@ -80,7 +80,7 @@ git push origin v0.1.1
 
 The Release workflow verifies the version and successful CI run, builds the Velopack packages, and publishes the installer, portable ZIP, update package, and release feed automatically.
 
-Beta releases use a SemVer pre-release suffix. For example, set the version to `0.4.0-beta.1`, then push the matching `v0.4.0-beta.1` tag. The workflow marks suffixed versions as GitHub pre-releases automatically. Stable clients ignore them, while clients on the Beta update channel consider both stable and pre-release builds.
+Beta releases use a SemVer pre-release suffix. For example, set the version to `0.4.0-beta.1`, then push the matching `v0.4.0-beta.1` tag. The workflow marks suffixed versions as GitHub pre-releases automatically. A fresh pre-release installation starts on the Beta update channel; a previously saved channel remains unchanged. Stable clients ignore pre-releases, while clients on the Beta channel consider both stable and pre-release builds.
 
 For local packaging:
 

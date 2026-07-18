@@ -11,6 +11,8 @@ internal static class BuildInformation
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
             ?.InformationalVersion);
 
+    public static bool IsPrereleaseBuild { get; } = HasPrereleaseSuffix(Version);
+
     public static Uri? UpdateRepository { get; } = ParseUpdateRepositoryUrl(
         typeof(BuildInformation).Assembly
             .GetCustomAttributes<AssemblyMetadataAttribute>()
@@ -30,6 +32,12 @@ internal static class BuildInformation
         string version = informationalVersion.Trim();
         int buildMetadataIndex = version.IndexOf('+', StringComparison.Ordinal);
         return buildMetadataIndex < 0 ? version : version[..buildMetadataIndex];
+    }
+
+    internal static bool HasPrereleaseSuffix(string? informationalVersion)
+    {
+        string version = NormaliseVersion(informationalVersion);
+        return version.Contains('-', StringComparison.Ordinal);
     }
 
     internal static Uri? ParseUpdateRepositoryUrl(string? value)

@@ -48,7 +48,10 @@ public partial class App : Application, IDisposable
         this._dispatcherQueue = DispatcherQueue.GetForCurrentThread();
 
         ExecutableLocator executableLocator = new();
-        AppSettingsStore settingsStore = new();
+        AppUpdateChannel defaultUpdateChannel = BuildInformation.IsPrereleaseBuild
+            ? AppUpdateChannel.Beta
+            : AppUpdateChannel.Stable;
+        AppSettingsStore settingsStore = new(defaultUpdateChannel: defaultUpdateChannel);
         AppSettingsLoadResult settings = settingsStore.Load();
         this._settingsManager = new AppSettingsManager(settingsStore, settings.Settings);
         this._settingsManager.Changed += this.SettingsManager_Changed;
@@ -70,7 +73,7 @@ public partial class App : Application, IDisposable
         [
             new CodexUsageProvider(
                 processSessionFactory,
-                new CodexProcessSpecFactory(new CodexExecutableLocator(executableLocator)),
+                new CodexProcessSpecFactory(executableLocator),
                 ProviderHost.Native,
                 cliVersionReader: cliVersionReader),
             new ClaudeUsageProvider(ptySessionFactory, executableLocator, cliVersionReader: cliVersionReader),

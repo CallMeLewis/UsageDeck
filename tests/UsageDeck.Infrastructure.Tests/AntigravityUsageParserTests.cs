@@ -59,6 +59,22 @@ public sealed class AntigravityUsageParserTests
     }
 
     [Fact]
+    public void ParseMapsRefreshDurationShownByAntigravityCli()
+    {
+        const string output = """
+            Gemini Models
+            Weekly Limit
+            [===================] 98.96%
+            99% remaining · Refreshes in 167h 58m
+            """;
+
+        UsageWindow window = Assert.Single(AntigravityUsageParser.Parse(output, Now));
+
+        Assert.Equal("gemini-weekly", window.Id);
+        Assert.Equal(Now.AddHours(167).AddMinutes(58), window.ResetsAt);
+    }
+
+    [Fact]
     public void ParseClassifiesSignedOutScreen()
     {
         ProviderException exception = Assert.Throws<ProviderException>(() =>

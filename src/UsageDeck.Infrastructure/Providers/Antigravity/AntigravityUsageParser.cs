@@ -231,7 +231,7 @@ public static partial class AntigravityUsageParser
     [GeneratedRegex("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z", RegexOptions.IgnoreCase)]
     private static partial Regex IsoTimestampRegex();
 
-    [GeneratedRegex("resets?\\s+in(?:\\s+(?<days>\\d+)\\s*d(?:ays?)?)?(?:\\s+(?<hours>\\d+)\\s*h(?:ours?)?)?(?:\\s+(?<minutes>\\d+)\\s*m(?:in(?:utes?)?)?)?", RegexOptions.IgnoreCase)]
+    [GeneratedRegex("(?:resets?|refreshes?)\\s+in(?:\\s+(?<days>\\d+)\\s*d(?:ays?)?)?(?:\\s+(?<hours>\\d+)\\s*h(?:ours?)?)?(?:\\s+(?<minutes>\\d+)\\s*m(?:in(?:utes?)?)?)?", RegexOptions.IgnoreCase)]
     private static partial Regex RelativeResetRegex();
 
     [GeneratedRegex("(?:sign|log)\\s*in|authentication required|choose an account", RegexOptions.IgnoreCase)]

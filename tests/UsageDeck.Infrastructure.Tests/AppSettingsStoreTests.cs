@@ -65,6 +65,37 @@ public sealed class AppSettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public void LoadWithoutSavedSettingsUsesConfiguredUpdateChannel()
+    {
+        string path = Path.Combine(this._directory, "settings.json");
+        AppSettingsStore store = new(path, AppUpdateChannel.Beta);
+
+        AppSettingsLoadResult result = store.Load();
+
+        Assert.Equal(AppUpdateChannel.Beta, result.Settings.UpdateChannel);
+        Assert.Null(result.SafeWarning);
+    }
+
+    [Fact]
+    public void LoadSavedUpdateChannelOverridesConfiguredDefault()
+    {
+        Directory.CreateDirectory(this._directory);
+        string path = Path.Combine(this._directory, "settings.json");
+        File.WriteAllText(path, """
+            {
+              "enabledProviders": ["codex"],
+              "defaultProvider": "codex",
+              "updateChannel": "Stable"
+            }
+            """);
+        AppSettingsStore store = new(path, AppUpdateChannel.Beta);
+
+        AppSettingsLoadResult result = store.Load();
+
+        Assert.Equal(AppUpdateChannel.Stable, result.Settings.UpdateChannel);
+    }
+
+    [Fact]
     public void LoadLegacySettingsDefaultsTranslucencyOff()
     {
         Directory.CreateDirectory(this._directory);

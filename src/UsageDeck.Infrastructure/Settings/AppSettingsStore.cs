@@ -101,10 +101,19 @@ public sealed class AppSettingsStore
         WriteIndented = true,
     };
 
+    private readonly AppSettings _defaultSettings;
     private readonly string _path;
 
-    public AppSettingsStore(string? path = null)
+    public AppSettingsStore(
+        string? path = null,
+        AppUpdateChannel defaultUpdateChannel = AppUpdateChannel.Stable)
     {
+        if (!Enum.IsDefined(defaultUpdateChannel))
+        {
+            throw new ArgumentOutOfRangeException(nameof(defaultUpdateChannel));
+        }
+
+        this._defaultSettings = AppSettings.Default with { UpdateChannel = defaultUpdateChannel };
         this._path = path ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             ApplicationIdentity.LocalDataDirectoryName,
@@ -115,7 +124,7 @@ public sealed class AppSettingsStore
     {
         if (!File.Exists(this._path))
         {
-            return new AppSettingsLoadResult(AppSettings.Default);
+            return new AppSettingsLoadResult(this._defaultSettings);
         }
 
         try
@@ -124,7 +133,7 @@ public sealed class AppSettingsStore
             SettingsDocument? document = JsonSerializer.Deserialize<SettingsDocument>(stream, JsonOptions);
             if (document?.EnabledProviders is null || document.EnabledProviders.Length == 0)
             {
-                return new AppSettingsLoadResult(AppSettings.Default, "Saved provider settings were invalid, so defaults were restored.");
+                return new AppSettingsLoadResult(this._defaultSettings, "Saved provider settings were invalid, so defaults were restored.");
             }
 
             ProviderId[] savedEnabled = document.EnabledProviders
@@ -138,7 +147,7 @@ public sealed class AppSettingsStore
             if (enabled.Length == 0)
             {
                 return new AppSettingsLoadResult(
-                    AppSettings.Default,
+                    this._defaultSettings,
                     "Saved provider settings were unsupported, so defaults were restored.");
             }
 
@@ -210,7 +219,7 @@ public sealed class AppSettingsStore
                 out AppUpdateChannel parsedUpdateChannel)
                 && Enum.IsDefined(parsedUpdateChannel)
                     ? parsedUpdateChannel
-                    : AppUpdateChannel.Stable;
+                    : this._defaultSettings.UpdateChannel;
             LimitNotificationThresholds limitThresholds = ParseLimitNotificationThresholds(
                 document.LimitNotificationThresholds);
 
@@ -245,7 +254,7 @@ public sealed class AppSettingsStore
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
         {
-            return new AppSettingsLoadResult(AppSettings.Default, "Saved settings could not be read, so defaults were restored.");
+            return new AppSettingsLoadResult(this._defaultSettings, "Saved settings could not be read, so defaults were restored.");
         }
     }
 
