@@ -46,4 +46,38 @@ public sealed class WindowsNotificationServiceTests
 
         Assert.Contains(expectedText, message, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Theory]
+    [InlineData(AppNotificationSetting.Enabled, (int)NotificationDeliveryState.Ready, true)]
+    [InlineData(AppNotificationSetting.DisabledForApplication, (int)NotificationDeliveryState.Disabled, false)]
+    [InlineData(AppNotificationSetting.DisabledForUser, (int)NotificationDeliveryState.Disabled, false)]
+    [InlineData(AppNotificationSetting.DisabledByGroupPolicy, (int)NotificationDeliveryState.Disabled, false)]
+    [InlineData(AppNotificationSetting.DisabledByManifest, (int)NotificationDeliveryState.Disabled, false)]
+    [InlineData(AppNotificationSetting.Unsupported, (int)NotificationDeliveryState.Unavailable, false)]
+    public void SettingMapsToDeliveryStatus(
+        AppNotificationSetting setting,
+        int expectedState,
+        bool expectedCanSend)
+    {
+        NotificationDeliveryStatus status = WindowsNotificationService.CreateStatus(setting);
+
+        Assert.Equal((NotificationDeliveryState)expectedState, status.State);
+        Assert.Equal(expectedCanSend, status.CanSend);
+        Assert.False(string.IsNullOrWhiteSpace(status.Detail));
+    }
+
+    [Fact]
+    public void UnsupportedBuildExposesItsDeliveryStatus()
+    {
+        using WindowsNotificationService service = new(
+            supportProbe: () => false,
+            managerFactory: () => throw new InvalidOperationException());
+        service.Initialise();
+
+        NotificationDeliveryStatus status = service.GetStatus();
+
+        Assert.Equal(NotificationDeliveryState.Unavailable, status.State);
+        Assert.False(status.CanSend);
+        Assert.Contains("Self-contained", status.Detail, StringComparison.Ordinal);
+    }
 }

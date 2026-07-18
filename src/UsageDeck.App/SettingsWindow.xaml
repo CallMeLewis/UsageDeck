@@ -55,7 +55,7 @@
                 </NavigationViewItem>
                 <NavigationViewItem Content="Notifications" Tag="notifications">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE7ED;" />
+                        <FontIcon Glyph="&#xEA8F;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItemHeader Content="Providers" />
@@ -501,6 +501,72 @@
                                     Toggled="NotificationsEnabledToggle_Toggled" />
                             </Grid>
                         </Border>
+
+                        <StackPanel Spacing="8">
+                            <TextBlock FontWeight="SemiBold" Text="Windows delivery" />
+                            <Border Style="{StaticResource SettingsGroupBorderStyle}">
+                                <StackPanel>
+                                    <Border
+                                        Padding="16,10"
+                                        BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                        BorderThickness="0,0,0,1">
+                                        <Grid ColumnSpacing="24">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="160" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel VerticalAlignment="Center" Spacing="3">
+                                                <StackPanel Orientation="Horizontal" Spacing="7">
+                                                    <FontIcon
+                                                        x:Name="NotificationDeliveryStatusGlyph"
+                                                        FontSize="13"
+                                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                        Glyph="&#xE946;" />
+                                                    <TextBlock
+                                                        x:Name="NotificationDeliveryStatusText"
+                                                        AutomationProperties.LiveSetting="Polite"
+                                                        FontWeight="SemiBold"
+                                                        Text="Checking Windows…" />
+                                                </StackPanel>
+                                                <TextBlock
+                                                    x:Name="NotificationDeliveryStatusDetail"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                                    TextWrapping="Wrap" />
+                                            </StackPanel>
+                                            <Button
+                                                x:Name="SendTestNotificationButton"
+                                                Grid.Column="1"
+                                                Width="160"
+                                                VerticalAlignment="Center"
+                                                Click="SendTestNotificationButton_Click"
+                                                Content="Send test notification" />
+                                        </Grid>
+                                    </Border>
+                                    <Grid Padding="16,10" ColumnSpacing="24">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="160" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel VerticalAlignment="Center" Spacing="3">
+                                            <TextBlock FontWeight="SemiBold" Text="Windows notification settings" />
+                                            <TextBlock
+                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                Style="{StaticResource CaptionTextBlockStyle}"
+                                                Text="Control banners, sounds, and Do not disturb in Windows."
+                                                TextWrapping="Wrap" />
+                                        </StackPanel>
+                                        <Button
+                                            x:Name="OpenWindowsNotificationSettingsButton"
+                                            Grid.Column="1"
+                                            Width="160"
+                                            VerticalAlignment="Center"
+                                            Click="OpenWindowsNotificationSettingsButton_Click"
+                                            Content="Open Windows settings" />
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
 
                         <ContentControl
                             x:Name="NotificationOptionsPanel"
@@ -1153,7 +1219,7 @@
                                             Grid.Column="1"
                                             VerticalAlignment="Center"
                                             AutomationProperties.Name="Send selected test notification"
-                                            Click="SendTestNotificationButton_Click"
+                                            Click="SendDebugNotificationButton_Click"
                                             Content="Send test notification"
                                             Style="{StaticResource AccentButtonStyle}" />
                                     </Grid>

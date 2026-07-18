@@ -14,6 +14,20 @@ internal readonly record struct NotificationDeliveryResult(
     public static NotificationDeliveryResult Failed(string message) => new(false, message);
 }
 
+internal enum NotificationDeliveryState
+{
+    Ready,
+    Disabled,
+    Unavailable,
+}
+
+internal readonly record struct NotificationDeliveryStatus(
+    NotificationDeliveryState State,
+    string Detail)
+{
+    public bool CanSend => this.State == NotificationDeliveryState.Ready;
+}
+
 internal sealed class WindowsNotificationService : IDisposable
 {
     internal const string DisplayName = "UsageDeck";
@@ -118,6 +132,50 @@ internal sealed class WindowsNotificationService : IDisposable
                 $"Windows rejected the notification ({FormatHResult(exception)}).");
         }
     }
+
+    public NotificationDeliveryStatus GetStatus()
+    {
+        AppNotificationManager? manager = this._manager;
+        if (!this._isRegistered || this._isDisposed || manager is null)
+        {
+            return new NotificationDeliveryStatus(
+                NotificationDeliveryState.Unavailable,
+                this._unavailableReason ?? "Windows notification registration is unavailable.");
+        }
+
+        try
+        {
+            return CreateStatus(manager.Setting);
+        }
+        catch (Exception exception) when (exception is COMException
+            or InvalidOperationException
+            or UnauthorizedAccessException)
+        {
+            System.Diagnostics.Debug.WriteLine(exception);
+            return new NotificationDeliveryStatus(
+                NotificationDeliveryState.Unavailable,
+                $"Windows notification status could not be read ({FormatHResult(exception)}).");
+        }
+    }
+
+    internal static NotificationDeliveryStatus CreateStatus(AppNotificationSetting setting) => setting switch
+    {
+        AppNotificationSetting.Enabled => new NotificationDeliveryStatus(
+            NotificationDeliveryState.Ready,
+            "Windows can show notifications from UsageDeck."),
+        AppNotificationSetting.Unsupported => new NotificationDeliveryStatus(
+            NotificationDeliveryState.Unavailable,
+            DescribeSetting(setting)),
+        AppNotificationSetting.DisabledForApplication
+            or AppNotificationSetting.DisabledForUser
+            or AppNotificationSetting.DisabledByGroupPolicy
+            or AppNotificationSetting.DisabledByManifest => new NotificationDeliveryStatus(
+            NotificationDeliveryState.Disabled,
+            DescribeSetting(setting)),
+        _ => new NotificationDeliveryStatus(
+            NotificationDeliveryState.Unavailable,
+            DescribeSetting(setting)),
+    };
 
     internal static string DescribeSetting(AppNotificationSetting setting) => setting switch
     {

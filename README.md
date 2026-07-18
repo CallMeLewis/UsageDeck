@@ -15,7 +15,7 @@ UsageDeck brings usage from several coding assistants into one compact WinUI 3 w
 - One compact view for every enabled provider, plus an optional **All** summary.
 - Used or remaining quota percentages, reset countdowns or exact local times, freshness, and error states.
 - Optional official service-status monitoring for enabled providers, with incident warnings on affected tabs.
-- Configurable Windows notifications for limit thresholds and resets, Codex reset credits, provider incidents, sign-in requirements, repeated refresh failures, and recoveries.
+- Configurable Windows notifications for limit thresholds and resets, Codex reset credits, provider incidents, sign-in requirements, repeated refresh failures, and recoveries. Settings also reports Windows delivery status and can send a test notification.
 - Automatic refresh every 1, 5, 15, or 30 minutes, with manual refresh at any time.
 - System, light, and dark themes with optional Mica.
 - Settings stored per Windows user under `%LOCALAPPDATA%\UsageDeck`.

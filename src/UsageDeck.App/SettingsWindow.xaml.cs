@@ -53,6 +53,7 @@ public sealed partial class SettingsWindow : Window, IDisposable
         WindowSizing.Configure(this, 900, 700, 680, 480);
         this.AppWindow.Changed += this.AppWindow_Changed;
         this.AppWindow.Closing += this.AppWindow_Closing;
+        this.Activated += this.SettingsWindow_Activated;
 
 #if DEBUG
         this.DebugNavigationItem.Visibility = Visibility.Visible;
@@ -169,6 +170,7 @@ public sealed partial class SettingsWindow : Window, IDisposable
         }
 
         this.RefreshCodexPresentation();
+        this.RefreshNotificationDeliveryPresentation();
         this.RefreshNotificationPresentation(settings);
         this.RefreshOpenCodeGoPresentation(settings);
         this.RefreshZaiPresentation(settings);
@@ -227,6 +229,10 @@ public sealed partial class SettingsWindow : Window, IDisposable
         if (tag == "about")
         {
             this.RefreshUpdatePresentation();
+        }
+        else if (tag == "notifications")
+        {
+            this.RefreshNotificationDeliveryPresentation();
         }
 
         bool isProvider = this.TrySelectProvider(tag);
@@ -413,6 +419,66 @@ public sealed partial class SettingsWindow : Window, IDisposable
     }
 
     private void SendTestNotificationButton_Click(object sender, RoutedEventArgs e)
+    {
+        NotificationDeliveryResult result = ((App)Application.Current).TryShowTestNotification();
+        this.RefreshNotificationDeliveryPresentation();
+        this.ShowMessage(
+            result.WasDelivered
+                ? "The test notification was sent to Windows."
+                : result.FailureMessage ?? "Windows notification delivery is unavailable.",
+            result.WasDelivered ? InfoBarSeverity.Success : InfoBarSeverity.Error);
+    }
+
+    private async void OpenWindowsNotificationSettingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            bool launched = await Windows.System.Launcher.LaunchUriAsync(
+                new Uri("ms-settings:notifications"));
+            if (!launched)
+            {
+                this.ShowMessage(
+                    "Windows notification settings could not be opened.",
+                    InfoBarSeverity.Error);
+            }
+        }
+        catch (Exception exception) when (exception is COMException or UnauthorizedAccessException)
+        {
+            this.ShowMessage(
+                "Windows notification settings could not be opened.",
+                InfoBarSeverity.Error);
+        }
+    }
+
+    private void RefreshNotificationDeliveryPresentation()
+    {
+        NotificationDeliveryStatus status = ((App)Application.Current).GetNotificationDeliveryStatus();
+        (string text, string glyph, ProviderStatusVisualLevel level) = status.State switch
+        {
+            NotificationDeliveryState.Ready => ("Ready", "\uE73E", ProviderStatusVisualLevel.Success),
+            NotificationDeliveryState.Disabled => ("Blocked by Windows", "\uE711", ProviderStatusVisualLevel.Warning),
+            _ => ("Unavailable", "\uE946", ProviderStatusVisualLevel.Neutral),
+        };
+
+        this.NotificationDeliveryStatusText.Text = text;
+        this.NotificationDeliveryStatusDetail.Text = status.Detail;
+        this.NotificationDeliveryStatusGlyph.Glyph = glyph;
+        Brush statusBrush = (Brush)new ProviderStatusBrushConverter().Convert(
+            level,
+            typeof(Brush),
+            parameter: null!,
+            language: string.Empty);
+        this.NotificationDeliveryStatusGlyph.Foreground = statusBrush;
+        this.NotificationDeliveryStatusText.Foreground = statusBrush;
+        this.SendTestNotificationButton.IsEnabled = status.CanSend;
+        string helpText = status.CanSend
+            ? "Send a one-off test without changing your notification choices."
+            : status.Detail;
+        ToolTipService.SetToolTip(this.SendTestNotificationButton, helpText);
+        AutomationProperties.SetHelpText(this.SendTestNotificationButton, helpText);
+    }
+
+    private void SendDebugNotificationButton_Click(object sender, RoutedEventArgs e)
     {
 #if DEBUG
         if (this.DebugNotificationScenarioComboBox.SelectedItem is not ComboBoxItem item
@@ -1056,6 +1122,8 @@ public sealed partial class SettingsWindow : Window, IDisposable
             app.UpdateStateChanged -= this.App_UpdateStateChanged;
         }
 
+        this.Activated -= this.SettingsWindow_Activated;
+
         this._lifetimeCancellation.Cancel();
         this._lifetimeCancellation.Dispose();
         GC.SuppressFinalize(this);
@@ -1099,6 +1167,14 @@ public sealed partial class SettingsWindow : Window, IDisposable
         if (args.DidPositionChange)
         {
             WindowSizing.UpdateMinimumSize(this, 680, 480);
+        }
+    }
+
+    private void SettingsWindow_Activated(object sender, WindowActivatedEventArgs args)
+    {
+        if (!this._isDisposed && args.WindowActivationState != WindowActivationState.Deactivated)
+        {
+            this.RefreshNotificationDeliveryPresentation();
         }
     }
 }

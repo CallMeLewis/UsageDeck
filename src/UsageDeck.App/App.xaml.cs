@@ -142,6 +142,15 @@ public partial class App : Application, IDisposable
     }
 #endif
 
+    internal NotificationDeliveryStatus GetNotificationDeliveryStatus() =>
+        this._notificationService.GetStatus();
+
+    internal NotificationDeliveryResult TryShowTestNotification() =>
+        this._notificationService.Show(new NotificationMessage(
+            "UsageDeck notifications are ready",
+            "Windows can show important usage and provider changes.",
+            this.CurrentSettings.DefaultProvider));
+
     internal static bool IsHighContrastEnabled =>
         Current is App app && app._isHighContrastEnabled;
 
