@@ -18,28 +18,46 @@ internal sealed class WindowsNotificationService : IDisposable
 {
     internal const string DisplayName = "UsageDeck";
 
-    private readonly AppNotificationManager _manager = AppNotificationManager.Default;
+    private readonly Func<AppNotificationManager> _managerFactory;
+    private readonly Func<bool> _supportProbe;
     private bool _isDisposed;
     private bool _isRegistered;
+    private AppNotificationManager? _manager;
     private string? _unavailableReason;
+
+    public WindowsNotificationService()
+        : this(AppNotificationManager.IsSupported, () => AppNotificationManager.Default)
+    {
+    }
+
+    internal WindowsNotificationService(
+        Func<bool> supportProbe,
+        Func<AppNotificationManager> managerFactory)
+    {
+        this._supportProbe = supportProbe ?? throw new ArgumentNullException(nameof(supportProbe));
+        this._managerFactory = managerFactory ?? throw new ArgumentNullException(nameof(managerFactory));
+    }
 
     public event Action<ProviderId?>? Activated;
 
     public bool Initialise()
     {
-        if (!AppNotificationManager.IsSupported())
-        {
-            this._unavailableReason =
-                "Windows does not expose app notifications to this build. "
-                + "Self-contained Windows App SDK deployments require the separate Singleton package.";
-            return false;
-        }
-
+        AppNotificationManager? manager = null;
         try
         {
+            if (!this._supportProbe())
+            {
+                this._unavailableReason =
+                    "Windows does not expose app notifications to this build. "
+                    + "Self-contained Windows App SDK deployments require the separate Singleton package.";
+                return false;
+            }
+
+            manager = this._managerFactory();
             // Unpackaged apps must subscribe before registration so activation stays in this process.
-            this._manager.NotificationInvoked += this.Manager_NotificationInvoked;
-            this._manager.Register(DisplayName, CreateIconUri());
+            manager.NotificationInvoked += this.Manager_NotificationInvoked;
+            manager.Register(DisplayName, CreateIconUri());
+            this._manager = manager;
             this._isRegistered = true;
             this._unavailableReason = null;
             return true;
@@ -48,7 +66,11 @@ internal sealed class WindowsNotificationService : IDisposable
             or InvalidOperationException
             or UnauthorizedAccessException)
         {
-            this._manager.NotificationInvoked -= this.Manager_NotificationInvoked;
+            if (manager is not null)
+            {
+                manager.NotificationInvoked -= this.Manager_NotificationInvoked;
+            }
+
             this._unavailableReason = DescribeRegistrationFailure(exception);
             System.Diagnostics.Debug.WriteLine(exception);
             return false;
@@ -58,7 +80,8 @@ internal sealed class WindowsNotificationService : IDisposable
     public NotificationDeliveryResult Show(NotificationMessage message)
     {
         ArgumentNullException.ThrowIfNull(message);
-        if (!this._isRegistered || this._isDisposed)
+        AppNotificationManager? manager = this._manager;
+        if (!this._isRegistered || this._isDisposed || manager is null)
         {
             return NotificationDeliveryResult.Failed(
                 this._unavailableReason ?? "Windows notification registration is unavailable.");
@@ -76,13 +99,13 @@ internal sealed class WindowsNotificationService : IDisposable
 
         try
         {
-            AppNotificationSetting setting = this._manager.Setting;
+            AppNotificationSetting setting = manager.Setting;
             if (setting != AppNotificationSetting.Enabled)
             {
                 return NotificationDeliveryResult.Failed(DescribeSetting(setting));
             }
 
-            this._manager.Show(builder.BuildNotification());
+            manager.Show(builder.BuildNotification());
             return NotificationDeliveryResult.Delivered;
         }
         catch (Exception exception) when (exception is COMException
@@ -122,12 +145,13 @@ internal sealed class WindowsNotificationService : IDisposable
         }
 
         this._isDisposed = true;
-        if (this._isRegistered)
+        AppNotificationManager? manager = this._manager;
+        if (this._isRegistered && manager is not null)
         {
-            this._manager.NotificationInvoked -= this.Manager_NotificationInvoked;
+            manager.NotificationInvoked -= this.Manager_NotificationInvoked;
             try
             {
-                this._manager.Unregister();
+                manager.Unregister();
             }
             catch (Exception exception) when (exception is COMException
                 or InvalidOperationException
@@ -138,6 +162,8 @@ internal sealed class WindowsNotificationService : IDisposable
 
             this._isRegistered = false;
         }
+
+        this._manager = null;
 
         GC.SuppressFinalize(this);
     }

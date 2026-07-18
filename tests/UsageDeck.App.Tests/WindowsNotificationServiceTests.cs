@@ -5,6 +5,24 @@ namespace UsageDeck.App.Tests;
 public sealed class WindowsNotificationServiceTests
 {
     [Fact]
+    public void UnsupportedBuildDoesNotAcquireTheNotificationManager()
+    {
+        int managerFactoryCalls = 0;
+        using WindowsNotificationService service = new(
+            supportProbe: () => false,
+            managerFactory: () =>
+            {
+                managerFactoryCalls++;
+                throw new InvalidOperationException("The manager must not be acquired when unsupported.");
+            });
+
+        bool initialised = service.Initialise();
+
+        Assert.False(initialised);
+        Assert.Equal(0, managerFactoryCalls);
+    }
+
+    [Fact]
     public void RegistrationUsesTheUsageDeckIdentity()
     {
         Uri iconUri = WindowsNotificationService.CreateIconUri();
