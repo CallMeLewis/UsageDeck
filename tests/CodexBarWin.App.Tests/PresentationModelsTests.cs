@@ -105,13 +105,56 @@ public sealed class PresentationModelsTests
 
         Assert.Equal("Updated just now · Codex CLI", model.UpdatedText);
         Assert.Equal("Updated just now", model.SummaryUpdatedText);
-        Assert.Equal("Pro Lite", model.PlanText);
+        Assert.Equal("Pro 5x", model.PlanText);
         Assert.Equal("CLI 0.144.5", model.CliVersionText);
         Assert.True(model.HasCliVersion);
         Assert.Equal("1 active limit", model.LimitsSummaryText);
         UsageWindowViewModel usage = Assert.Single(model.UsageWindows);
         Assert.Equal("42% used", usage.PercentText);
         Assert.Contains("Current session, 42% used", usage.AccessibleName, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("pro", "Pro 20x")]
+    [InlineData("prolite", "Pro 5x")]
+    [InlineData("pro_lite", "Pro 5x")]
+    [InlineData("pro-lite", "Pro 5x")]
+    [InlineData("pro lite", "Pro 5x")]
+    public void ApplySnapshotFormatsCodexProTiers(string plan, string expected)
+    {
+        DateTimeOffset now = new(2026, 7, 18, 12, 0, 0, TimeSpan.Zero);
+        ProviderTabViewModel model = new(ProviderId.Codex, "OpenAI Codex");
+        ProviderSnapshot snapshot = new(
+            ProviderId.Codex,
+            "OpenAI Codex",
+            "Codex CLI",
+            now,
+            UsageDataState.Fresh,
+            [],
+            new AccountIdentity(null, plan));
+
+        model.ApplySnapshot(snapshot, now, TimeDisplayPrecision.Seconds);
+
+        Assert.Equal(expected, model.PlanText);
+    }
+
+    [Fact]
+    public void ApplySnapshotDoesNotRelabelOtherProvidersProPlans()
+    {
+        DateTimeOffset now = new(2026, 7, 18, 12, 0, 0, TimeSpan.Zero);
+        ProviderTabViewModel model = new(ProviderId.Claude, "Claude");
+        ProviderSnapshot snapshot = new(
+            ProviderId.Claude,
+            "Claude",
+            "Claude Code",
+            now,
+            UsageDataState.Fresh,
+            [],
+            new AccountIdentity(null, "pro"));
+
+        model.ApplySnapshot(snapshot, now, TimeDisplayPrecision.Seconds);
+
+        Assert.Equal("Pro", model.PlanText);
     }
 
     [Fact]

@@ -386,7 +386,7 @@ public sealed class ProviderTabViewModel : INotifyPropertyChanged
         this._capturedAt = snapshot.CapturedAt;
         this._sourceDescription = snapshot.SourceDescription;
         this._state = snapshot.State;
-        this.PlanText = FormatPlanName(snapshot.Identity?.Plan);
+        this.PlanText = FormatPlanName(snapshot.ProviderId, snapshot.Identity?.Plan);
         this.CliVersionText = string.IsNullOrWhiteSpace(snapshot.CliVersion)
             ? string.Empty
             : $"CLI {snapshot.CliVersion}";
@@ -557,20 +557,30 @@ public sealed class ProviderTabViewModel : INotifyPropertyChanged
         this.OnPropertyChanged(nameof(this.ShowServiceStatusLink));
     }
 
-    private static string FormatPlanName(string? plan)
+    private static string FormatPlanName(ProviderId providerId, string? plan)
     {
         if (string.IsNullOrWhiteSpace(plan))
         {
             return string.Empty;
         }
 
-        return plan.Trim().ToLowerInvariant() switch
+        string normalizedPlan = plan.Trim().ToLowerInvariant();
+        if (providerId == ProviderId.Codex)
         {
-            "prolite" or "pro-lite" or "pro_lite" => "Pro Lite",
-            _ => CultureInfo.InvariantCulture.TextInfo.ToTitleCase(
-                plan.Trim().Replace('-', ' ').Replace('_', ' ').ToLowerInvariant()),
-        };
+            return normalizedPlan switch
+            {
+                "pro" => "Pro 20x",
+                "prolite" or "pro-lite" or "pro_lite" or "pro lite" => "Pro 5x",
+                _ => FormatGenericPlanName(plan),
+            };
+        }
+
+        return FormatGenericPlanName(plan);
     }
+
+    private static string FormatGenericPlanName(string plan) =>
+        CultureInfo.InvariantCulture.TextInfo.ToTitleCase(
+            plan.Trim().Replace('-', ' ').Replace('_', ' ').ToLowerInvariant());
 
     private static string FormatCredits(CreditBalance? credits)
     {
