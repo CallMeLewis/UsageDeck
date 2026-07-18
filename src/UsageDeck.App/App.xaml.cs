@@ -104,7 +104,7 @@ public partial class App : Application, IDisposable
 
     public ProviderStatusCoordinator StatusCoordinator { get; }
 
-    internal AppUpdateService UpdateService { get; }
+    internal AppUpdateService UpdateService { get; private set; }
 
     public static string VersionNumber { get; } = BuildInformation.Version;
 
@@ -252,15 +252,19 @@ public partial class App : Application, IDisposable
 
     private async Task CheckForAppUpdateInBackgroundAsync()
     {
-        if (!this.UpdateService.CanCheckForUpdates)
+        AppUpdateService updateService = this.UpdateService;
+        if (!updateService.CanCheckForUpdates)
         {
             return;
         }
 
         try
         {
-            await this.UpdateService.CheckForUpdatesAsync(this._shutdown.Token);
-            this.NotifyUpdateStateChanged();
+            await updateService.CheckForUpdatesAsync(this._shutdown.Token);
+            if (ReferenceEquals(updateService, this.UpdateService))
+            {
+                this.NotifyUpdateStateChanged();
+            }
         }
         catch (OperationCanceledException) when (this._shutdown.IsCancellationRequested)
         {
@@ -278,9 +282,19 @@ public partial class App : Application, IDisposable
     {
         bool automaticUpdateChecksWereEnabled = this._automaticUpdateChecksEnabled;
         this._automaticUpdateChecksEnabled = settings.CheckForUpdatesAutomatically;
+        bool updateChannelChanged = this.UpdateService.Channel != settings.UpdateChannel;
+        if (updateChannelChanged)
+        {
+            this.UpdateService = new AppUpdateService(
+                BuildInformation.UpdateRepository,
+                settings.UpdateChannel);
+            this.NotifyUpdateStateChanged();
+        }
+
         this.ConfigureProviderStatusMonitoring(settings);
         this.SettingsChanged?.Invoke(settings);
-        if (!automaticUpdateChecksWereEnabled && settings.CheckForUpdatesAutomatically)
+        if (settings.CheckForUpdatesAutomatically
+            && (!automaticUpdateChecksWereEnabled || updateChannelChanged))
         {
             _ = this.CheckForAppUpdateInBackgroundAsync();
         }

@@ -18,19 +18,18 @@ internal sealed class AppUpdateService
 
     public AppUpdateService(Uri? repository, AppUpdateChannel channel)
     {
+        this.Channel = channel;
         if (repository is null)
         {
             return;
         }
 
-        bool includePrereleases = channel switch
-        {
-            AppUpdateChannel.Stable => false,
-            _ => throw new ArgumentOutOfRangeException(nameof(channel)),
-        };
+        bool includePrereleases = ShouldIncludePrereleases(channel);
         GithubSource source = new(repository.AbsoluteUri, accessToken: null, prerelease: includePrereleases);
         this._updateManager = new UpdateManager(source);
     }
+
+    public AppUpdateChannel Channel { get; }
 
     public bool IsConfigured => this._updateManager is not null;
 
@@ -112,6 +111,13 @@ internal sealed class AppUpdateService
         or AcquireLockFailedException
         or ChecksumFailedException
         or NotInstalledException;
+
+    internal static bool ShouldIncludePrereleases(AppUpdateChannel channel) => channel switch
+    {
+        AppUpdateChannel.Stable => false,
+        AppUpdateChannel.Beta => true,
+        _ => throw new ArgumentOutOfRangeException(nameof(channel)),
+    };
 
     private UpdateManager GetAvailableManager()
     {

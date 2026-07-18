@@ -47,6 +47,7 @@ public enum OpenCodeGoUsageRange
 public enum AppUpdateChannel
 {
     Stable,
+    Beta,
 }
 
 public sealed record AppSettings(

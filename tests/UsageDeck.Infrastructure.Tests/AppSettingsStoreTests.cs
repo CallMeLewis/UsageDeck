@@ -275,17 +275,17 @@ public sealed class AppSettingsStoreTests : IDisposable
         AppSettings expected = AppSettings.Default with
         {
             CheckForUpdatesAutomatically = false,
-            UpdateChannel = AppUpdateChannel.Stable,
+            UpdateChannel = AppUpdateChannel.Beta,
         };
 
         await store.SaveAsync(expected);
         AppSettingsLoadResult actual = store.Load();
 
         Assert.False(actual.Settings.CheckForUpdatesAutomatically);
-        Assert.Equal(AppUpdateChannel.Stable, actual.Settings.UpdateChannel);
+        Assert.Equal(AppUpdateChannel.Beta, actual.Settings.UpdateChannel);
         string savedJson = await File.ReadAllTextAsync(Path.Combine(this._directory, "settings.json"));
         Assert.Contains("\"checkForUpdatesAutomatically\": false", savedJson, StringComparison.Ordinal);
-        Assert.Contains("\"updateChannel\": \"Stable\"", savedJson, StringComparison.Ordinal);
+        Assert.Contains("\"updateChannel\": \"Beta\"", savedJson, StringComparison.Ordinal);
     }
 
     [Fact]

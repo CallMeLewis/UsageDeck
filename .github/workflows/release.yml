@@ -45,6 +45,10 @@ jobs:
             throw "Tag '$env:GITHUB_REF_NAME' does not match Directory.Build.props version '$version'. Expected '$expectedTag'."
           }
 
+          $isPrerelease = $version.Contains('-')
+          "RELEASE_IS_PRERELEASE=$($isPrerelease.ToString().ToLowerInvariant())" |
+            Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
       - name: Verify CI passed
         shell: pwsh
         env:
@@ -88,8 +92,14 @@ jobs:
           } else {
             @('--generate-notes')
           }
+          $prereleaseArguments = if ($env:RELEASE_IS_PRERELEASE -eq 'true') {
+            @('--prerelease')
+          } else {
+            @()
+          }
 
           gh release create $env:GITHUB_REF_NAME @assets `
             --verify-tag `
+            @prereleaseArguments `
             @releaseNotesArguments `
             --title "UsageDeck $($env:GITHUB_REF_NAME.TrimStart('v'))"

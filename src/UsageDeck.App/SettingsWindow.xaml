@@ -925,6 +925,7 @@
                                                 AutomationProperties.Name="Application update channel"
                                                 SelectionChanged="UpdateChannelComboBox_SelectionChanged">
                                                 <ComboBoxItem Content="Stable" Tag="Stable" />
+                                                <ComboBoxItem Content="Beta" Tag="Beta" />
                                             </ComboBox>
                                         </Grid>
                                     </Border>
