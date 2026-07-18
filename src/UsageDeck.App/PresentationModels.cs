@@ -833,10 +833,14 @@ public sealed class ProviderStatusBrushConverter : IValueConverter
         new(Windows.UI.Color.FromArgb(255, 108, 203, 142));
     private static readonly SolidColorBrush DarkThemeWarningBrush =
         new(Windows.UI.Color.FromArgb(255, 251, 191, 36));
+    private static readonly SolidColorBrush DarkThemeNeutralBrush =
+        new(Windows.UI.Color.FromArgb(255, 255, 255, 255));
     private static readonly SolidColorBrush LightThemeSuccessBrush =
         new(Windows.UI.Color.FromArgb(255, 16, 124, 65));
     private static readonly SolidColorBrush LightThemeWarningBrush =
         new(Windows.UI.Color.FromArgb(255, 138, 75, 0));
+    private static readonly SolidColorBrush LightThemeNeutralBrush =
+        new(Windows.UI.Color.FromArgb(228, 0, 0, 0));
 
     public object Convert(object value, Type targetType, object parameter, string language)
     {
@@ -857,7 +861,7 @@ public sealed class ProviderStatusBrushConverter : IValueConverter
         {
             ProviderStatusVisualLevel.Success => isDark ? DarkThemeSuccessBrush : LightThemeSuccessBrush,
             ProviderStatusVisualLevel.Warning => isDark ? DarkThemeWarningBrush : LightThemeWarningBrush,
-            _ => new SolidColorBrush(foreground),
+            _ => isDark ? DarkThemeNeutralBrush : LightThemeNeutralBrush,
         };
     }
 
