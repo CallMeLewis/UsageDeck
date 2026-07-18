@@ -39,6 +39,12 @@ public sealed class AppSettingsStoreTests : IDisposable
         Assert.Equal(OpenCodeGoUsageRange.ThirtyDays, actual.Settings.OpenCodeGoUsageRange);
         Assert.True(actual.Settings.CheckForUpdatesAutomatically);
         Assert.Equal(AppUpdateChannel.Stable, actual.Settings.UpdateChannel);
+        Assert.True(actual.Settings.AreNotificationsEnabled);
+        Assert.Equal(AppSettings.Default.LimitThresholds, actual.Settings.LimitThresholds);
+        Assert.True(actual.Settings.NotifyLimitResets);
+        Assert.True(actual.Settings.NotifyCodexResetCredits);
+        Assert.True(actual.Settings.NotifyProviderStatusChanges);
+        Assert.True(actual.Settings.NotifyProviderConnectionChanges);
 
         string savedJson = await File.ReadAllTextAsync(Path.Combine(this._directory, "settings.json"));
         Assert.Contains("\"defaultProvider\": \"antigravity\"", savedJson, StringComparison.Ordinal);
@@ -374,6 +380,52 @@ public sealed class AppSettingsStoreTests : IDisposable
         AppSettings settings = new AppSettingsStore(path).Load().Settings;
 
         Assert.Equal(UsageValueDisplayMode.Used, settings.UsageValueDisplay);
+    }
+
+    [Fact]
+    public async Task SaveAndLoadRoundTripsNotificationPreferences()
+    {
+        AppSettingsStore store = new(Path.Combine(this._directory, "settings.json"));
+        AppSettings expected = AppSettings.Default with
+        {
+            AreNotificationsEnabled = false,
+            LimitThresholds = LimitNotificationThresholds.Remaining10,
+            NotifyLimitResets = false,
+            NotifyCodexResetCredits = false,
+            NotifyProviderStatusChanges = false,
+            NotifyProviderConnectionChanges = false,
+        };
+
+        await store.SaveAsync(expected);
+        AppSettingsLoadResult actual = store.Load();
+
+        Assert.False(actual.Settings.AreNotificationsEnabled);
+        Assert.Equal(LimitNotificationThresholds.Remaining10, actual.Settings.LimitThresholds);
+        Assert.False(actual.Settings.NotifyLimitResets);
+        Assert.False(actual.Settings.NotifyCodexResetCredits);
+        Assert.False(actual.Settings.NotifyProviderStatusChanges);
+        Assert.False(actual.Settings.NotifyProviderConnectionChanges);
+        string savedJson = await File.ReadAllTextAsync(Path.Combine(this._directory, "settings.json"));
+        Assert.Contains("\"areNotificationsEnabled\": false", savedJson, StringComparison.Ordinal);
+        Assert.Contains("\"limitNotificationThresholds\": \"Remaining10\"", savedJson, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LoadInvalidNotificationThresholdsFallsBackSafely()
+    {
+        Directory.CreateDirectory(this._directory);
+        string path = Path.Combine(this._directory, "settings.json");
+        File.WriteAllText(path, """
+            {
+              "enabledProviders": ["codex"],
+              "defaultProvider": "codex",
+              "limitNotificationThresholds": "Remaining20, FutureThreshold"
+            }
+            """);
+
+        AppSettings settings = new AppSettingsStore(path).Load().Settings;
+
+        Assert.Equal(AppSettings.Default.LimitThresholds, settings.LimitThresholds);
     }
 
     [Fact]

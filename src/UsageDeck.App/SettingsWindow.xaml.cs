@@ -54,6 +54,9 @@ public sealed partial class SettingsWindow : Window, IDisposable
         this.AppWindow.Changed += this.AppWindow_Changed;
         this.AppWindow.Closing += this.AppWindow_Closing;
 
+#if DEBUG
+        this.DebugNavigationItem.Visibility = Visibility.Visible;
+#endif
         this.SettingsNavigation.SelectedItem = this.SettingsNavigation.MenuItems[0];
         this.VersionText.Text = $"Version {App.VersionNumber}";
         this.LoadSettings(app.CurrentSettings);
@@ -69,6 +72,21 @@ public sealed partial class SettingsWindow : Window, IDisposable
             this.StatusMonitoringToggle.IsOn = settings.IsStatusMonitoringEnabled;
             this.CodexSparkCardToggle.IsOn = settings.ShowCodexSparkCard;
             this.AutomaticUpdatesToggle.IsOn = settings.CheckForUpdatesAutomatically;
+            this.NotificationsEnabledToggle.IsOn = settings.AreNotificationsEnabled;
+            this.NotificationOptionsPanel.IsEnabled = settings.AreNotificationsEnabled;
+            this.Threshold20CheckBox.IsChecked = settings.LimitThresholds.HasFlag(
+                LimitNotificationThresholds.Remaining20);
+            this.Threshold10CheckBox.IsChecked = settings.LimitThresholds.HasFlag(
+                LimitNotificationThresholds.Remaining10);
+            this.Threshold5CheckBox.IsChecked = settings.LimitThresholds.HasFlag(
+                LimitNotificationThresholds.Remaining5);
+            this.ThresholdExhaustedCheckBox.IsChecked = settings.LimitThresholds.HasFlag(
+                LimitNotificationThresholds.Exhausted);
+            this.LimitResetsToggle.IsOn = settings.NotifyLimitResets;
+            this.CodexResetCreditsToggle.IsOn = settings.NotifyCodexResetCredits;
+            this.ProviderStatusNotificationsToggle.IsOn = settings.NotifyProviderStatusChanges;
+            this.ProviderStatusNotificationsToggle.IsEnabled = settings.IsStatusMonitoringEnabled;
+            this.ProviderConnectionNotificationsToggle.IsOn = settings.NotifyProviderConnectionChanges;
             this.UpdateChannelComboBox.SelectedItem = this.UpdateChannelComboBox.Items
                 .OfType<ComboBoxItem>()
                 .First(item => string.Equals(
@@ -151,6 +169,7 @@ public sealed partial class SettingsWindow : Window, IDisposable
         }
 
         this.RefreshCodexPresentation();
+        this.RefreshNotificationPresentation(settings);
         this.RefreshOpenCodeGoPresentation(settings);
         this.RefreshZaiPresentation(settings);
         this.RefreshSelectedProviderStatus(settings);
@@ -202,6 +221,8 @@ public sealed partial class SettingsWindow : Window, IDisposable
         string tag = (args.SelectedItemContainer?.Tag as string) ?? "general";
         this.GeneralPanel.Visibility = tag == "general" ? Visibility.Visible : Visibility.Collapsed;
         this.AppearancePanel.Visibility = tag == "appearance" ? Visibility.Visible : Visibility.Collapsed;
+        this.NotificationsPanel.Visibility = tag == "notifications" ? Visibility.Visible : Visibility.Collapsed;
+        this.DebugPanel.Visibility = tag == "debug" ? Visibility.Visible : Visibility.Collapsed;
         this.AboutPanel.Visibility = tag == "about" ? Visibility.Visible : Visibility.Collapsed;
         if (tag == "about")
         {
@@ -302,6 +323,120 @@ public sealed partial class SettingsWindow : Window, IDisposable
         }
 
         await this.SaveSettingsAsync(settings => settings with { UsageValueDisplay = mode });
+    }
+
+    private async void NotificationsEnabledToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (this._isApplyingSettings)
+        {
+            return;
+        }
+
+        bool enabled = this.NotificationsEnabledToggle.IsOn;
+        this.NotificationOptionsPanel.IsEnabled = enabled;
+        await this.SaveSettingsAsync(settings => settings with { AreNotificationsEnabled = enabled });
+    }
+
+    private async void LimitThresholdCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (this._isApplyingSettings)
+        {
+            return;
+        }
+
+        LimitNotificationThresholds thresholds = LimitNotificationThresholds.None;
+        if (this.Threshold20CheckBox.IsChecked == true)
+        {
+            thresholds |= LimitNotificationThresholds.Remaining20;
+        }
+
+        if (this.Threshold10CheckBox.IsChecked == true)
+        {
+            thresholds |= LimitNotificationThresholds.Remaining10;
+        }
+
+        if (this.Threshold5CheckBox.IsChecked == true)
+        {
+            thresholds |= LimitNotificationThresholds.Remaining5;
+        }
+
+        if (this.ThresholdExhaustedCheckBox.IsChecked == true)
+        {
+            thresholds |= LimitNotificationThresholds.Exhausted;
+        }
+
+        await this.SaveSettingsAsync(settings => settings with { LimitThresholds = thresholds });
+    }
+
+    private async void LimitResetsToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (!this._isApplyingSettings)
+        {
+            await this.SaveSettingsAsync(settings => settings with
+            {
+                NotifyLimitResets = this.LimitResetsToggle.IsOn,
+            });
+        }
+    }
+
+    private async void CodexResetCreditsToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (!this._isApplyingSettings)
+        {
+            await this.SaveSettingsAsync(settings => settings with
+            {
+                NotifyCodexResetCredits = this.CodexResetCreditsToggle.IsOn,
+            });
+        }
+    }
+
+    private async void ProviderStatusNotificationsToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (!this._isApplyingSettings)
+        {
+            await this.SaveSettingsAsync(settings => settings with
+            {
+                NotifyProviderStatusChanges = this.ProviderStatusNotificationsToggle.IsOn,
+            });
+        }
+    }
+
+    private async void ProviderConnectionNotificationsToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (!this._isApplyingSettings)
+        {
+            await this.SaveSettingsAsync(settings => settings with
+            {
+                NotifyProviderConnectionChanges = this.ProviderConnectionNotificationsToggle.IsOn,
+            });
+        }
+    }
+
+    private void SendTestNotificationButton_Click(object sender, RoutedEventArgs e)
+    {
+#if DEBUG
+        if (this.DebugNotificationScenarioComboBox.SelectedItem is not ComboBoxItem item
+            || !Enum.TryParse(item.Tag?.ToString(), ignoreCase: false, out DebugNotificationScenario scenario))
+        {
+            this.ShowMessage("Choose a notification scenario to test.", InfoBarSeverity.Informational);
+            return;
+        }
+
+        NotificationDeliveryResult result = ((App)Application.Current).TryShowDebugNotification(scenario);
+        this.ShowMessage(
+            result.WasDelivered
+                ? "The test notification was sent to Windows."
+                : result.FailureMessage ?? "Windows notification delivery is unavailable.",
+            result.WasDelivered ? InfoBarSeverity.Success : InfoBarSeverity.Error);
+#endif
+    }
+
+    private void RefreshNotificationPresentation(AppSettings settings)
+    {
+        bool showRemaining = settings.UsageValueDisplay == UsageValueDisplayMode.Remaining;
+        this.Threshold20CheckBox.Content = showRemaining ? "20% remaining" : "80% used";
+        this.Threshold10CheckBox.Content = showRemaining ? "10% remaining" : "90% used";
+        this.Threshold5CheckBox.Content = showRemaining ? "5% remaining" : "95% used";
     }
 
     private async void StatusMonitoringToggle_Toggled(object sender, RoutedEventArgs e)

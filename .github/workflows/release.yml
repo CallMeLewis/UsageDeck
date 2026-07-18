@@ -6,7 +6,6 @@ on:
       - v*.*.*
 
 permissions:
-  actions: read
   contents: write
 
 concurrency:
@@ -49,31 +48,11 @@ jobs:
           "RELEASE_IS_PRERELEASE=$($isPrerelease.ToString().ToLowerInvariant())" |
             Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
-      - name: Verify CI passed
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          $runs = @(
-            gh run list `
-              --repo $env:GITHUB_REPOSITORY `
-              --workflow CI `
-              --commit $env:GITHUB_SHA `
-              --event push `
-              --limit 1 `
-              --json status,conclusion | ConvertFrom-Json
-          )
-          if ($runs.Count -ne 1 -or
-              $runs[0].status -ne 'completed' -or
-              $runs[0].conclusion -ne 'success') {
-            throw "The tagged commit must have a successful CI run before it can be released."
-          }
-
-      - name: Build Velopack packages
+      - name: Test and build Velopack packages
         shell: pwsh
         run: |
           $repositoryUrl = "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY"
-          .\tools\Publish-Release.ps1 -RepositoryUrl $repositoryUrl -SkipTests
+          .\tools\Publish-Release.ps1 -RepositoryUrl $repositoryUrl
 
       - name: Publish GitHub release
         shell: pwsh

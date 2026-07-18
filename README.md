@@ -15,9 +15,11 @@ UsageDeck brings usage from several coding assistants into one compact WinUI 3 w
 - One compact view for every enabled provider, plus an optional **All** summary.
 - Used or remaining quota percentages, reset countdowns or exact local times, freshness, and error states.
 - Optional official service-status monitoring for enabled providers, with incident warnings on affected tabs.
+- Configurable Windows notifications for limit thresholds and resets, Codex reset credits, provider incidents, sign-in requirements, repeated refresh failures, and recoveries.
 - Automatic refresh every 1, 5, 15, or 30 minutes, with manual refresh at any time.
 - System, light, and dark themes with optional Mica.
-- Settings stored per Windows user under the legacy `%LOCALAPPDATA%\CodexBarWin` path so upgrades retain existing preferences.
+- Settings stored per Windows user under `%LOCALAPPDATA%\UsageDeck`.
+- UsageDeck-branded application, installer, executable, and update packages.
 - Built-in updates through versioned Velopack releases.
 
 ## Supported providers
@@ -62,10 +64,10 @@ Install the .NET 10 SDK, then run:
 dotnet restore src/UsageDeck.App/UsageDeck.App.csproj -r win-x64
 dotnet build src/UsageDeck.App/UsageDeck.App.csproj -c Debug --no-restore
 dotnet test UsageDeck.slnx -c Debug -p:SkipReleaseArtifacts=true
-& src/UsageDeck.App/bin/Debug/net10.0-windows10.0.26100.0/win-x64/CodexBarWin.App.exe
+& src/UsageDeck.App/bin/Debug/net10.0-windows10.0.26100.0/win-x64/UsageDeck.App.exe
 ```
 
-Visual Studio users can open `UsageDeck.slnx` and select the shared **UsageDeck** launch profile. The legacy executable, package ID and local-data identities are retained so existing installations can update without losing their settings or saved credentials.
+Visual Studio users can open `UsageDeck.slnx` and select the shared **UsageDeck** launch profile. The legacy package ID and local-data identities are retained so existing installations can update without losing their settings or saved credentials; upgraded installations remove the obsolete executable launcher.
 
 ## Releases
 

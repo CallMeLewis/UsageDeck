@@ -45,7 +45,7 @@ public sealed class KiroUsageProvider(
 
         string workingDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            LegacyInstallIdentity.LocalDataDirectoryName,
+            ApplicationIdentity.LocalDataDirectoryName,
             "KiroProbe");
         Directory.CreateDirectory(workingDirectory);
 

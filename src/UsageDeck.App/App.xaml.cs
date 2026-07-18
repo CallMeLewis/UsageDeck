@@ -1,4 +1,5 @@
 using UsageDeck.Core.Providers;
+using UsageDeck.Core.Notifications;
 using UsageDeck.Infrastructure.Compatibility;
 using UsageDeck.Infrastructure.Processes;
 using UsageDeck.Infrastructure.Providers.Amp;
@@ -27,6 +28,8 @@ public partial class App : Application, IDisposable
     private readonly DispatcherQueue _dispatcherQueue;
     private readonly HttpClient _httpClient;
     private readonly OpenCodeGoApiKeyResolver _openCodeGoApiKeys;
+    private readonly NotificationEvaluator _notificationEvaluator = new();
+    private readonly WindowsNotificationService _notificationService;
     private readonly SemaphoreSlim _providerStatusRefreshLock = new(1, 1);
     private readonly DispatcherTimer _providerStatusTimer = new() { Interval = TimeSpan.FromMinutes(5) };
     private readonly ZaiApiKeyResolver _zaiApiKeys;
@@ -52,10 +55,10 @@ public partial class App : Application, IDisposable
         this._automaticUpdateChecksEnabled = settings.Settings.CheckForUpdatesAutomatically;
         this._httpClient = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
         this._zaiApiKeys = new ZaiApiKeyResolver(
-            new WindowsCredentialManagerSecretStore(LegacyInstallIdentity.CredentialTargetPrefix),
+            new WindowsCredentialManagerSecretStore(ApplicationIdentity.CredentialTargetPrefix),
             () => this.CurrentSettings.ZaiApiKeyStorage);
         this._openCodeGoApiKeys = new OpenCodeGoApiKeyResolver(
-            new WindowsCredentialManagerSecretStore(LegacyInstallIdentity.CredentialTargetPrefix),
+            new WindowsCredentialManagerSecretStore(ApplicationIdentity.CredentialTargetPrefix),
             () => this.CurrentSettings.OpenCodeGoApiKeyStorage);
         this.UpdateService = new AppUpdateService(
             BuildInformation.UpdateRepository,
@@ -97,6 +100,12 @@ public partial class App : Application, IDisposable
         this.StatusCoordinator = new ProviderStatusCoordinator(
             ProviderStatusSources.Create(this._httpClient),
             this._shutdown.Token);
+        this.RefreshCoordinator.SnapshotChanged += this.RefreshCoordinator_SnapshotChanged;
+        this.StatusCoordinator.SnapshotChanged += this.StatusCoordinator_SnapshotChanged;
+        this._notificationEvaluator.RetainProviders(settings.Settings.EnabledProviders);
+        this._notificationService = new WindowsNotificationService();
+        this._notificationService.Activated += this.NotificationService_Activated;
+        this._notificationService.Initialise();
         this._providerStatusTimer.Tick += this.ProviderStatusTimer_Tick;
     }
 
@@ -121,6 +130,17 @@ public partial class App : Application, IDisposable
     internal event Action? ProviderStatusStateChanged;
 
     internal bool IsProviderStatusRefreshInProgress { get; private set; }
+
+#if DEBUG
+    internal NotificationDeliveryResult TryShowDebugNotification(DebugNotificationScenario scenario)
+    {
+        UsageNotificationEvent notification = DebugNotificationSamples.Create(scenario);
+        NotificationMessage message = NotificationMessageFormatter.Format(
+            notification,
+            this.CurrentSettings.UsageValueDisplay);
+        return this._notificationService.Show(message);
+    }
+#endif
 
     internal static bool IsHighContrastEnabled =>
         Current is App app && app._isHighContrastEnabled;
@@ -195,7 +215,7 @@ public partial class App : Application, IDisposable
 
     protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {
-        AppInstance mainInstance = AppInstance.FindOrRegisterForKey(LegacyInstallIdentity.MainInstanceKey);
+        AppInstance mainInstance = AppInstance.FindOrRegisterForKey(ApplicationIdentity.MainInstanceKey);
         if (!mainInstance.IsCurrent)
         {
             AppActivationArguments activation = AppInstance.GetCurrent().GetActivatedEventArgs();
@@ -276,7 +296,97 @@ public partial class App : Application, IDisposable
     }
 
     private void MainInstance_Activated(object? sender, AppActivationArguments args) =>
-        _ = this._dispatcherQueue.TryEnqueue(this.ShowMainWindow);
+        _ = this._dispatcherQueue.TryEnqueue(() => this.ShowMainWindow());
+
+    private void NotificationService_Activated(ProviderId? providerId) =>
+        _ = this._dispatcherQueue.TryEnqueue(() => this.ShowMainWindow(providerId));
+
+    private void RefreshCoordinator_SnapshotChanged(object? sender, ProviderSnapshot snapshot)
+    {
+        AppSettings settings = this.CurrentSettings;
+        IReadOnlyList<UsageNotificationEvent> notifications = this._notificationEvaluator.EvaluateUsage(
+            snapshot,
+            CreateNotificationOptions(settings));
+        this.ShowNotifications(notifications, settings.UsageValueDisplay);
+    }
+
+    private void StatusCoordinator_SnapshotChanged(
+        object? sender,
+        ProviderServiceStatusSnapshot snapshot)
+    {
+        AppSettings settings = this.CurrentSettings;
+        IReadOnlyList<UsageNotificationEvent> notifications = this._notificationEvaluator.EvaluateStatus(
+            snapshot,
+            CreateNotificationOptions(settings));
+        this.ShowNotifications(notifications, settings.UsageValueDisplay);
+    }
+
+    private void ShowNotifications(
+        IReadOnlyList<UsageNotificationEvent> notifications,
+        UsageValueDisplayMode displayMode)
+    {
+        if (notifications.Count == 0)
+        {
+            return;
+        }
+
+        NotificationMessage[] messages = notifications
+            .Select(notification => NotificationMessageFormatter.Format(notification, displayMode))
+            .ToArray();
+        _ = this._dispatcherQueue.TryEnqueue(() =>
+        {
+            if (!this.CurrentSettings.AreNotificationsEnabled)
+            {
+                return;
+            }
+
+            foreach (NotificationMessage message in messages)
+            {
+                _ = this._notificationService.Show(message);
+            }
+        });
+    }
+
+    private static NotificationEvaluationOptions CreateNotificationOptions(AppSettings settings)
+    {
+        if (!settings.AreNotificationsEnabled)
+        {
+            return new NotificationEvaluationOptions(
+                [],
+                notifyLimitResets: false,
+                notifyCodexResetCredits: false,
+                notifyProviderStatusChanges: false,
+                notifyProviderConnectionChanges: false);
+        }
+
+        List<int> thresholds = [];
+        if (settings.LimitThresholds.HasFlag(LimitNotificationThresholds.Remaining20))
+        {
+            thresholds.Add(20);
+        }
+
+        if (settings.LimitThresholds.HasFlag(LimitNotificationThresholds.Remaining10))
+        {
+            thresholds.Add(10);
+        }
+
+        if (settings.LimitThresholds.HasFlag(LimitNotificationThresholds.Remaining5))
+        {
+            thresholds.Add(5);
+        }
+
+        if (settings.LimitThresholds.HasFlag(LimitNotificationThresholds.Exhausted))
+        {
+            thresholds.Add(0);
+        }
+
+        return new NotificationEvaluationOptions(
+            thresholds,
+            settings.NotifyLimitResets,
+            settings.NotifyCodexResetCredits,
+            settings.NotifyProviderStatusChanges,
+            settings.NotifyProviderConnectionChanges);
+    }
 
     private void SettingsManager_Changed(AppSettings settings)
     {
@@ -292,6 +402,7 @@ public partial class App : Application, IDisposable
         }
 
         this.ConfigureProviderStatusMonitoring(settings);
+        this._notificationEvaluator.RetainProviders(settings.EnabledProviders);
         this.SettingsChanged?.Invoke(settings);
         if (settings.CheckForUpdatesAutomatically
             && (!automaticUpdateChecksWereEnabled || updateChannelChanged))
@@ -370,9 +481,14 @@ public partial class App : Application, IDisposable
     }
 
 
-    private void ShowMainWindow()
+    private void ShowMainWindow(ProviderId? providerId = null)
     {
         this._window ??= new MainWindow();
+        if (providerId is ProviderId provider)
+        {
+            this._window.SelectProvider(provider);
+        }
+
         this._window.AppWindow.Show();
         this._window.Activate();
     }
@@ -413,6 +529,11 @@ public partial class App : Application, IDisposable
         {
             this._mainInstance.Activated -= this.MainInstance_Activated;
         }
+
+        this.RefreshCoordinator.SnapshotChanged -= this.RefreshCoordinator_SnapshotChanged;
+        this.StatusCoordinator.SnapshotChanged -= this.StatusCoordinator_SnapshotChanged;
+        this._notificationService.Activated -= this.NotificationService_Activated;
+        this._notificationService.Dispose();
 
         this._settingsManager.Dispose();
         this._openCodeGoApiKeys.Dispose();

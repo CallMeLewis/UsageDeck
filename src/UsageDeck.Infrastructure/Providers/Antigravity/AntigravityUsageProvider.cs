@@ -42,7 +42,7 @@ public sealed class AntigravityUsageProvider(
 
         string workingDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            LegacyInstallIdentity.LocalDataDirectoryName,
+            ApplicationIdentity.LocalDataDirectoryName,
             "AntigravityProbe");
         Directory.CreateDirectory(workingDirectory);
 

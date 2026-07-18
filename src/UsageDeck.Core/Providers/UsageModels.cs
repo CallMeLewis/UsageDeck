@@ -108,7 +108,8 @@ public sealed record ProviderSnapshot
         CreditBalance? credits = null,
         RateLimitResetCredits? resetCredits = null,
         string? safeError = null,
-        string? cliVersion = null)
+        string? cliVersion = null,
+        ProviderErrorCategory? errorCategory = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
         ArgumentException.ThrowIfNullOrWhiteSpace(sourceDescription);
@@ -124,6 +125,7 @@ public sealed record ProviderSnapshot
         this.ResetCredits = resetCredits;
         this.SafeError = string.IsNullOrWhiteSpace(safeError) ? null : safeError.Trim();
         this.CliVersion = string.IsNullOrWhiteSpace(cliVersion) ? null : cliVersion.Trim();
+        this.ErrorCategory = errorCategory;
     }
 
     public ProviderId ProviderId { get; }
@@ -148,11 +150,16 @@ public sealed record ProviderSnapshot
 
     public string? CliVersion { get; }
 
+    public ProviderErrorCategory? ErrorCategory { get; }
+
     public double HighestUsedPercent => this.UsageWindows.Count == 0
         ? 0
         : this.UsageWindows.Max(window => window.UsedPercent);
 
-    public ProviderSnapshot WithFailure(UsageDataState state, string safeError) => new(
+    public ProviderSnapshot WithFailure(
+        UsageDataState state,
+        string safeError,
+        ProviderErrorCategory? errorCategory = null) => new(
         this.ProviderId,
         this.DisplayName,
         this.SourceDescription,
@@ -163,7 +170,8 @@ public sealed record ProviderSnapshot
         this.Credits,
         this.ResetCredits,
         safeError,
-        this.CliVersion);
+        this.CliVersion,
+        errorCategory);
 
     public ProviderSnapshot WithCliVersion(string? cliVersion) => new(
         this.ProviderId,
@@ -176,5 +184,6 @@ public sealed record ProviderSnapshot
         this.Credits,
         this.ResetCredits,
         this.SafeError,
-        cliVersion);
+        cliVersion,
+        this.ErrorCategory);
 }

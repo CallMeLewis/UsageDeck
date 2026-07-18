@@ -50,6 +50,17 @@ public enum AppUpdateChannel
     Beta,
 }
 
+[Flags]
+public enum LimitNotificationThresholds
+{
+    None = 0,
+    Remaining20 = 1 << 0,
+    Remaining10 = 1 << 1,
+    Remaining5 = 1 << 2,
+    Exhausted = 1 << 3,
+    All = Remaining20 | Remaining10 | Remaining5 | Exhausted,
+}
+
 public sealed record AppSettings(
     IReadOnlyList<ProviderId> EnabledProviders,
     ProviderId DefaultProvider,
@@ -66,7 +77,16 @@ public sealed record AppSettings(
     ApiKeyStorageMode OpenCodeGoApiKeyStorage = ApiKeyStorageMode.WindowsCredentialManager,
     OpenCodeGoUsageRange OpenCodeGoUsageRange = OpenCodeGoUsageRange.ThirtyDays,
     bool CheckForUpdatesAutomatically = true,
-    AppUpdateChannel UpdateChannel = AppUpdateChannel.Stable)
+    AppUpdateChannel UpdateChannel = AppUpdateChannel.Stable,
+    bool AreNotificationsEnabled = true,
+    LimitNotificationThresholds LimitThresholds =
+        LimitNotificationThresholds.Remaining20
+        | LimitNotificationThresholds.Remaining5
+        | LimitNotificationThresholds.Exhausted,
+    bool NotifyLimitResets = true,
+    bool NotifyCodexResetCredits = true,
+    bool NotifyProviderStatusChanges = true,
+    bool NotifyProviderConnectionChanges = true)
 {
     public static AppSettings Default { get; } = new([ProviderId.Codex, ProviderId.Claude], ProviderId.Codex);
 }
@@ -87,7 +107,7 @@ public sealed class AppSettingsStore
     {
         this._path = path ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            LegacyInstallIdentity.LocalDataDirectoryName,
+            ApplicationIdentity.LocalDataDirectoryName,
             "settings.json");
     }
 
@@ -191,6 +211,8 @@ public sealed class AppSettingsStore
                 && Enum.IsDefined(parsedUpdateChannel)
                     ? parsedUpdateChannel
                     : AppUpdateChannel.Stable;
+            LimitNotificationThresholds limitThresholds = ParseLimitNotificationThresholds(
+                document.LimitNotificationThresholds);
 
             string? warning = savedEnabled.Length == enabled.Length
                 ? null
@@ -212,7 +234,13 @@ public sealed class AppSettingsStore
                     openCodeGoApiKeyStorage,
                     openCodeGoUsageRange,
                     document.CheckForUpdatesAutomatically ?? true,
-                    updateChannel),
+                    updateChannel,
+                    document.AreNotificationsEnabled ?? true,
+                    limitThresholds,
+                    document.NotifyLimitResets ?? true,
+                    document.NotifyCodexResetCredits ?? true,
+                    document.NotifyProviderStatusChanges ?? true,
+                    document.NotifyProviderConnectionChanges ?? true),
                 warning);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
@@ -248,6 +276,10 @@ public sealed class AppSettingsStore
         {
             throw new ArgumentException("The refresh interval is not supported.", nameof(settings));
         }
+        if ((settings.LimitThresholds & ~LimitNotificationThresholds.All) != 0)
+        {
+            throw new ArgumentException("Notification thresholds are invalid.", nameof(settings));
+        }
 
         string? directory = Path.GetDirectoryName(this._path);
         if (string.IsNullOrEmpty(directory))
@@ -273,7 +305,13 @@ public sealed class AppSettingsStore
             settings.OpenCodeGoApiKeyStorage.ToString(),
             settings.OpenCodeGoUsageRange.ToString(),
             settings.CheckForUpdatesAutomatically,
-            settings.UpdateChannel.ToString());
+            settings.UpdateChannel.ToString(),
+            settings.AreNotificationsEnabled,
+            settings.LimitThresholds.ToString(),
+            settings.NotifyLimitResets,
+            settings.NotifyCodexResetCredits,
+            settings.NotifyProviderStatusChanges,
+            settings.NotifyProviderConnectionChanges);
 
         try
         {
@@ -305,6 +343,18 @@ public sealed class AppSettingsStore
     private static bool IsSupportedProvider(ProviderId providerId) =>
         ProviderId.Supported.Contains(providerId);
 
+    private static LimitNotificationThresholds ParseLimitNotificationThresholds(string? value)
+    {
+        LimitNotificationThresholds fallback = AppSettings.Default.LimitThresholds;
+        if (!Enum.TryParse(value, ignoreCase: true, out LimitNotificationThresholds parsed)
+            || (parsed & ~LimitNotificationThresholds.All) != 0)
+        {
+            return fallback;
+        }
+
+        return parsed;
+    }
+
     private sealed record SettingsDocument(
         string[] EnabledProviders,
         string? DefaultProvider = null,
@@ -322,6 +372,12 @@ public sealed class AppSettingsStore
         string? OpenCodeGoUsageRange = null,
         bool? CheckForUpdatesAutomatically = null,
         string? UpdateChannel = null,
+        bool? AreNotificationsEnabled = null,
+        string? LimitNotificationThresholds = null,
+        bool? NotifyLimitResets = null,
+        bool? NotifyCodexResetCredits = null,
+        bool? NotifyProviderStatusChanges = null,
+        bool? NotifyProviderConnectionChanges = null,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         string? SelectedProvider = null);
 }

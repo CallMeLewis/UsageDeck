@@ -121,7 +121,7 @@ public sealed class ProviderRefreshCoordinator
     {
         if (this._snapshots.TryGetValue(provider.Id, out ProviderSnapshot? previous))
         {
-            return previous.WithFailure(UsageDataState.Stale, safeMessage);
+            return previous.WithFailure(UsageDataState.Stale, safeMessage, category);
         }
 
         UsageDataState state = category == ProviderErrorCategory.AuthenticationRequired
@@ -134,7 +134,8 @@ public sealed class ProviderRefreshCoordinator
             "No source",
             DateTimeOffset.MinValue,
             state,
-            safeError: safeMessage);
+            safeError: safeMessage,
+            errorCategory: category);
     }
 
     private async Task<string?> ReadCliVersionSafelyAsync(IUsageProvider provider)

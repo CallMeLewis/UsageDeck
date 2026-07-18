@@ -40,7 +40,7 @@ public sealed class ClaudeUsageProvider(
 
         string workingDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            LegacyInstallIdentity.LocalDataDirectoryName,
+            ApplicationIdentity.LocalDataDirectoryName,
             "ClaudeProbe");
         Directory.CreateDirectory(workingDirectory);
 

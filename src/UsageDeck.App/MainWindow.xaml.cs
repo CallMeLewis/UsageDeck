@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Windows.Input;
+using UsageDeck.Core.Providers;
 using UsageDeck.Infrastructure.Settings;
 using Microsoft.UI.System;
 using Microsoft.UI.Windowing;
@@ -69,6 +70,14 @@ public sealed partial class MainWindow : Window
     {
         App.ApplyWindowAppearance(this, this.RootLayout, this.SolidBackground, settings);
         App.ApplyCaptionButtonColours(this, this.RootLayout);
+    }
+
+    internal void SelectProvider(ProviderId providerId)
+    {
+        if (this.RootFrame.Content is MainPage page)
+        {
+            page.SelectProvider(providerId);
+        }
     }
 
     private void InitialiseThemeSettings(App app)

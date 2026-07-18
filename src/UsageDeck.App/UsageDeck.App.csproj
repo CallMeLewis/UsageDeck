@@ -4,8 +4,7 @@
     <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.26100.0</TargetPlatformMinVersion>
     <RootNamespace>UsageDeck.App</RootNamespace>
-    <!-- Retained for in-place Velopack upgrades from releases published before the rebrand. -->
-    <AssemblyName>CodexBarWin.App</AssemblyName>
+    <AssemblyName>UsageDeck.App</AssemblyName>
     <AssemblyTitle>UsageDeck</AssemblyTitle>
     <Product>UsageDeck</Product>
     <Description>A native Windows tray app for monitoring AI coding usage, limits, and reset times.</Description>
@@ -19,7 +18,8 @@
     <WinUISDKReferences>false</WinUISDKReferences>
     <!-- UsageDeck is distributed as a portable runtime folder, never as MSIX. -->
     <WindowsPackageType>None</WindowsPackageType>
-    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <!-- Local builds use the installed runtime so AppNotificationManager can reach its Singleton package. -->
+    <WindowsAppSDKSelfContained>false</WindowsAppSDKSelfContained>
     <EnableMsixTooling>false</EnableMsixTooling>
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
   </PropertyGroup>
@@ -86,9 +86,9 @@
     <Exec Command="dotnet publish &quot;$(MSBuildProjectFullPath)&quot; -c Release -p:PublishProfile=Release-Unbundled-win-x64 -p:SkipReleaseArtifacts=true --nologo" />
     <Exec Command="dotnet publish &quot;$(MSBuildProjectFullPath)&quot; -c Release -p:PublishProfile=Release-Bundled-win-x64 -p:SkipReleaseArtifacts=true --nologo" />
 
-    <Error Condition="!Exists('$(UnbundledArtifactPath)\CodexBarWin.App.exe') or !Exists('$(UnbundledArtifactPath)\CodexBarWin.App.pri')" Text="The unbundled Release artifact is incomplete." />
+    <Error Condition="!Exists('$(UnbundledArtifactPath)\UsageDeck.App.exe') or !Exists('$(UnbundledArtifactPath)\UsageDeck.App.pri')" Text="The unbundled Release artifact is incomplete." />
     <Error Condition="Exists('$(UnbundledArtifactPath)\coreclr.dll')" Text="The unbundled Release artifact unexpectedly contains the .NET runtime." />
-    <Error Condition="!Exists('$(BundledArtifactPath)\CodexBarWin.App.exe') or !Exists('$(BundledArtifactPath)\CodexBarWin.App.pri')" Text="The bundled Release artifact is incomplete." />
+    <Error Condition="!Exists('$(BundledArtifactPath)\UsageDeck.App.exe') or !Exists('$(BundledArtifactPath)\UsageDeck.App.pri')" Text="The bundled Release artifact is incomplete." />
     <Error Condition="!Exists('$(BundledArtifactPath)\coreclr.dll') or !Exists('$(BundledArtifactPath)\Microsoft.UI.Xaml.dll')" Text="The bundled Release artifact is missing an embedded runtime." />
 
   </Target>
@@ -107,7 +107,7 @@
       SourceFiles="@(LocalProductionFile)"
       DestinationFiles="@(LocalProductionFile->'$(LocalProductionPath)\%(RecursiveDir)%(Filename)%(Extension)')" />
 
-    <Error Condition="!Exists('$(LocalProductionPath)\CodexBarWin.App.exe') or !Exists('$(LocalProductionPath)\CodexBarWin.App.pri')" Text="The local production copy is incomplete." />
+    <Error Condition="!Exists('$(LocalProductionPath)\UsageDeck.App.exe') or !Exists('$(LocalProductionPath)\UsageDeck.App.pri')" Text="The local production copy is incomplete." />
     <Error Condition="Exists('$(LocalProductionPath)\coreclr.dll')" Text="The local production copy unexpectedly contains the .NET runtime." />
   </Target>
 </Project>

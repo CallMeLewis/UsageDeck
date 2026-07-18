@@ -7,11 +7,6 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-# Continue accepting the pre-rebrand variable for existing release environments.
-if ([string]::IsNullOrWhiteSpace($RepositoryUrl)) {
-    $RepositoryUrl = $env:CODEXBAR_UPDATE_REPOSITORY_URL
-}
-
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $projectPath = Join-Path $repositoryRoot 'src\UsageDeck.App\UsageDeck.App.csproj'
 $solutionPath = Join-Path $repositoryRoot 'UsageDeck.slnx'
@@ -100,8 +95,8 @@ try {
     }
 
     $requiredFiles = @(
-        'CodexBarWin.App.exe',
-        'CodexBarWin.App.pri',
+        'UsageDeck.App.exe',
+        'UsageDeck.App.pri',
         'Microsoft.UI.Xaml.dll',
         'Assets\AppIcon.ico',
         'Assets\AppIcon.png'
@@ -116,12 +111,11 @@ try {
     }
 
     Write-Host 'Creating the Velopack release assets...'
-    # Keep the legacy package ID and executable name so existing installations update in place.
     & dotnet tool run vpk -- pack `
-        --packId CodexBarWin `
+        --packId UsageDeck `
         --packVersion $version `
         --packDir $publishDirectory `
-        --mainExe CodexBarWin.App.exe `
+        --mainExe UsageDeck.App.exe `
         --packTitle 'UsageDeck' `
         --icon $iconPath `
         --runtime win-x64 `

@@ -123,6 +123,15 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
 
     public Task RefreshAllAsync() => this.RefreshProvidersAsync(this.Providers);
 
+    internal void SelectProvider(ProviderId providerId)
+    {
+        ProviderTabViewModel? provider = this.Providers.FirstOrDefault(candidate => candidate.Id == providerId);
+        if (provider is not null)
+        {
+            this.SelectedProvider = provider;
+        }
+    }
+
     private async Task RefreshProvidersAsync(IEnumerable<ProviderTabViewModel> providers)
     {
         ProviderTabViewModel[] providersToRefresh = providers.Where(provider => !provider.IsAll).ToArray();

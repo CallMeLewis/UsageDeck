@@ -62,6 +62,7 @@ public sealed class ProviderRefreshCoordinatorTests
 
         Assert.Equal(UsageDataState.Fresh, fresh.State);
         Assert.Equal(UsageDataState.Stale, stale.State);
+        Assert.Equal(ProviderErrorCategory.Transient, stale.ErrorCategory);
         Assert.Equal(fresh.CapturedAt, stale.CapturedAt);
         Assert.Equal("Codex is temporarily unavailable.", stale.SafeError);
         Assert.Single(stale.UsageWindows);
@@ -81,6 +82,7 @@ public sealed class ProviderRefreshCoordinatorTests
         ProviderSnapshot snapshot = await coordinator.RefreshAsync(ProviderId.Codex);
 
         Assert.Equal(UsageDataState.AuthenticationRequired, snapshot.State);
+        Assert.Equal(ProviderErrorCategory.AuthenticationRequired, snapshot.ErrorCategory);
         Assert.Equal("0.144.5", snapshot.CliVersion);
     }
 
