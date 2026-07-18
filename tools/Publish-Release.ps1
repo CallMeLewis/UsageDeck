@@ -83,6 +83,18 @@ try {
         }
     }
 
+    # The test build is framework-dependent while the release is self-contained. WinUI's
+    # incremental PRI generation does not reliably notice that deployment-mode change,
+    # so remove the shared Release intermediates before producing the release payload.
+    Write-Host 'Cleaning Release intermediates before the self-contained publish...'
+    & dotnet clean $projectPath `
+        -c Release `
+        -p:SkipReleaseArtifacts=true `
+        --nologo
+    if ($LASTEXITCODE -ne 0) {
+        throw "Release clean failed with exit code $LASTEXITCODE."
+    }
+
     Write-Host 'Publishing the self-contained Windows application...'
     & dotnet publish $projectPath `
         -c Release `
@@ -99,6 +111,8 @@ try {
     $requiredFiles = @(
         'UsageDeck.App.exe',
         'UsageDeck.App.pri',
+        'Microsoft.UI.pri',
+        'Microsoft.UI.Xaml.Controls.pri',
         'Microsoft.UI.Xaml.dll',
         'Assets\AppIcon.ico',
         'Assets\AppIcon.png'
@@ -110,6 +124,17 @@ try {
     )
     if ($missingFiles.Count -gt 0) {
         throw "Portable publish is incomplete. Missing: $($missingFiles -join ', ')"
+    }
+
+    $appPri = Get-Item -LiteralPath (Join-Path $publishDirectory 'UsageDeck.App.pri')
+    $winUiPriBytes = @(
+        'Microsoft.UI.pri',
+        'Microsoft.UI.Xaml.Controls.pri'
+    ) | ForEach-Object {
+        (Get-Item -LiteralPath (Join-Path $publishDirectory $_)).Length
+    } | Measure-Object -Sum | Select-Object -ExpandProperty Sum
+    if ($appPri.Length -le $winUiPriBytes) {
+        throw 'Portable publish has an incomplete application PRI. WinUI resources were not merged; clean the Release intermediates and rebuild.'
     }
 
     Write-Host 'Creating the Velopack release assets...'
