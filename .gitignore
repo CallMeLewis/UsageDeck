@@ -8,6 +8,7 @@ artifacts/
 tmp/
 
 # Local product and implementation notes
+AGENTS.md
 DESIGN.md
 PRODUCT.md
 docs/
