@@ -75,6 +75,8 @@ try {
         & dotnet test $solutionPath `
             -c Release `
             -p:SkipReleaseArtifacts=true `
+            -p:WindowsAppSdkBootstrapInitialize=false `
+            --blame-hang-timeout 2m `
             --nologo
         if ($LASTEXITCODE -ne 0) {
             throw "Release tests failed with exit code $LASTEXITCODE."
