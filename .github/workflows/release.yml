@@ -87,20 +87,20 @@ jobs:
           }
 
           $releaseNotesPath = ".github\release-notes\$env:GITHUB_REF_NAME.md"
-          $releaseNotesArguments = if (Test-Path -LiteralPath $releaseNotesPath -PathType Leaf) {
-            @('--notes-file', $releaseNotesPath)
-          } else {
-            @('--generate-notes')
-          }
-          $prereleaseArguments = if ($env:RELEASE_IS_PRERELEASE -eq 'true') {
-            @('--prerelease')
-          } else {
-            @()
-          }
+          $releaseTitle = "UsageDeck $($env:GITHUB_REF_NAME.TrimStart('v'))"
+          $hasReleaseNotes = Test-Path -LiteralPath $releaseNotesPath -PathType Leaf
+          $isPrerelease = $env:RELEASE_IS_PRERELEASE -eq 'true'
 
-          gh release create $env:GITHUB_REF_NAME `
-            --verify-tag `
-            @prereleaseArguments `
-            @releaseNotesArguments `
-            --title "UsageDeck $($env:GITHUB_REF_NAME.TrimStart('v'))" `
-            @assets
+          if ($hasReleaseNotes -and $isPrerelease) {
+            gh release create $env:GITHUB_REF_NAME --verify-tag --prerelease `
+              --notes-file $releaseNotesPath --title $releaseTitle @assets
+          } elseif ($hasReleaseNotes) {
+            gh release create $env:GITHUB_REF_NAME --verify-tag `
+              --notes-file $releaseNotesPath --title $releaseTitle @assets
+          } elseif ($isPrerelease) {
+            gh release create $env:GITHUB_REF_NAME --verify-tag --prerelease `
+              --generate-notes --title $releaseTitle @assets
+          } else {
+            gh release create $env:GITHUB_REF_NAME --verify-tag `
+              --generate-notes --title $releaseTitle @assets
+          }
