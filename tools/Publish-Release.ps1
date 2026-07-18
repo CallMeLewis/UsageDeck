@@ -103,7 +103,8 @@ try {
         'CodexBarWin.App.exe',
         'CodexBarWin.App.pri',
         'Microsoft.UI.Xaml.dll',
-        'Assets\AppIcon.ico'
+        'Assets\AppIcon.ico',
+        'Assets\AppIcon.png'
     )
     $missingFiles = @(
         $requiredFiles | Where-Object {
