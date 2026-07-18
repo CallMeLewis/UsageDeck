@@ -3,7 +3,7 @@ namespace UsageDeck.App.Tests;
 public sealed class BuildInformationTests
 {
     [Theory]
-    [InlineData("0.2.1", "0.2.1")]
+    [InlineData("0.3.0", "0.3.0")]
     [InlineData("1.2.3-beta.4", "1.2.3-beta.4")]
     [InlineData("1.2.3+abc123", "1.2.3")]
     [InlineData(" 2.0.0-rc.1+build.9 ", "2.0.0-rc.1")]
@@ -17,7 +17,7 @@ public sealed class BuildInformationTests
     [Fact]
     public void NormaliseVersionFallsBackWhenMetadataIsMissing()
     {
-        Assert.Equal("0.2.1", BuildInformation.NormaliseVersion(null));
+        Assert.Equal("0.3.0", BuildInformation.NormaliseVersion(null));
     }
 
     [Theory]
