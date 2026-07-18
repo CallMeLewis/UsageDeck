@@ -68,7 +68,7 @@ public sealed class CodexUsageProvider : IUsageProvider, ICliVersionProvider
                 session,
                 1,
                 "initialize",
-                new { clientInfo = new { name = "codexbarwin", version = "0.2.0" } },
+                new { clientInfo = new { name = "codexbarwin", version = "0.2.1" } },
                 TimeSpan.FromSeconds(8),
                 cancellationToken).ConfigureAwait(false);
             _ = initialize;

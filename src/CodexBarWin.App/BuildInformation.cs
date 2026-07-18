@@ -24,7 +24,7 @@ internal static class BuildInformation
     {
         if (string.IsNullOrWhiteSpace(informationalVersion))
         {
-            return "0.2.0";
+            return "0.2.1";
         }
 
         string version = informationalVersion.Trim();
