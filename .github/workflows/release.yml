@@ -98,8 +98,9 @@ jobs:
             @()
           }
 
-          gh release create $env:GITHUB_REF_NAME @assets `
+          gh release create $env:GITHUB_REF_NAME `
             --verify-tag `
             @prereleaseArguments `
             @releaseNotesArguments `
-            --title "UsageDeck $($env:GITHUB_REF_NAME.TrimStart('v'))"
+            --title "UsageDeck $($env:GITHUB_REF_NAME.TrimStart('v'))" `
+            @assets
