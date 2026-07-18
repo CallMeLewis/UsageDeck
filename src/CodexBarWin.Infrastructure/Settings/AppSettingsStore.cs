@@ -43,6 +43,11 @@ public enum OpenCodeGoUsageRange
     ThirtyDays,
 }
 
+public enum AppUpdateChannel
+{
+    Stable,
+}
+
 public sealed record AppSettings(
     IReadOnlyList<ProviderId> EnabledProviders,
     ProviderId DefaultProvider,
@@ -57,7 +62,9 @@ public sealed record AppSettings(
     ResetTimeDisplayMode ResetTimeDisplay = ResetTimeDisplayMode.Countdown,
     UsageValueDisplayMode UsageValueDisplay = UsageValueDisplayMode.Used,
     ApiKeyStorageMode OpenCodeGoApiKeyStorage = ApiKeyStorageMode.WindowsCredentialManager,
-    OpenCodeGoUsageRange OpenCodeGoUsageRange = OpenCodeGoUsageRange.ThirtyDays)
+    OpenCodeGoUsageRange OpenCodeGoUsageRange = OpenCodeGoUsageRange.ThirtyDays,
+    bool CheckForUpdatesAutomatically = true,
+    AppUpdateChannel UpdateChannel = AppUpdateChannel.Stable)
 {
     public static AppSettings Default { get; } = new([ProviderId.Codex, ProviderId.Claude], ProviderId.Codex);
 }
@@ -175,6 +182,13 @@ public sealed class AppSettingsStore
                 && Enum.IsDefined(parsedOpenCodeGoUsageRange)
                     ? parsedOpenCodeGoUsageRange
                     : OpenCodeGoUsageRange.ThirtyDays;
+            AppUpdateChannel updateChannel = Enum.TryParse(
+                document.UpdateChannel,
+                ignoreCase: true,
+                out AppUpdateChannel parsedUpdateChannel)
+                && Enum.IsDefined(parsedUpdateChannel)
+                    ? parsedUpdateChannel
+                    : AppUpdateChannel.Stable;
 
             string? warning = savedEnabled.Length == enabled.Length
                 ? null
@@ -194,7 +208,9 @@ public sealed class AppSettingsStore
                     resetTimeDisplay,
                     usageValueDisplay,
                     openCodeGoApiKeyStorage,
-                    openCodeGoUsageRange),
+                    openCodeGoUsageRange,
+                    document.CheckForUpdatesAutomatically ?? true,
+                    updateChannel),
                 warning);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
@@ -253,7 +269,9 @@ public sealed class AppSettingsStore
             settings.ResetTimeDisplay.ToString(),
             settings.UsageValueDisplay.ToString(),
             settings.OpenCodeGoApiKeyStorage.ToString(),
-            settings.OpenCodeGoUsageRange.ToString());
+            settings.OpenCodeGoUsageRange.ToString(),
+            settings.CheckForUpdatesAutomatically,
+            settings.UpdateChannel.ToString());
 
         try
         {
@@ -300,6 +318,8 @@ public sealed class AppSettingsStore
         string? UsageValueDisplay = null,
         string? OpenCodeGoApiKeyStorage = null,
         string? OpenCodeGoUsageRange = null,
+        bool? CheckForUpdatesAutomatically = null,
+        string? UpdateChannel = null,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         string? SelectedProvider = null);
 }

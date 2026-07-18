@@ -29,6 +29,7 @@ public partial class App : Application, IDisposable
     private readonly SemaphoreSlim _providerStatusRefreshLock = new(1, 1);
     private readonly DispatcherTimer _providerStatusTimer = new() { Interval = TimeSpan.FromMinutes(5) };
     private readonly ZaiApiKeyResolver _zaiApiKeys;
+    private bool _automaticUpdateChecksEnabled;
     private bool _isDisposed;
     private bool _isHighContrastEnabled;
     private bool _isShuttingDown;
@@ -47,6 +48,7 @@ public partial class App : Application, IDisposable
         AppSettingsLoadResult settings = settingsStore.Load();
         this._settingsManager = new AppSettingsManager(settingsStore, settings.Settings);
         this._settingsManager.Changed += this.SettingsManager_Changed;
+        this._automaticUpdateChecksEnabled = settings.Settings.CheckForUpdatesAutomatically;
         this._httpClient = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
         this._zaiApiKeys = new ZaiApiKeyResolver(
             new WindowsCredentialManagerSecretStore("CodexBarWin"),
@@ -54,7 +56,9 @@ public partial class App : Application, IDisposable
         this._openCodeGoApiKeys = new OpenCodeGoApiKeyResolver(
             new WindowsCredentialManagerSecretStore("CodexBarWin"),
             () => this.CurrentSettings.OpenCodeGoApiKeyStorage);
-        this.UpdateService = new AppUpdateService(BuildInformation.UpdateRepository);
+        this.UpdateService = new AppUpdateService(
+            BuildInformation.UpdateRepository,
+            settings.Settings.UpdateChannel);
         ProcessSessionFactory processSessionFactory = new();
         PtySessionFactory ptySessionFactory = new();
         CliVersionReader cliVersionReader = new(processSessionFactory);
@@ -210,7 +214,10 @@ public partial class App : Application, IDisposable
         this._mainInstance.Activated += this.MainInstance_Activated;
         this.ShowMainWindow();
         this.ConfigureProviderStatusMonitoring(this.CurrentSettings, forceRefresh: true);
-        _ = this.CheckForAppUpdateInBackgroundAsync();
+        if (this.CurrentSettings.CheckForUpdatesAutomatically)
+        {
+            _ = this.CheckForAppUpdateInBackgroundAsync();
+        }
     }
 
     internal async Task RefreshProviderStatusesAsync(CancellationToken cancellationToken = default)
@@ -268,8 +275,14 @@ public partial class App : Application, IDisposable
 
     private void SettingsManager_Changed(AppSettings settings)
     {
+        bool automaticUpdateChecksWereEnabled = this._automaticUpdateChecksEnabled;
+        this._automaticUpdateChecksEnabled = settings.CheckForUpdatesAutomatically;
         this.ConfigureProviderStatusMonitoring(settings);
         this.SettingsChanged?.Invoke(settings);
+        if (!automaticUpdateChecksWereEnabled && settings.CheckForUpdatesAutomatically)
+        {
+            _ = this.CheckForAppUpdateInBackgroundAsync();
+        }
     }
 
     private void ConfigureProviderStatusMonitoring(AppSettings settings, bool forceRefresh = false)

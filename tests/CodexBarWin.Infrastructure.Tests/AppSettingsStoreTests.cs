@@ -37,6 +37,8 @@ public sealed class AppSettingsStoreTests : IDisposable
         Assert.Equal(UsageValueDisplayMode.Used, actual.Settings.UsageValueDisplay);
         Assert.Equal(ApiKeyStorageMode.WindowsCredentialManager, actual.Settings.OpenCodeGoApiKeyStorage);
         Assert.Equal(OpenCodeGoUsageRange.ThirtyDays, actual.Settings.OpenCodeGoUsageRange);
+        Assert.True(actual.Settings.CheckForUpdatesAutomatically);
+        Assert.Equal(AppUpdateChannel.Stable, actual.Settings.UpdateChannel);
 
         string savedJson = await File.ReadAllTextAsync(Path.Combine(this._directory, "settings.json"));
         Assert.Contains("\"defaultProvider\": \"antigravity\"", savedJson, StringComparison.Ordinal);
@@ -76,6 +78,8 @@ public sealed class AppSettingsStoreTests : IDisposable
         Assert.True(result.Settings.IsAllTabEnabled);
         Assert.True(result.Settings.IsStatusMonitoringEnabled);
         Assert.True(result.Settings.ShowCodexSparkCard);
+        Assert.True(result.Settings.CheckForUpdatesAutomatically);
+        Assert.Equal(AppUpdateChannel.Stable, result.Settings.UpdateChannel);
         Assert.Equal(ResetTimeDisplayMode.Countdown, result.Settings.ResetTimeDisplay);
         Assert.Equal(UsageValueDisplayMode.Used, result.Settings.UsageValueDisplay);
         Assert.Equal(ProviderId.Codex, result.Settings.DefaultProvider);
@@ -262,6 +266,44 @@ public sealed class AppSettingsStoreTests : IDisposable
         Assert.False(actual.Settings.ShowCodexSparkCard);
         string savedJson = await File.ReadAllTextAsync(Path.Combine(this._directory, "settings.json"));
         Assert.Contains("\"showCodexSparkCard\": false", savedJson, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task SaveAndLoadRoundTripsUpdatePreferences()
+    {
+        AppSettingsStore store = new(Path.Combine(this._directory, "settings.json"));
+        AppSettings expected = AppSettings.Default with
+        {
+            CheckForUpdatesAutomatically = false,
+            UpdateChannel = AppUpdateChannel.Stable,
+        };
+
+        await store.SaveAsync(expected);
+        AppSettingsLoadResult actual = store.Load();
+
+        Assert.False(actual.Settings.CheckForUpdatesAutomatically);
+        Assert.Equal(AppUpdateChannel.Stable, actual.Settings.UpdateChannel);
+        string savedJson = await File.ReadAllTextAsync(Path.Combine(this._directory, "settings.json"));
+        Assert.Contains("\"checkForUpdatesAutomatically\": false", savedJson, StringComparison.Ordinal);
+        Assert.Contains("\"updateChannel\": \"Stable\"", savedJson, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LoadInvalidUpdateChannelFallsBackToStable()
+    {
+        Directory.CreateDirectory(this._directory);
+        string path = Path.Combine(this._directory, "settings.json");
+        File.WriteAllText(path, """
+            {
+              "enabledProviders": ["codex"],
+              "defaultProvider": "codex",
+              "updateChannel": "Nightly"
+            }
+            """);
+
+        AppSettings settings = new AppSettingsStore(path).Load().Settings;
+
+        Assert.Equal(AppUpdateChannel.Stable, settings.UpdateChannel);
     }
 
     [Fact]

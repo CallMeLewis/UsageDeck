@@ -1,4 +1,5 @@
 using System.Text.Json;
+using CodexBarWin.Infrastructure.Settings;
 using Velopack;
 using Velopack.Exceptions;
 using Velopack.Sources;
@@ -15,14 +16,19 @@ internal sealed class AppUpdateService
     private VelopackAsset? _downloadedUpdate;
     private bool _operationInProgress;
 
-    public AppUpdateService(Uri? repository)
+    public AppUpdateService(Uri? repository, AppUpdateChannel channel)
     {
         if (repository is null)
         {
             return;
         }
 
-        GithubSource source = new(repository.AbsoluteUri, accessToken: null, prerelease: false);
+        bool includePrereleases = channel switch
+        {
+            AppUpdateChannel.Stable => false,
+            _ => throw new ArgumentOutOfRangeException(nameof(channel)),
+        };
+        GithubSource source = new(repository.AbsoluteUri, accessToken: null, prerelease: includePrereleases);
         this._updateManager = new UpdateManager(source);
     }
 

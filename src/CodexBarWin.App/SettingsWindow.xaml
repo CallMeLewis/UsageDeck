@@ -159,9 +159,10 @@
                 <ScrollViewer
                     x:Name="GeneralPanel"
                     Grid.Row="1"
+                    HorizontalContentAlignment="Stretch"
                     HorizontalScrollBarVisibility="Disabled"
-                    Padding="0,8,0,0">
-                    <StackPanel MaxWidth="620" HorizontalAlignment="Left" Spacing="20">
+                    Padding="0,8,12,0">
+                    <StackPanel MaxWidth="620" HorizontalAlignment="Stretch" Spacing="20">
                         <StackPanel Spacing="5">
                             <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="General" />
                             <TextBlock
@@ -223,10 +224,10 @@
                                             Grid.Column="1"
                                             MinWidth="0"
                                             VerticalAlignment="Center"
-                                            HorizontalAlignment="Left"
+                                            HorizontalAlignment="Right"
                                             AutomationProperties.Name="Monitor official provider service status"
-                                            OffContent="Off"
-                                            OnContent="On"
+                                            OffContent=""
+                                            OnContent=""
                                             Toggled="StatusMonitoringToggle_Toggled" />
                                     </Grid>
                                 </StackPanel>
@@ -257,10 +258,12 @@
                                             <ToggleSwitch
                                                 x:Name="AllTabToggle"
                                                 Grid.Column="1"
+                                                MinWidth="0"
                                                 VerticalAlignment="Center"
+                                                HorizontalAlignment="Right"
                                                 AutomationProperties.Name="Show the All providers tab"
-                                                OffContent="Off"
-                                                OnContent="On"
+                                                OffContent=""
+                                                OnContent=""
                                                 Toggled="AllTabToggle_Toggled" />
                                         </Grid>
                                     </Border>
@@ -304,10 +307,11 @@
                 <ScrollViewer
                     x:Name="AppearancePanel"
                     Grid.Row="1"
+                    HorizontalContentAlignment="Stretch"
                     HorizontalScrollBarVisibility="Disabled"
-                    Padding="0,8,0,0"
+                    Padding="0,8,12,0"
                     Visibility="Collapsed">
-                    <StackPanel MaxWidth="620" HorizontalAlignment="Left" Spacing="20">
+                    <StackPanel MaxWidth="620" HorizontalAlignment="Stretch" Spacing="20">
                         <StackPanel Spacing="5">
                             <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="Appearance" />
                             <TextBlock
@@ -344,7 +348,7 @@
                                                 VerticalAlignment="Center"
                                                 AutomationProperties.Name="App theme"
                                                 SelectionChanged="ThemeComboBox_SelectionChanged">
-                                                <ComboBoxItem Content="Windows setting" Tag="System" />
+                                                <ComboBoxItem Content="System" Tag="System" />
                                                 <ComboBoxItem Content="Light" Tag="Light" />
                                                 <ComboBoxItem Content="Dark" Tag="Dark" />
                                             </ComboBox>
@@ -368,10 +372,10 @@
                                             Grid.Column="1"
                                             MinWidth="0"
                                             VerticalAlignment="Center"
-                                            HorizontalAlignment="Left"
+                                            HorizontalAlignment="Right"
                                             AutomationProperties.Name="Use translucent window backgrounds"
-                                            OffContent="Off"
-                                            OnContent="On"
+                                            OffContent=""
+                                            OnContent=""
                                             Toggled="TranslucencyToggle_Toggled" />
                                     </Grid>
                                 </StackPanel>
@@ -399,16 +403,16 @@
                                                     Text="Show quota consumption or the amount still available."
                                                     TextWrapping="Wrap" />
                                             </StackPanel>
-                                            <ToggleSwitch
-                                                x:Name="UsageValueDisplayToggle"
+                                            <ComboBox
+                                                x:Name="UsageValueDisplayComboBox"
                                                 Grid.Column="1"
-                                                MinWidth="0"
+                                                MinWidth="160"
                                                 VerticalAlignment="Center"
-                                                HorizontalAlignment="Left"
-                                                AutomationProperties.Name="Show remaining usage instead of used usage"
-                                                OffContent="Used"
-                                                OnContent="Remaining"
-                                                Toggled="UsageValueDisplayToggle_Toggled" />
+                                                AutomationProperties.Name="Usage amount display"
+                                                SelectionChanged="UsageValueDisplayComboBox_SelectionChanged">
+                                                <ComboBoxItem Content="Used" Tag="Used" />
+                                                <ComboBoxItem Content="Remaining" Tag="Remaining" />
+                                            </ComboBox>
                                         </Grid>
                                     </Border>
                                     <Grid Padding="16" ColumnSpacing="24">
@@ -424,16 +428,16 @@
                                                 Text="Show a countdown or the exact local date and time."
                                                 TextWrapping="Wrap" />
                                         </StackPanel>
-                                        <ToggleSwitch
-                                            x:Name="ResetTimeDisplayToggle"
+                                        <ComboBox
+                                            x:Name="ResetTimeDisplayComboBox"
                                             Grid.Column="1"
-                                            MinWidth="0"
+                                            MinWidth="160"
                                             VerticalAlignment="Center"
-                                            HorizontalAlignment="Left"
-                                            AutomationProperties.Name="Show exact reset date and time"
-                                            OffContent="Countdown"
-                                            OnContent="Exact"
-                                            Toggled="ResetTimeDisplayToggle_Toggled" />
+                                            AutomationProperties.Name="Reset time display"
+                                            SelectionChanged="ResetTimeDisplayComboBox_SelectionChanged">
+                                            <ComboBoxItem Content="Countdown" Tag="Countdown" />
+                                            <ComboBoxItem Content="Time and date" Tag="ExactDateTime" />
+                                        </ComboBox>
                                     </Grid>
                                 </StackPanel>
                             </Border>
@@ -478,8 +482,8 @@
                                             VerticalAlignment="Center"
                                             HorizontalAlignment="Right"
                                             AutomationProperties.Name="Enable this provider in the usage window"
-                                            OffContent="Off"
-                                            OnContent="On"
+                                            OffContent=""
+                                            OnContent=""
                                             Toggled="SelectedProviderToggle_Toggled" />
                                     </Grid>
                                 </Border>
@@ -840,8 +844,8 @@
                                         VerticalAlignment="Center"
                                         HorizontalAlignment="Right"
                                         AutomationProperties.Name="Show the GPT-5.3 Spark usage card"
-                                        OffContent="Off"
-                                        OnContent="On"
+                                        OffContent=""
+                                        OnContent=""
                                         Toggled="CodexSparkCardToggle_Toggled" />
                                 </Grid>
                             </Border>
@@ -853,10 +857,11 @@
                 <ScrollViewer
                     x:Name="AboutPanel"
                     Grid.Row="1"
+                    HorizontalContentAlignment="Stretch"
                     HorizontalScrollBarVisibility="Disabled"
-                    Padding="0,8,0,0"
+                    Padding="0,8,12,0"
                     Visibility="Collapsed">
-                    <StackPanel MaxWidth="620" HorizontalAlignment="Left" Spacing="24">
+                    <StackPanel MaxWidth="620" HorizontalAlignment="Stretch" Spacing="24">
                         <StackPanel Spacing="5">
                             <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="About" />
                             <TextBlock
@@ -865,46 +870,99 @@
                                 TextWrapping="Wrap" />
                         </StackPanel>
 
+                        <StackPanel Spacing="8">
+                            <TextBlock FontWeight="SemiBold" Text="Updates" />
+                            <Border Style="{StaticResource SettingsGroupBorderStyle}">
+                                <StackPanel>
+                                    <Border
+                                        Padding="16,10"
+                                        BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                        BorderThickness="0,0,0,1">
+                                        <Grid ColumnSpacing="24">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="160" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock
+                                                VerticalAlignment="Center"
+                                                FontWeight="SemiBold"
+                                                Text="Check for updates automatically" />
+                                            <ToggleSwitch
+                                                x:Name="AutomaticUpdatesToggle"
+                                                Grid.Column="1"
+                                                MinWidth="0"
+                                                VerticalAlignment="Center"
+                                                HorizontalAlignment="Right"
+                                                AutomationProperties.Name="Check for application updates automatically"
+                                                OffContent=""
+                                                OnContent=""
+                                                Toggled="AutomaticUpdatesToggle_Toggled" />
+                                        </Grid>
+                                    </Border>
+
+                                    <Border
+                                        Padding="16,10"
+                                        BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                        BorderThickness="0,0,0,1">
+                                        <Grid ColumnSpacing="24">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel VerticalAlignment="Center" Spacing="3">
+                                                <TextBlock FontWeight="SemiBold" Text="Update channel" />
+                                                <TextBlock
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                                    Text="Choose which release track CodexBar follows."
+                                                    TextWrapping="Wrap" />
+                                            </StackPanel>
+                                            <ComboBox
+                                                x:Name="UpdateChannelComboBox"
+                                                Grid.Column="1"
+                                                MinWidth="160"
+                                                VerticalAlignment="Center"
+                                                AutomationProperties.Name="Application update channel"
+                                                SelectionChanged="UpdateChannelComboBox_SelectionChanged">
+                                                <ComboBoxItem Content="Stable" Tag="Stable" />
+                                            </ComboBox>
+                                        </Grid>
+                                    </Border>
+
+                                    <Grid Padding="16,10" ColumnSpacing="24">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock x:Name="VersionText" FontWeight="SemiBold" />
+                                            <ProgressBar
+                                                x:Name="UpdateProgressBar"
+                                                Height="4"
+                                                Margin="0,8,0,0"
+                                                Maximum="100"
+                                                Minimum="0"
+                                                Visibility="Collapsed" />
+                                        </StackPanel>
+                                        <Button
+                                            x:Name="UpdateActionButton"
+                                            Grid.Column="1"
+                                            Width="160"
+                                            VerticalAlignment="Center"
+                                            Click="UpdateActionButton_Click"
+                                            Content="Check for updates" />
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
                         <Border Padding="16" Style="{StaticResource SettingsGroupBorderStyle}">
                             <StackPanel Spacing="8">
                                 <TextBlock FontWeight="SemiBold" Text="CodexBar for Windows" />
-                                <TextBlock x:Name="VersionText" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 <TextBlock
-                                    Margin="0,8,0,0"
                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                     Text="Usage is collected through local provider tools and fixed provider APIs. App-owned API keys use only the storage location you select, and raw responses are not stored."
-                                TextWrapping="Wrap" />
-                            </StackPanel>
-                        </Border>
-
-                        <Border Padding="16" Style="{StaticResource SettingsGroupBorderStyle}">
-                            <StackPanel Spacing="12">
-                                <Grid ColumnSpacing="20">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel VerticalAlignment="Center" Spacing="4">
-                                        <TextBlock FontWeight="SemiBold" Text="Updates" />
-                                        <TextBlock
-                                            x:Name="UpdateStatusText"
-                                            AutomationProperties.LiveSetting="Polite"
-                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                            TextWrapping="Wrap" />
-                                    </StackPanel>
-                                    <Button
-                                        x:Name="UpdateActionButton"
-                                        Grid.Column="1"
-                                        VerticalAlignment="Center"
-                                        Click="UpdateActionButton_Click"
-                                        Content="Check for updates" />
-                                </Grid>
-                                <ProgressBar
-                                    x:Name="UpdateProgressBar"
-                                    Height="4"
-                                    Maximum="100"
-                                    Minimum="0"
-                                    Visibility="Collapsed" />
+                                    TextWrapping="Wrap" />
                             </StackPanel>
                         </Border>
                     </StackPanel>

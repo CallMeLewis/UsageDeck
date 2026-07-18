@@ -9,6 +9,7 @@ using CodexBarWin.Infrastructure.Settings;
 using Microsoft.UI.System;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 
@@ -67,6 +68,13 @@ public sealed partial class SettingsWindow : Window, IDisposable
             this.AllTabToggle.IsOn = settings.IsAllTabEnabled;
             this.StatusMonitoringToggle.IsOn = settings.IsStatusMonitoringEnabled;
             this.CodexSparkCardToggle.IsOn = settings.ShowCodexSparkCard;
+            this.AutomaticUpdatesToggle.IsOn = settings.CheckForUpdatesAutomatically;
+            this.UpdateChannelComboBox.SelectedItem = this.UpdateChannelComboBox.Items
+                .OfType<ComboBoxItem>()
+                .First(item => string.Equals(
+                    item.Tag?.ToString(),
+                    settings.UpdateChannel.ToString(),
+                    StringComparison.Ordinal));
             this.UpdateSelectedProviderEnabledState(settings);
             foreach (ComboBoxItem item in this.DefaultProviderComboBox.Items.OfType<ComboBoxItem>())
             {
@@ -92,8 +100,18 @@ public sealed partial class SettingsWindow : Window, IDisposable
                     settings.Theme.ToString(),
                     StringComparison.Ordinal));
             this.TranslucencyToggle.IsOn = settings.UseTranslucentBackground;
-            this.ResetTimeDisplayToggle.IsOn = settings.ResetTimeDisplay == ResetTimeDisplayMode.ExactDateTime;
-            this.UsageValueDisplayToggle.IsOn = settings.UsageValueDisplay == UsageValueDisplayMode.Remaining;
+            this.ResetTimeDisplayComboBox.SelectedItem = this.ResetTimeDisplayComboBox.Items
+                .OfType<ComboBoxItem>()
+                .First(item => string.Equals(
+                    item.Tag?.ToString(),
+                    settings.ResetTimeDisplay.ToString(),
+                    StringComparison.Ordinal));
+            this.UsageValueDisplayComboBox.SelectedItem = this.UsageValueDisplayComboBox.Items
+                .OfType<ComboBoxItem>()
+                .First(item => string.Equals(
+                    item.Tag?.ToString(),
+                    settings.UsageValueDisplay.ToString(),
+                    StringComparison.Ordinal));
 
             this.ZaiApiKeyStorageComboBox.SelectedItem = this.ZaiApiKeyStorageComboBox.Items
                 .OfType<ComboBoxItem>()
@@ -262,29 +280,27 @@ public sealed partial class SettingsWindow : Window, IDisposable
         await this.SaveSettingsAsync(settings => settings with { UseTranslucentBackground = isOn });
     }
 
-    private async void ResetTimeDisplayToggle_Toggled(object sender, RoutedEventArgs e)
+    private async void ResetTimeDisplayComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (this._isApplyingSettings)
+        if (this._isApplyingSettings
+            || this.ResetTimeDisplayComboBox.SelectedItem is not ComboBoxItem item
+            || !Enum.TryParse(item.Tag?.ToString(), ignoreCase: true, out ResetTimeDisplayMode mode))
         {
             return;
         }
 
-        ResetTimeDisplayMode mode = this.ResetTimeDisplayToggle.IsOn
-            ? ResetTimeDisplayMode.ExactDateTime
-            : ResetTimeDisplayMode.Countdown;
         await this.SaveSettingsAsync(settings => settings with { ResetTimeDisplay = mode });
     }
 
-    private async void UsageValueDisplayToggle_Toggled(object sender, RoutedEventArgs e)
+    private async void UsageValueDisplayComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (this._isApplyingSettings)
+        if (this._isApplyingSettings
+            || this.UsageValueDisplayComboBox.SelectedItem is not ComboBoxItem item
+            || !Enum.TryParse(item.Tag?.ToString(), ignoreCase: true, out UsageValueDisplayMode mode))
         {
             return;
         }
 
-        UsageValueDisplayMode mode = this.UsageValueDisplayToggle.IsOn
-            ? UsageValueDisplayMode.Remaining
-            : UsageValueDisplayMode.Used;
         await this.SaveSettingsAsync(settings => settings with { UsageValueDisplay = mode });
     }
 
@@ -312,6 +328,31 @@ public sealed partial class SettingsWindow : Window, IDisposable
         {
             ShowCodexSparkCard = this.CodexSparkCardToggle.IsOn,
         });
+    }
+
+    private async void AutomaticUpdatesToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (this._isApplyingSettings)
+        {
+            return;
+        }
+
+        await this.SaveSettingsAsync(settings => settings with
+        {
+            CheckForUpdatesAutomatically = this.AutomaticUpdatesToggle.IsOn,
+        });
+    }
+
+    private async void UpdateChannelComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (this._isApplyingSettings
+            || this.UpdateChannelComboBox.SelectedItem is not ComboBoxItem item
+            || !Enum.TryParse(item.Tag?.ToString(), ignoreCase: true, out AppUpdateChannel channel))
+        {
+            return;
+        }
+
+        await this.SaveSettingsAsync(settings => settings with { UpdateChannel = channel });
     }
 
     private async void SelectedProviderToggle_Toggled(object sender, RoutedEventArgs e)
@@ -691,21 +732,29 @@ public sealed partial class SettingsWindow : Window, IDisposable
         {
             if (updater.AvailableUpdate is null)
             {
-                this.UpdateStatusText.Text = "Checking GitHub for updates…";
+                this.UpdateActionButton.Content = "Checking…";
                 this.UpdateProgressBar.IsIndeterminate = true;
                 await updater.CheckForUpdatesAsync(this._lifetimeCancellation.Token);
+                if (updater.AvailableUpdate is null)
+                {
+                    this.ShowMessage("CodexBar is up to date.", InfoBarSeverity.Success);
+                }
+                else
+                {
+                    this.SettingsInfoBar.IsOpen = false;
+                }
             }
             else
             {
-                this.UpdateStatusText.Text = $"Downloading version {updater.AvailableUpdate.Version}…";
+                this.UpdateActionButton.Content = "Downloading…";
                 this.UpdateProgressBar.IsIndeterminate = false;
                 this.UpdateProgressBar.Value = 0;
                 Progress<int> progress = new(value => this.UpdateProgressBar.Value = value);
                 await updater.DownloadUpdateAsync(progress, this._lifetimeCancellation.Token);
+                this.SettingsInfoBar.IsOpen = false;
             }
 
             app.NotifyUpdateStateChanged();
-            this.SettingsInfoBar.IsOpen = false;
         }
         catch (OperationCanceledException) when (this._lifetimeCancellation.IsCancellationRequested)
         {
@@ -796,36 +845,43 @@ public sealed partial class SettingsWindow : Window, IDisposable
 
         if (!updater.IsConfigured)
         {
-            this.UpdateStatusText.Text = "Set a GitHub release repository when packaging to enable automatic updates.";
             this.UpdateActionButton.Content = "Check for updates";
+            this.SetUpdateActionHelpText(
+                "Set a GitHub release repository when packaging to enable automatic updates.");
             return;
         }
 
         if (!updater.CanCheckForUpdates)
         {
-            this.UpdateStatusText.Text = "Update checks are available in Velopack release builds.";
             this.UpdateActionButton.Content = "Check for updates";
+            this.SetUpdateActionHelpText("Update checks are available in Velopack release builds.");
             return;
         }
 
         if (updater.IsUpdateDownloaded && updater.AvailableUpdate is AppUpdateAvailability downloaded)
         {
-            this.UpdateStatusText.Text = $"Version {downloaded.Version} is ready to install.";
             this.UpdateActionButton.Content = "Restart to update";
+            this.SetUpdateActionHelpText($"Version {downloaded.Version} is ready to install.");
             return;
         }
 
         if (updater.AvailableUpdate is AppUpdateAvailability available)
         {
-            this.UpdateStatusText.Text = $"Version {available.Version} is available.";
             this.UpdateActionButton.Content = "Download update";
+            this.SetUpdateActionHelpText($"Version {available.Version} is available.");
             return;
         }
 
-        this.UpdateStatusText.Text = updater.HasCheckedForUpdates
-            ? "You’re up to date."
-            : "Check GitHub Releases for a newer version.";
         this.UpdateActionButton.Content = "Check for updates";
+        this.SetUpdateActionHelpText(updater.HasCheckedForUpdates
+            ? "CodexBar is up to date. Check again for updates."
+            : "Check GitHub Releases for a newer version.");
+    }
+
+    private void SetUpdateActionHelpText(string helpText)
+    {
+        ToolTipService.SetToolTip(this.UpdateActionButton, helpText);
+        AutomationProperties.SetHelpText(this.UpdateActionButton, helpText);
     }
 
     private void App_SettingsChanged(AppSettings settings)
