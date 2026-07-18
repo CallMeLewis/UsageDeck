@@ -1,20 +1,25 @@
 [CmdletBinding()]
 param(
-    [string] $RepositoryUrl = $env:CODEXBAR_UPDATE_REPOSITORY_URL,
+    [string] $RepositoryUrl = $env:USAGEDECK_UPDATE_REPOSITORY_URL,
     [switch] $ResetReleaseHistory,
     [switch] $SkipTests
 )
 
 $ErrorActionPreference = 'Stop'
 
+# Continue accepting the pre-rebrand variable for existing release environments.
+if ([string]::IsNullOrWhiteSpace($RepositoryUrl)) {
+    $RepositoryUrl = $env:CODEXBAR_UPDATE_REPOSITORY_URL
+}
+
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
-$projectPath = Join-Path $repositoryRoot 'src\CodexBarWin.App\CodexBarWin.App.csproj'
-$solutionPath = Join-Path $repositoryRoot 'CodexBarWin.slnx'
+$projectPath = Join-Path $repositoryRoot 'src\UsageDeck.App\UsageDeck.App.csproj'
+$solutionPath = Join-Path $repositoryRoot 'UsageDeck.slnx'
 $buildPropsPath = Join-Path $repositoryRoot 'Directory.Build.props'
 $artifactsRoot = Join-Path $repositoryRoot 'artifacts\velopack'
 $publishDirectory = Join-Path $artifactsRoot 'publish'
 $releasesDirectory = Join-Path $artifactsRoot 'releases'
-$iconPath = Join-Path $repositoryRoot 'src\CodexBarWin.App\Assets\AppIcon.ico'
+$iconPath = Join-Path $repositoryRoot 'src\UsageDeck.App\Assets\AppIcon.ico'
 
 [xml] $buildProps = Get-Content -LiteralPath $buildPropsPath -Raw
 $version = [string] $buildProps.Project.PropertyGroup.Version
@@ -110,12 +115,13 @@ try {
     }
 
     Write-Host 'Creating the Velopack release assets...'
+    # Keep the legacy package ID and executable name so existing installations update in place.
     & dotnet tool run vpk -- pack `
         --packId CodexBarWin `
         --packVersion $version `
         --packDir $publishDirectory `
         --mainExe CodexBarWin.App.exe `
-        --packTitle 'CodexBar for Windows' `
+        --packTitle 'UsageDeck' `
         --icon $iconPath `
         --runtime win-x64 `
         --outputDir $releasesDirectory
@@ -127,5 +133,5 @@ finally {
     Pop-Location
 }
 
-Write-Host "Packaged CodexBar $version"
+Write-Host "Packaged UsageDeck $version"
 Write-Host "Velopack releases: $releasesDirectory"

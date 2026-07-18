@@ -1,0 +1,11 @@
+[
+  {
+    "Name": "UsageDeck",
+    "Projects": [
+      {
+        "Path": "src\\UsageDeck.App\\UsageDeck.App.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]

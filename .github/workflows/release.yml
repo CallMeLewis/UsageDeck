@@ -92,4 +92,4 @@ jobs:
           gh release create $env:GITHUB_REF_NAME @assets `
             --verify-tag `
             @releaseNotesArguments `
-            --title "CodexBar $($env:GITHUB_REF_NAME.TrimStart('v'))"
+            --title "UsageDeck $($env:GITHUB_REF_NAME.TrimStart('v'))"

@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/UsageDeck.App/UsageDeck.App.csproj" />
+    <Project Path="src/UsageDeck.Core/UsageDeck.Core.csproj" />
+    <Project Path="src/UsageDeck.Infrastructure/UsageDeck.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/UsageDeck.Core.Tests/UsageDeck.Core.Tests.csproj" />
+    <Project Path="tests/UsageDeck.Infrastructure.Tests/UsageDeck.Infrastructure.Tests.csproj" />
+    <Project Path="tests/UsageDeck.App.Tests/UsageDeck.App.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/UsageDeck.Probe/UsageDeck.Probe.csproj" />
+  </Folder>
+</Solution>

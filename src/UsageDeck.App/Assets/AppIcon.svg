@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title description">
+  <title id="title">UsageDeck app icon</title>
+  <desc id="description">Three coral usage cards arranged as a compact deck on a charcoal tile.</desc>
+  <rect x="32" y="32" width="960" height="960" rx="208" fill="#18191E" />
+  <g fill="#FF6B5B" stroke="#18191E" stroke-linejoin="round" stroke-width="28">
+    <path
+      d="M 207 327 Q 178 348 210 372 L 466 556 Q 512 589 558 553 L 817 350 Q 848 326 814 302 L 558 124 Q 512 92 466 126 Z"
+      transform="translate(0 230)" />
+    <path
+      d="M 207 327 Q 178 348 210 372 L 466 556 Q 512 589 558 553 L 817 350 Q 848 326 814 302 L 558 124 Q 512 92 466 126 Z"
+      transform="translate(0 115)" />
+    <path d="M 207 327 Q 178 348 210 372 L 466 556 Q 512 589 558 553 L 817 350 Q 848 326 814 302 L 558 124 Q 512 92 466 126 Z" />
+  </g>
+</svg>

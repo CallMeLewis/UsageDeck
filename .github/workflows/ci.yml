@@ -38,4 +38,4 @@ jobs:
 
       - name: Test
         shell: pwsh
-        run: dotnet test CodexBarWin.slnx -c Debug -p:SkipReleaseArtifacts=true --nologo
+        run: dotnet test UsageDeck.slnx -c Debug -p:SkipReleaseArtifacts=true --nologo
