@@ -83,20 +83,8 @@ public sealed partial class SettingsWindow : Window, IDisposable
             this.CodexSparkCardToggle.IsOn = settings.ShowCodexSparkCard;
             this.AutomaticUpdatesToggle.IsOn = settings.CheckForUpdatesAutomatically;
             this.NotificationsEnabledToggle.IsOn = settings.AreNotificationsEnabled;
-            this.NotificationOptionsPanel.IsEnabled = settings.AreNotificationsEnabled;
-            this.Threshold20CheckBox.IsChecked = settings.LimitThresholds.HasFlag(
-                LimitNotificationThresholds.Remaining20);
-            this.Threshold10CheckBox.IsChecked = settings.LimitThresholds.HasFlag(
-                LimitNotificationThresholds.Remaining10);
-            this.Threshold5CheckBox.IsChecked = settings.LimitThresholds.HasFlag(
-                LimitNotificationThresholds.Remaining5);
-            this.ThresholdExhaustedCheckBox.IsChecked = settings.LimitThresholds.HasFlag(
-                LimitNotificationThresholds.Exhausted);
-            this.LimitResetsToggle.IsOn = settings.NotifyLimitResets;
-            this.CodexResetCreditsToggle.IsOn = settings.NotifyCodexResetCredits;
-            this.ProviderStatusNotificationsToggle.IsOn = settings.NotifyProviderStatusChanges;
-            this.ProviderStatusNotificationsToggle.IsEnabled = settings.IsStatusMonitoringEnabled;
-            this.ProviderConnectionNotificationsToggle.IsOn = settings.NotifyProviderConnectionChanges;
+            this.ProviderNotificationOptionsPanel.IsEnabled = settings.AreNotificationsEnabled;
+            this.RefreshSelectedProviderNotificationPresentation(settings);
             this.UpdateChannelComboBox.SelectedItem = this.UpdateChannelComboBox.Items
                 .OfType<ComboBoxItem>()
                 .First(item => string.Equals(
@@ -348,7 +336,7 @@ public sealed partial class SettingsWindow : Window, IDisposable
         }
 
         bool enabled = this.NotificationsEnabledToggle.IsOn;
-        this.NotificationOptionsPanel.IsEnabled = enabled;
+        this.ProviderNotificationOptionsPanel.IsEnabled = enabled;
         await this.SaveSettingsAsync(settings => settings with { AreNotificationsEnabled = enabled });
     }
 
@@ -380,17 +368,16 @@ public sealed partial class SettingsWindow : Window, IDisposable
             thresholds |= LimitNotificationThresholds.Exhausted;
         }
 
-        await this.SaveSettingsAsync(settings => settings with { LimitThresholds = thresholds });
+        await this.SaveSelectedProviderNotificationsAsync(
+            notifications => notifications with { LimitThresholds = thresholds });
     }
 
     private async void LimitResetsToggle_Toggled(object sender, RoutedEventArgs e)
     {
         if (!this._isApplyingSettings)
         {
-            await this.SaveSettingsAsync(settings => settings with
-            {
-                NotifyLimitResets = this.LimitResetsToggle.IsOn,
-            });
+            await this.SaveSelectedProviderNotificationsAsync(
+                notifications => notifications with { NotifyLimitResets = this.LimitResetsToggle.IsOn });
         }
     }
 
@@ -398,10 +385,8 @@ public sealed partial class SettingsWindow : Window, IDisposable
     {
         if (!this._isApplyingSettings)
         {
-            await this.SaveSettingsAsync(settings => settings with
-            {
-                NotifyCodexResetCredits = this.CodexResetCreditsToggle.IsOn,
-            });
+            await this.SaveSelectedProviderNotificationsAsync(
+                notifications => notifications with { NotifyResetCredits = this.CodexResetCreditsToggle.IsOn });
         }
     }
 
@@ -409,10 +394,11 @@ public sealed partial class SettingsWindow : Window, IDisposable
     {
         if (!this._isApplyingSettings)
         {
-            await this.SaveSettingsAsync(settings => settings with
-            {
-                NotifyProviderStatusChanges = this.ProviderStatusNotificationsToggle.IsOn,
-            });
+            await this.SaveSelectedProviderNotificationsAsync(
+                notifications => notifications with
+                {
+                    NotifyStatusChanges = this.ProviderStatusNotificationsToggle.IsOn,
+                });
         }
     }
 
@@ -420,10 +406,11 @@ public sealed partial class SettingsWindow : Window, IDisposable
     {
         if (!this._isApplyingSettings)
         {
-            await this.SaveSettingsAsync(settings => settings with
-            {
-                NotifyProviderConnectionChanges = this.ProviderConnectionNotificationsToggle.IsOn,
-            });
+            await this.SaveSelectedProviderNotificationsAsync(
+                notifications => notifications with
+                {
+                    NotifyConnectionChanges = this.ProviderConnectionNotificationsToggle.IsOn,
+                });
         }
     }
 
@@ -512,6 +499,68 @@ public sealed partial class SettingsWindow : Window, IDisposable
         this.Threshold20CheckBox.Content = showRemaining ? "20% remaining" : "80% used";
         this.Threshold10CheckBox.Content = showRemaining ? "10% remaining" : "90% used";
         this.Threshold5CheckBox.Content = showRemaining ? "5% remaining" : "95% used";
+    }
+
+    private void RefreshSelectedProviderNotificationPresentation(AppSettings settings)
+    {
+        if (this._selectedProvider is not ProviderId selectedProvider)
+        {
+            return;
+        }
+
+        bool wasApplyingSettings = this._isApplyingSettings;
+        this._isApplyingSettings = true;
+        try
+        {
+            ProviderNotificationSettings notifications = settings.GetProviderNotifications(selectedProvider);
+            this.ProviderNotificationOptionsPanel.IsEnabled = settings.AreNotificationsEnabled;
+            this.ProviderNotificationsSummary.Text = settings.AreNotificationsEnabled
+                ? "Choose which changes UsageDeck should report for this provider."
+                : "Notifications are turned off. Turn them on in Notifications to use these rules.";
+            this.Threshold20CheckBox.IsChecked = notifications.LimitThresholds.HasFlag(
+                LimitNotificationThresholds.Remaining20);
+            this.Threshold10CheckBox.IsChecked = notifications.LimitThresholds.HasFlag(
+                LimitNotificationThresholds.Remaining10);
+            this.Threshold5CheckBox.IsChecked = notifications.LimitThresholds.HasFlag(
+                LimitNotificationThresholds.Remaining5);
+            this.ThresholdExhaustedCheckBox.IsChecked = notifications.LimitThresholds.HasFlag(
+                LimitNotificationThresholds.Exhausted);
+            this.LimitResetsToggle.IsOn = notifications.NotifyLimitResets;
+            this.CodexResetCreditsToggle.IsOn = notifications.NotifyResetCredits;
+            this.CodexResetCreditsRow.Visibility = selectedProvider == ProviderId.Codex
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+            this.ProviderStatusNotificationsToggle.IsOn = notifications.NotifyStatusChanges;
+            App app = (App)Application.Current;
+            this.ProviderStatusNotificationsToggle.IsEnabled = settings.IsStatusMonitoringEnabled
+                && settings.EnabledProviders.Contains(selectedProvider)
+                && app.StatusCoordinator.GetOfficialStatusUri(selectedProvider) is not null;
+            this.ProviderConnectionNotificationsToggle.IsOn = notifications.NotifyConnectionChanges;
+
+            string providerName = selectedProvider.DisplayName;
+            AutomationProperties.SetName(
+                this.ProviderStatusNotificationsToggle,
+                $"Notify about service incidents for {providerName}");
+            AutomationProperties.SetName(
+                this.ProviderConnectionNotificationsToggle,
+                $"Notify about usage connection changes for {providerName}");
+        }
+        finally
+        {
+            this._isApplyingSettings = wasApplyingSettings;
+        }
+    }
+
+    private async Task SaveSelectedProviderNotificationsAsync(
+        Func<ProviderNotificationSettings, ProviderNotificationSettings> update)
+    {
+        if (this._selectedProvider is not ProviderId selectedProvider)
+        {
+            return;
+        }
+
+        await this.SaveSettingsAsync(settings => settings.WithProviderNotifications(
+            update(settings.GetProviderNotifications(selectedProvider))));
     }
 
     private async void StatusMonitoringToggle_Toggled(object sender, RoutedEventArgs e)
@@ -634,6 +683,7 @@ public sealed partial class SettingsWindow : Window, IDisposable
         this.RefreshOpenCodeGoPresentation(settings);
         this.RefreshZaiPresentation(settings);
         this.RefreshSelectedProviderStatus(settings);
+        this.RefreshSelectedProviderNotificationPresentation(settings);
         return true;
     }
 

@@ -471,7 +471,7 @@
                             <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="Notifications" />
                             <TextBlock
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                Text="Choose which important usage and provider changes Windows should show."
+                                Text="Control notifications for UsageDeck and Windows delivery. Choose event rules on each provider page."
                                 TextWrapping="Wrap" />
                         </StackPanel>
 
@@ -568,175 +568,6 @@
                             </Border>
                         </StackPanel>
 
-                        <ContentControl
-                            x:Name="NotificationOptionsPanel"
-                            HorizontalContentAlignment="Stretch"
-                            IsTabStop="False">
-                            <StackPanel Spacing="20">
-                            <StackPanel Spacing="8">
-                                <TextBlock FontWeight="SemiBold" Text="Limits and resets" />
-                                <Border Style="{StaticResource SettingsGroupBorderStyle}">
-                                    <StackPanel>
-                                        <Border
-                                            Padding="16"
-                                            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
-                                            BorderThickness="0,0,0,1">
-                                            <StackPanel Spacing="10">
-                                                <StackPanel Spacing="3">
-                                                    <TextBlock FontWeight="SemiBold" Text="Limit warnings" />
-                                                    <TextBlock
-                                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                        Style="{StaticResource CaptionTextBlockStyle}"
-                                                        Text="Notify once as each selected level is crossed. Labels follow the Usage amount preference."
-                                                        TextWrapping="Wrap" />
-                                                </StackPanel>
-                                                <StackPanel Orientation="Horizontal" Spacing="18">
-                                                    <CheckBox
-                                                        x:Name="Threshold20CheckBox"
-                                                        AutomationProperties.Name="Notify at 20 percent remaining or 80 percent used"
-                                                        Checked="LimitThresholdCheckBox_Changed"
-                                                        Content="20% remaining"
-                                                        Unchecked="LimitThresholdCheckBox_Changed" />
-                                                    <CheckBox
-                                                        x:Name="Threshold10CheckBox"
-                                                        AutomationProperties.Name="Notify at 10 percent remaining or 90 percent used"
-                                                        Checked="LimitThresholdCheckBox_Changed"
-                                                        Content="10% remaining"
-                                                        Unchecked="LimitThresholdCheckBox_Changed" />
-                                                    <CheckBox
-                                                        x:Name="Threshold5CheckBox"
-                                                        AutomationProperties.Name="Notify at 5 percent remaining or 95 percent used"
-                                                        Checked="LimitThresholdCheckBox_Changed"
-                                                        Content="5% remaining"
-                                                        Unchecked="LimitThresholdCheckBox_Changed" />
-                                                    <CheckBox
-                                                        x:Name="ThresholdExhaustedCheckBox"
-                                                        AutomationProperties.Name="Notify when a limit is exhausted"
-                                                        Checked="LimitThresholdCheckBox_Changed"
-                                                        Content="Exhausted"
-                                                        Unchecked="LimitThresholdCheckBox_Changed" />
-                                                </StackPanel>
-                                            </StackPanel>
-                                        </Border>
-                                        <Border
-                                            Padding="16,10"
-                                            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
-                                            BorderThickness="0,0,0,1">
-                                            <Grid ColumnSpacing="24">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="160" />
-                                                </Grid.ColumnDefinitions>
-                                                <StackPanel VerticalAlignment="Center" Spacing="3">
-                                                    <TextBlock FontWeight="SemiBold" Text="Limit resets" />
-                                                    <TextBlock
-                                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                        Style="{StaticResource CaptionTextBlockStyle}"
-                                                        Text="Notify when a used allowance resets and becomes available again."
-                                                        TextWrapping="Wrap" />
-                                                </StackPanel>
-                                                <ToggleSwitch
-                                                    x:Name="LimitResetsToggle"
-                                                    Grid.Column="1"
-                                                    MinWidth="0"
-                                                    HorizontalAlignment="Right"
-                                                    VerticalAlignment="Center"
-                                                    AutomationProperties.Name="Notify when usage limits reset"
-                                                    OffContent=""
-                                                    OnContent=""
-                                                    Toggled="LimitResetsToggle_Toggled" />
-                                            </Grid>
-                                        </Border>
-                                        <Grid Padding="16,10" ColumnSpacing="24">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="160" />
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel VerticalAlignment="Center" Spacing="3">
-                                                <TextBlock FontWeight="SemiBold" Text="Codex reset credits" />
-                                                <TextBlock
-                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                    Style="{StaticResource CaptionTextBlockStyle}"
-                                                    Text="Notify when Codex grants one or more new limit resets."
-                                                    TextWrapping="Wrap" />
-                                            </StackPanel>
-                                            <ToggleSwitch
-                                                x:Name="CodexResetCreditsToggle"
-                                                Grid.Column="1"
-                                                MinWidth="0"
-                                                HorizontalAlignment="Right"
-                                                VerticalAlignment="Center"
-                                                AutomationProperties.Name="Notify when Codex grants reset credits"
-                                                OffContent=""
-                                                OnContent=""
-                                                Toggled="CodexResetCreditsToggle_Toggled" />
-                                        </Grid>
-                                    </StackPanel>
-                                </Border>
-                            </StackPanel>
-
-                            <StackPanel Spacing="8">
-                                <TextBlock FontWeight="SemiBold" Text="Provider health" />
-                                <Border Style="{StaticResource SettingsGroupBorderStyle}">
-                                    <StackPanel>
-                                        <Border
-                                            Padding="16,10"
-                                            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
-                                            BorderThickness="0,0,0,1">
-                                            <Grid ColumnSpacing="24">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="160" />
-                                                </Grid.ColumnDefinitions>
-                                                <StackPanel VerticalAlignment="Center" Spacing="3">
-                                                    <TextBlock FontWeight="SemiBold" Text="Service incidents" />
-                                                    <TextBlock
-                                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                        Style="{StaticResource CaptionTextBlockStyle}"
-                                                        Text="Notify when an enabled provider reports problems or returns to normal. Requires provider status monitoring in General."
-                                                        TextWrapping="Wrap" />
-                                                </StackPanel>
-                                                <ToggleSwitch
-                                                    x:Name="ProviderStatusNotificationsToggle"
-                                                    Grid.Column="1"
-                                                    MinWidth="0"
-                                                    HorizontalAlignment="Right"
-                                                    VerticalAlignment="Center"
-                                                    AutomationProperties.Name="Notify about provider service incidents"
-                                                    OffContent=""
-                                                    OnContent=""
-                                                    Toggled="ProviderStatusNotificationsToggle_Toggled" />
-                                            </Grid>
-                                        </Border>
-                                        <Grid Padding="16,10" ColumnSpacing="24">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="160" />
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel VerticalAlignment="Center" Spacing="3">
-                                                <TextBlock FontWeight="SemiBold" Text="Usage connection" />
-                                                <TextBlock
-                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                    Style="{StaticResource CaptionTextBlockStyle}"
-                                                    Text="Notify when sign-in is required, repeated refreshes fail, or usage access recovers."
-                                                    TextWrapping="Wrap" />
-                                            </StackPanel>
-                                            <ToggleSwitch
-                                                x:Name="ProviderConnectionNotificationsToggle"
-                                                Grid.Column="1"
-                                                MinWidth="0"
-                                                HorizontalAlignment="Right"
-                                                VerticalAlignment="Center"
-                                                AutomationProperties.Name="Notify about provider usage connection changes"
-                                                OffContent=""
-                                                OnContent=""
-                                                Toggled="ProviderConnectionNotificationsToggle_Toggled" />
-                                        </Grid>
-                                    </StackPanel>
-                                </Border>
-                            </StackPanel>
-                            </StackPanel>
-                        </ContentControl>
                     </StackPanel>
                 </ScrollViewer>
 
@@ -1112,6 +943,201 @@
                                 </StackPanel>
                             </Border>
                         </StackPanel>
+
+                        <ContentControl
+                            x:Name="ProviderNotificationOptionsPanel"
+                            HorizontalContentAlignment="Stretch"
+                            IsTabStop="False">
+                            <StackPanel Spacing="20">
+                            <StackPanel Spacing="5">
+                                <TextBlock FontWeight="SemiBold" Text="Notifications" />
+                                <TextBlock
+                                    x:Name="ProviderNotificationsSummary"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Choose which changes UsageDeck should report for this provider."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+
+                            <StackPanel Spacing="8">
+                                <TextBlock FontWeight="SemiBold" Text="Limits and resets" />
+                                <Border Style="{StaticResource SettingsGroupBorderStyle}">
+                                    <StackPanel>
+                                        <Border
+                                            Padding="16"
+                                            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                            BorderThickness="0,0,0,1">
+                                            <StackPanel Spacing="10">
+                                                <StackPanel Spacing="3">
+                                                    <TextBlock FontWeight="SemiBold" Text="Limit warnings" />
+                                                    <TextBlock
+                                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                                        Text="Notify once as each selected level is crossed. Labels follow the Usage amount preference."
+                                                        TextWrapping="Wrap" />
+                                                </StackPanel>
+                                                <Grid ColumnSpacing="16" RowSpacing="8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto" />
+                                                        <RowDefinition Height="Auto" />
+                                                    </Grid.RowDefinitions>
+                                                    <CheckBox
+                                                        x:Name="Threshold20CheckBox"
+                                                        AutomationProperties.Name="Notify at 20 percent remaining or 80 percent used"
+                                                        Checked="LimitThresholdCheckBox_Changed"
+                                                        Content="20% remaining"
+                                                        Unchecked="LimitThresholdCheckBox_Changed" />
+                                                    <CheckBox
+                                                        x:Name="Threshold10CheckBox"
+                                                        Grid.Column="1"
+                                                        AutomationProperties.Name="Notify at 10 percent remaining or 90 percent used"
+                                                        Checked="LimitThresholdCheckBox_Changed"
+                                                        Content="10% remaining"
+                                                        Unchecked="LimitThresholdCheckBox_Changed" />
+                                                    <CheckBox
+                                                        x:Name="Threshold5CheckBox"
+                                                        Grid.Row="1"
+                                                        AutomationProperties.Name="Notify at 5 percent remaining or 95 percent used"
+                                                        Checked="LimitThresholdCheckBox_Changed"
+                                                        Content="5% remaining"
+                                                        Unchecked="LimitThresholdCheckBox_Changed" />
+                                                    <CheckBox
+                                                        x:Name="ThresholdExhaustedCheckBox"
+                                                        Grid.Row="1"
+                                                        Grid.Column="1"
+                                                        AutomationProperties.Name="Notify when a limit is exhausted"
+                                                        Checked="LimitThresholdCheckBox_Changed"
+                                                        Content="Exhausted"
+                                                        Unchecked="LimitThresholdCheckBox_Changed" />
+                                                </Grid>
+                                            </StackPanel>
+                                        </Border>
+                                        <Border
+                                            Padding="16,10"
+                                            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                            BorderThickness="0,0,0,1">
+                                            <Grid ColumnSpacing="24">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="80" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel VerticalAlignment="Center" Spacing="3">
+                                                    <TextBlock FontWeight="SemiBold" Text="Limit resets" />
+                                                    <TextBlock
+                                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                                        Text="Notify when a used allowance resets and becomes available again."
+                                                        TextWrapping="Wrap" />
+                                                </StackPanel>
+                                                <ToggleSwitch
+                                                    x:Name="LimitResetsToggle"
+                                                    Grid.Column="1"
+                                                    MinWidth="0"
+                                                    HorizontalAlignment="Right"
+                                                    VerticalAlignment="Center"
+                                                    AutomationProperties.Name="Notify when usage limits reset"
+                                                    OffContent=""
+                                                    OnContent=""
+                                                    Toggled="LimitResetsToggle_Toggled" />
+                                            </Grid>
+                                        </Border>
+                                        <Grid
+                                            x:Name="CodexResetCreditsRow"
+                                            Padding="16,10"
+                                            ColumnSpacing="24">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="80" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel VerticalAlignment="Center" Spacing="3">
+                                                <TextBlock FontWeight="SemiBold" Text="Codex reset credits" />
+                                                <TextBlock
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                                    Text="Notify when Codex grants one or more new limit resets."
+                                                    TextWrapping="Wrap" />
+                                            </StackPanel>
+                                            <ToggleSwitch
+                                                x:Name="CodexResetCreditsToggle"
+                                                Grid.Column="1"
+                                                MinWidth="0"
+                                                HorizontalAlignment="Right"
+                                                VerticalAlignment="Center"
+                                                AutomationProperties.Name="Notify when Codex grants reset credits"
+                                                OffContent=""
+                                                OnContent=""
+                                                Toggled="CodexResetCreditsToggle_Toggled" />
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+
+                            <StackPanel Spacing="8">
+                                <TextBlock FontWeight="SemiBold" Text="Provider health" />
+                                <Border Style="{StaticResource SettingsGroupBorderStyle}">
+                                    <StackPanel>
+                                        <Border
+                                            Padding="16,10"
+                                            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                            BorderThickness="0,0,0,1">
+                                            <Grid ColumnSpacing="24">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="80" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel VerticalAlignment="Center" Spacing="3">
+                                                    <TextBlock FontWeight="SemiBold" Text="Service incidents" />
+                                                    <TextBlock
+                                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                                        Text="Notify when this provider reports problems or returns to normal. Requires status monitoring in General."
+                                                        TextWrapping="Wrap" />
+                                                </StackPanel>
+                                                <ToggleSwitch
+                                                    x:Name="ProviderStatusNotificationsToggle"
+                                                    Grid.Column="1"
+                                                    MinWidth="0"
+                                                    HorizontalAlignment="Right"
+                                                    VerticalAlignment="Center"
+                                                    AutomationProperties.Name="Notify about service incidents for the selected provider"
+                                                    OffContent=""
+                                                    OnContent=""
+                                                    Toggled="ProviderStatusNotificationsToggle_Toggled" />
+                                            </Grid>
+                                        </Border>
+                                        <Grid Padding="16,10" ColumnSpacing="24">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="80" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel VerticalAlignment="Center" Spacing="3">
+                                                <TextBlock FontWeight="SemiBold" Text="Usage connection" />
+                                                <TextBlock
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                                    Text="Notify when sign-in is required, repeated refreshes fail, or usage access recovers."
+                                                    TextWrapping="Wrap" />
+                                            </StackPanel>
+                                            <ToggleSwitch
+                                                x:Name="ProviderConnectionNotificationsToggle"
+                                                Grid.Column="1"
+                                                MinWidth="0"
+                                                HorizontalAlignment="Right"
+                                                VerticalAlignment="Center"
+                                                AutomationProperties.Name="Notify about usage connection changes for the selected provider"
+                                                OffContent=""
+                                                OnContent=""
+                                                Toggled="ProviderConnectionNotificationsToggle_Toggled" />
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                            </StackPanel>
+                        </ContentControl>
 
                         <StackPanel
                             x:Name="CodexConfigurationPanel"

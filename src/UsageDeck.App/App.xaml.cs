@@ -325,7 +325,7 @@ public partial class App : Application, IDisposable
         AppSettings settings = this.CurrentSettings;
         IReadOnlyList<UsageNotificationEvent> notifications = this._notificationEvaluator.EvaluateUsage(
             snapshot,
-            CreateNotificationOptions(settings));
+            CreateNotificationOptions(settings, snapshot.ProviderId));
         this.ShowNotifications(notifications, settings.UsageValueDisplay);
     }
 
@@ -336,7 +336,7 @@ public partial class App : Application, IDisposable
         AppSettings settings = this.CurrentSettings;
         IReadOnlyList<UsageNotificationEvent> notifications = this._notificationEvaluator.EvaluateStatus(
             snapshot,
-            CreateNotificationOptions(settings));
+            CreateNotificationOptions(settings, snapshot.ProviderId));
         this.ShowNotifications(notifications, settings.UsageValueDisplay);
     }
 
@@ -366,7 +366,9 @@ public partial class App : Application, IDisposable
         });
     }
 
-    private static NotificationEvaluationOptions CreateNotificationOptions(AppSettings settings)
+    private static NotificationEvaluationOptions CreateNotificationOptions(
+        AppSettings settings,
+        ProviderId providerId)
     {
         if (!settings.AreNotificationsEnabled)
         {
@@ -378,33 +380,34 @@ public partial class App : Application, IDisposable
                 notifyProviderConnectionChanges: false);
         }
 
+        ProviderNotificationSettings providerNotifications = settings.GetProviderNotifications(providerId);
         List<int> thresholds = [];
-        if (settings.LimitThresholds.HasFlag(LimitNotificationThresholds.Remaining20))
+        if (providerNotifications.LimitThresholds.HasFlag(LimitNotificationThresholds.Remaining20))
         {
             thresholds.Add(20);
         }
 
-        if (settings.LimitThresholds.HasFlag(LimitNotificationThresholds.Remaining10))
+        if (providerNotifications.LimitThresholds.HasFlag(LimitNotificationThresholds.Remaining10))
         {
             thresholds.Add(10);
         }
 
-        if (settings.LimitThresholds.HasFlag(LimitNotificationThresholds.Remaining5))
+        if (providerNotifications.LimitThresholds.HasFlag(LimitNotificationThresholds.Remaining5))
         {
             thresholds.Add(5);
         }
 
-        if (settings.LimitThresholds.HasFlag(LimitNotificationThresholds.Exhausted))
+        if (providerNotifications.LimitThresholds.HasFlag(LimitNotificationThresholds.Exhausted))
         {
             thresholds.Add(0);
         }
 
         return new NotificationEvaluationOptions(
             thresholds,
-            settings.NotifyLimitResets,
-            settings.NotifyCodexResetCredits,
-            settings.NotifyProviderStatusChanges,
-            settings.NotifyProviderConnectionChanges);
+            providerNotifications.NotifyLimitResets,
+            providerNotifications.NotifyResetCredits,
+            providerNotifications.NotifyStatusChanges,
+            providerNotifications.NotifyConnectionChanges);
     }
 
     private void SettingsManager_Changed(AppSettings settings)

@@ -61,6 +61,17 @@ public enum LimitNotificationThresholds
     All = Remaining20 | Remaining10 | Remaining5 | Exhausted,
 }
 
+public sealed record ProviderNotificationSettings(
+    ProviderId ProviderId,
+    LimitNotificationThresholds LimitThresholds =
+        LimitNotificationThresholds.Remaining20
+        | LimitNotificationThresholds.Remaining5
+        | LimitNotificationThresholds.Exhausted,
+    bool NotifyLimitResets = true,
+    bool NotifyResetCredits = true,
+    bool NotifyStatusChanges = true,
+    bool NotifyConnectionChanges = true);
+
 public sealed record AppSettings(
     IReadOnlyList<ProviderId> EnabledProviders,
     ProviderId DefaultProvider,
@@ -79,16 +90,30 @@ public sealed record AppSettings(
     bool CheckForUpdatesAutomatically = true,
     AppUpdateChannel UpdateChannel = AppUpdateChannel.Stable,
     bool AreNotificationsEnabled = true,
-    LimitNotificationThresholds LimitThresholds =
-        LimitNotificationThresholds.Remaining20
-        | LimitNotificationThresholds.Remaining5
-        | LimitNotificationThresholds.Exhausted,
-    bool NotifyLimitResets = true,
-    bool NotifyCodexResetCredits = true,
-    bool NotifyProviderStatusChanges = true,
-    bool NotifyProviderConnectionChanges = true)
+    IReadOnlyList<ProviderNotificationSettings>? ProviderNotifications = null)
 {
-    public static AppSettings Default { get; } = new([ProviderId.Codex, ProviderId.Claude], ProviderId.Codex);
+    public static AppSettings Default { get; } = new(
+        [ProviderId.Codex, ProviderId.Claude],
+        ProviderId.Codex,
+        ProviderNotifications: CreateDefaultProviderNotifications());
+
+    public ProviderNotificationSettings GetProviderNotifications(ProviderId providerId) =>
+        this.ProviderNotifications?.FirstOrDefault(settings => settings.ProviderId == providerId)
+        ?? new ProviderNotificationSettings(providerId);
+
+    public AppSettings WithProviderNotifications(ProviderNotificationSettings providerNotifications)
+    {
+        ArgumentNullException.ThrowIfNull(providerNotifications);
+        ProviderNotificationSettings[] updated = ProviderId.Supported
+            .Select(providerId => providerId == providerNotifications.ProviderId
+                ? providerNotifications
+                : this.GetProviderNotifications(providerId))
+            .ToArray();
+        return this with { ProviderNotifications = updated };
+    }
+
+    private static ProviderNotificationSettings[] CreateDefaultProviderNotifications() =>
+        ProviderId.Supported.Select(providerId => new ProviderNotificationSettings(providerId)).ToArray();
 }
 
 public sealed record AppSettingsLoadResult(AppSettings Settings, string? SafeWarning = null);
@@ -222,6 +247,9 @@ public sealed class AppSettingsStore
                     : this._defaultSettings.UpdateChannel;
             LimitNotificationThresholds limitThresholds = ParseLimitNotificationThresholds(
                 document.LimitNotificationThresholds);
+            ProviderNotificationSettings[] providerNotifications = ParseProviderNotifications(
+                document,
+                limitThresholds);
 
             string? warning = savedEnabled.Length == enabled.Length
                 ? null
@@ -245,11 +273,7 @@ public sealed class AppSettingsStore
                     document.CheckForUpdatesAutomatically ?? true,
                     updateChannel,
                     document.AreNotificationsEnabled ?? true,
-                    limitThresholds,
-                    document.NotifyLimitResets ?? true,
-                    document.NotifyCodexResetCredits ?? true,
-                    document.NotifyProviderStatusChanges ?? true,
-                    document.NotifyProviderConnectionChanges ?? true),
+                    providerNotifications),
                 warning);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
@@ -285,7 +309,16 @@ public sealed class AppSettingsStore
         {
             throw new ArgumentException("The refresh interval is not supported.", nameof(settings));
         }
-        if ((settings.LimitThresholds & ~LimitNotificationThresholds.All) != 0)
+        if (settings.ProviderNotifications is not null
+            && (settings.ProviderNotifications.Any(value => !IsSupportedProvider(value.ProviderId))
+                || settings.ProviderNotifications.Select(value => value.ProviderId).Distinct().Count()
+                    != settings.ProviderNotifications.Count))
+        {
+            throw new ArgumentException("Provider notification settings are invalid.", nameof(settings));
+        }
+        if (ProviderId.Supported
+            .Select(settings.GetProviderNotifications)
+            .Any(value => (value.LimitThresholds & ~LimitNotificationThresholds.All) != 0))
         {
             throw new ArgumentException("Notification thresholds are invalid.", nameof(settings));
         }
@@ -316,11 +349,16 @@ public sealed class AppSettingsStore
             settings.CheckForUpdatesAutomatically,
             settings.UpdateChannel.ToString(),
             settings.AreNotificationsEnabled,
-            settings.LimitThresholds.ToString(),
-            settings.NotifyLimitResets,
-            settings.NotifyCodexResetCredits,
-            settings.NotifyProviderStatusChanges,
-            settings.NotifyProviderConnectionChanges);
+            ProviderId.Supported
+                .Select(settings.GetProviderNotifications)
+                .Select(value => new ProviderNotificationDocument(
+                    value.ProviderId.Value,
+                    value.LimitThresholds.ToString(),
+                    value.NotifyLimitResets,
+                    value.NotifyResetCredits,
+                    value.NotifyStatusChanges,
+                    value.NotifyConnectionChanges))
+                .ToArray());
 
         try
         {
@@ -354,7 +392,7 @@ public sealed class AppSettingsStore
 
     private static LimitNotificationThresholds ParseLimitNotificationThresholds(string? value)
     {
-        LimitNotificationThresholds fallback = AppSettings.Default.LimitThresholds;
+        LimitNotificationThresholds fallback = new ProviderNotificationSettings(ProviderId.Codex).LimitThresholds;
         if (!Enum.TryParse(value, ignoreCase: true, out LimitNotificationThresholds parsed)
             || (parsed & ~LimitNotificationThresholds.All) != 0)
         {
@@ -362,6 +400,52 @@ public sealed class AppSettingsStore
         }
 
         return parsed;
+    }
+
+    private static ProviderNotificationSettings[] ParseProviderNotifications(
+        SettingsDocument document,
+        LimitNotificationThresholds legacyThresholds)
+    {
+        if (document.ProviderNotifications is null)
+        {
+            return ProviderId.Supported
+                .Select(providerId => new ProviderNotificationSettings(
+                    providerId,
+                    legacyThresholds,
+                    document.NotifyLimitResets ?? true,
+                    document.NotifyCodexResetCredits ?? true,
+                    document.NotifyProviderStatusChanges ?? true,
+                    document.NotifyProviderConnectionChanges ?? true))
+                .ToArray();
+        }
+
+        Dictionary<ProviderId, ProviderNotificationSettings> saved = [];
+        foreach (ProviderNotificationDocument value in document.ProviderNotifications)
+        {
+            if (string.IsNullOrWhiteSpace(value.Provider))
+            {
+                continue;
+            }
+
+            ProviderId providerId = new(value.Provider);
+            if (!IsSupportedProvider(providerId) || saved.ContainsKey(providerId))
+            {
+                continue;
+            }
+
+            ProviderNotificationSettings defaults = new(providerId);
+            saved.Add(providerId, new ProviderNotificationSettings(
+                providerId,
+                ParseLimitNotificationThresholds(value.LimitNotificationThresholds),
+                value.NotifyLimitResets ?? defaults.NotifyLimitResets,
+                value.NotifyResetCredits ?? defaults.NotifyResetCredits,
+                value.NotifyStatusChanges ?? defaults.NotifyStatusChanges,
+                value.NotifyConnectionChanges ?? defaults.NotifyConnectionChanges));
+        }
+
+        return ProviderId.Supported
+            .Select(providerId => saved.GetValueOrDefault(providerId, new ProviderNotificationSettings(providerId)))
+            .ToArray();
     }
 
     private sealed record SettingsDocument(
@@ -382,11 +466,25 @@ public sealed class AppSettingsStore
         bool? CheckForUpdatesAutomatically = null,
         string? UpdateChannel = null,
         bool? AreNotificationsEnabled = null,
+        ProviderNotificationDocument[]? ProviderNotifications = null,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         string? LimitNotificationThresholds = null,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         bool? NotifyLimitResets = null,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         bool? NotifyCodexResetCredits = null,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         bool? NotifyProviderStatusChanges = null,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         bool? NotifyProviderConnectionChanges = null,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         string? SelectedProvider = null);
+
+    private sealed record ProviderNotificationDocument(
+        string Provider,
+        string? LimitNotificationThresholds = null,
+        bool? NotifyLimitResets = null,
+        bool? NotifyResetCredits = null,
+        bool? NotifyStatusChanges = null,
+        bool? NotifyConnectionChanges = null);
 }
