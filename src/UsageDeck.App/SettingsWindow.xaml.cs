@@ -6,6 +6,7 @@ using UsageDeck.Infrastructure.Providers.OpenCodeGo;
 using UsageDeck.Infrastructure.Providers.Zai;
 using UsageDeck.Infrastructure.Security;
 using UsageDeck.Infrastructure.Settings;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.System;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -17,7 +18,10 @@ namespace UsageDeck.App;
 
 public sealed partial class SettingsWindow : Window, IDisposable
 {
+    private static readonly TimeSpan SettingsMessageDisplayDuration = TimeSpan.FromSeconds(6);
+
     private readonly CancellationTokenSource _lifetimeCancellation = new();
+    private readonly DispatcherQueueTimer _settingsMessageDismissTimer;
     private bool _isApplyingSettings;
     private bool _isDisposed;
     private bool _isExiting;
@@ -31,6 +35,11 @@ public sealed partial class SettingsWindow : Window, IDisposable
     public SettingsWindow()
     {
         this.InitializeComponent();
+        this._settingsMessageDismissTimer = this.DispatcherQueue.CreateTimer();
+        this._settingsMessageDismissTimer.Interval = SettingsMessageDisplayDuration;
+        this._settingsMessageDismissTimer.IsRepeating = false;
+        this._settingsMessageDismissTimer.Tick += this.SettingsMessageDismissTimer_Tick;
+        this.SettingsInfoBar.Closed += this.SettingsInfoBar_Closed;
         App app = (App)Application.Current;
         this.InitialiseThemeSettings(app);
         App.ApplyWindowAppearance(this, this.RootLayout, this.SolidBackground, app.CurrentSettings);
@@ -896,9 +905,21 @@ public sealed partial class SettingsWindow : Window, IDisposable
 
     private void ShowMessage(string message, InfoBarSeverity severity)
     {
+        this._settingsMessageDismissTimer.Stop();
         this.SettingsInfoBar.Message = message;
         this.SettingsInfoBar.Severity = severity;
         this.SettingsInfoBar.IsOpen = true;
+        this._settingsMessageDismissTimer.Start();
+    }
+
+    private void SettingsMessageDismissTimer_Tick(DispatcherQueueTimer sender, object args)
+    {
+        this.SettingsInfoBar.IsOpen = false;
+    }
+
+    private void SettingsInfoBar_Closed(InfoBar sender, InfoBarClosedEventArgs args)
+    {
+        this._settingsMessageDismissTimer.Stop();
     }
 
     private async void UpdateActionButton_Click(object sender, RoutedEventArgs e)
@@ -1123,6 +1144,9 @@ public sealed partial class SettingsWindow : Window, IDisposable
         }
 
         this.Activated -= this.SettingsWindow_Activated;
+        this.SettingsInfoBar.Closed -= this.SettingsInfoBar_Closed;
+        this._settingsMessageDismissTimer.Tick -= this.SettingsMessageDismissTimer_Tick;
+        this._settingsMessageDismissTimer.Stop();
 
         this._lifetimeCancellation.Cancel();
         this._lifetimeCancellation.Dispose();
