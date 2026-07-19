@@ -11,15 +11,30 @@ public static class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        WinRT.ComWrappersSupport.InitializeComWrappers();
         VelopackApp.Build().Run();
-
-        Application.Start(initializationCallbackParams =>
+        StartupFailureReporter.InstallLastChanceHandler();
+        try
         {
-            DispatcherQueueSynchronizationContext context = new(
-                DispatcherQueue.GetForCurrentThread());
-            SynchronizationContext.SetSynchronizationContext(context);
-            _app = new App();
-        });
+            WinRT.ComWrappersSupport.InitializeComWrappers();
+
+            Application.Start(initializationCallbackParams =>
+            {
+                try
+                {
+                    DispatcherQueueSynchronizationContext context = new(
+                        DispatcherQueue.GetForCurrentThread());
+                    SynchronizationContext.SetSynchronizationContext(context);
+                    _app = new App();
+                }
+                catch (Exception exception)
+                {
+                    StartupFailureReporter.ReportAndExit("Initialising the Windows interface", exception);
+                }
+            });
+        }
+        catch (Exception exception)
+        {
+            StartupFailureReporter.ReportAndExit("Starting the Windows interface", exception);
+        }
     }
 }

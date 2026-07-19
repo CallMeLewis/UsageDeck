@@ -44,6 +44,7 @@ public partial class App : Application, IDisposable
 
     public App()
     {
+        this.UnhandledException += this.App_UnhandledException;
         this.InitializeComponent();
         this._dispatcherQueue = DispatcherQueue.GetForCurrentThread();
 
@@ -131,6 +132,12 @@ public partial class App : Application, IDisposable
     internal event Action? UpdateStateChanged;
 
     internal event Action? ProviderStatusStateChanged;
+
+    private void App_UnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs args)
+    {
+        args.Handled = true;
+        StartupFailureReporter.ReportAndExit("Opening the Windows interface", args.Exception);
+    }
 
     internal bool IsProviderStatusRefreshInProgress { get; private set; }
 
@@ -537,6 +544,7 @@ public partial class App : Application, IDisposable
         }
 
         this._isDisposed = true;
+        this.UnhandledException -= this.App_UnhandledException;
         if (this._mainInstance is not null)
         {
             this._mainInstance.Activated -= this.MainInstance_Activated;

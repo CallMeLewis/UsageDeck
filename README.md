@@ -43,7 +43,9 @@ UsageDeck requires **Windows 11 24H2 or later on x64**.
 2. Download the Windows Setup executable, or choose the portable ZIP if you do not want an installed copy.
 3. Start UsageDeck and enable the providers you use in Settings.
 
-The release includes the .NET and Windows App SDK runtimes. Current development builds are unsigned, so Windows may show an unknown-publisher or SmartScreen warning.
+The release includes the .NET runtime and the Microsoft-signed Windows App SDK packages required by UsageDeck, so users do not need to install .NET separately. The lightweight launcher registers those packages for the current Windows user before starting the app. If the Windows interface cannot start, UsageDeck displays the error and saves a privacy-safe report under `%LocalAppData%\UsageDeck\diagnostics`. Current development builds are unsigned, so Windows may show an unknown-publisher or SmartScreen warning.
+
+The portable ZIP does not install UsageDeck itself, but its first launch registers the same shared Microsoft runtime packages for the current Windows user.
 
 Provider-owned CLIs must already be installed and signed in. OpenCode Go can instead use an OpenCode Console service-account key (`oc_sk_…`) under **Settings → Providers → OpenCode Go**; ordinary Go or Zen inference keys cannot access the billing export. Z.AI does not require a CLI; add its API key under **Settings → Providers → Z.AI** using Windows Credential Manager, the `Z_AI_API_KEY` environment variable, or session-only storage.
 

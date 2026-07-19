@@ -78,6 +78,6 @@ public sealed class WindowsNotificationServiceTests
 
         Assert.Equal(NotificationDeliveryState.Unavailable, status.State);
         Assert.False(status.CanSend);
-        Assert.Contains("Self-contained", status.Detail, StringComparison.Ordinal);
+        Assert.Contains("Restart UsageDeck", status.Detail, StringComparison.Ordinal);
     }
 }

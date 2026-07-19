@@ -79,7 +79,7 @@ catch (ProviderException exception)
 
 CodexUsageProvider CreateCodexProvider(ProviderHost host) => new(
     new ProcessSessionFactory(),
-    new CodexProcessSpecFactory(new CodexExecutableLocator(executableLocator)),
+    new CodexProcessSpecFactory(executableLocator),
     host);
 
 static async Task CaptureClaudeUsageAsync()

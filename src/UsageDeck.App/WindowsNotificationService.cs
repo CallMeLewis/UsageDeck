@@ -62,8 +62,8 @@ internal sealed class WindowsNotificationService : IDisposable
             if (!this._supportProbe())
             {
                 this._unavailableReason =
-                    "Windows does not expose app notifications to this build. "
-                    + "Self-contained Windows App SDK deployments require the separate Singleton package.";
+                    "The Windows component required for app notifications is unavailable. "
+                    + "Restart UsageDeck to let setup check the installed components.";
                 return false;
             }
 

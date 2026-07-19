@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/UsageDeck.App/UsageDeck.App.csproj" />
+    <Project Path="src/UsageDeck.Bootstrap/UsageDeck.Bootstrap.csproj" />
     <Project Path="src/UsageDeck.Core/UsageDeck.Core.csproj" />
     <Project Path="src/UsageDeck.Infrastructure/UsageDeck.Infrastructure.csproj" />
   </Folder>
