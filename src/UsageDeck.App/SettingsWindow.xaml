@@ -513,7 +513,7 @@
                                         <Grid ColumnSpacing="24">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="160" />
+                                                <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
                                             <StackPanel VerticalAlignment="Center" Spacing="3">
                                                 <StackPanel Orientation="Horizontal" Spacing="7">
@@ -537,7 +537,7 @@
                                             <Button
                                                 x:Name="SendTestNotificationButton"
                                                 Grid.Column="1"
-                                                Width="160"
+                                                MinWidth="176"
                                                 VerticalAlignment="Center"
                                                 Click="SendTestNotificationButton_Click"
                                                 Content="Send test notification" />
@@ -546,7 +546,7 @@
                                     <Grid Padding="16,10" ColumnSpacing="24">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="160" />
+                                            <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <StackPanel VerticalAlignment="Center" Spacing="3">
                                             <TextBlock FontWeight="SemiBold" Text="Windows notification settings" />
@@ -559,7 +559,7 @@
                                         <Button
                                             x:Name="OpenWindowsNotificationSettingsButton"
                                             Grid.Column="1"
-                                            Width="160"
+                                            MinWidth="176"
                                             VerticalAlignment="Center"
                                             Click="OpenWindowsNotificationSettingsButton_Click"
                                             Content="Open Windows settings" />
