@@ -42,14 +42,26 @@ public sealed class ProviderDiscoveryService
             ?? new OpenCodeGoDataLocator().FindDatabasePath;
     }
 
-    public IReadOnlyList<ProviderDiscoveryResult> Discover()
+    public IReadOnlyList<ProviderDiscoveryResult> Discover(
+        CancellationToken cancellationToken = default)
     {
-        Dictionary<ProviderId, ProviderDiscoveryResult> results = CliSources
-            .Select(source => this.DiscoverCli(source.ProviderId, source.ExecutableName, source.SourceName))
-            .ToDictionary(result => result.ProviderId);
+        Dictionary<ProviderId, ProviderDiscoveryResult> results = [];
+        foreach ((ProviderId providerId, string executableName, string sourceName) in CliSources)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ProviderDiscoveryResult result = this.DiscoverCli(providerId, executableName, sourceName);
+            results.Add(result.ProviderId, result);
+        }
 
-        bool openCodeDetected = this._executableLocator.FindExecutable("opencode") is not null
-            || this._openCodeDataPathReader() is not null;
+        cancellationToken.ThrowIfCancellationRequested();
+        bool openCodeDetected = this._executableLocator.FindExecutable("opencode") is not null;
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!openCodeDetected)
+        {
+            openCodeDetected = this._openCodeDataPathReader() is not null;
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+
         results[ProviderId.OpenCodeGo] = openCodeDetected
             ? new ProviderDiscoveryResult(
                 ProviderId.OpenCodeGo,
@@ -64,6 +76,7 @@ public sealed class ProviderDiscoveryService
             ProviderDiscoveryState.RequiresSetup,
             "Add a Z.AI API key in Settings after setup.");
 
+        cancellationToken.ThrowIfCancellationRequested();
         return ProviderId.Supported.Select(providerId => results[providerId]).ToArray();
     }
 

@@ -376,8 +376,9 @@ public sealed partial class SettingsWindow : Window, IDisposable
     {
         if (!this._isApplyingSettings)
         {
+            bool notifyLimitResets = this.LimitResetsToggle.IsOn;
             await this.SaveSelectedProviderNotificationsAsync(
-                notifications => notifications with { NotifyLimitResets = this.LimitResetsToggle.IsOn });
+                notifications => notifications with { NotifyLimitResets = notifyLimitResets });
         }
     }
 
@@ -385,8 +386,9 @@ public sealed partial class SettingsWindow : Window, IDisposable
     {
         if (!this._isApplyingSettings)
         {
+            bool notifyResetCredits = this.CodexResetCreditsToggle.IsOn;
             await this.SaveSelectedProviderNotificationsAsync(
-                notifications => notifications with { NotifyResetCredits = this.CodexResetCreditsToggle.IsOn });
+                notifications => notifications with { NotifyResetCredits = notifyResetCredits });
         }
     }
 
@@ -394,10 +396,11 @@ public sealed partial class SettingsWindow : Window, IDisposable
     {
         if (!this._isApplyingSettings)
         {
+            bool notifyStatusChanges = this.ProviderStatusNotificationsToggle.IsOn;
             await this.SaveSelectedProviderNotificationsAsync(
                 notifications => notifications with
                 {
-                    NotifyStatusChanges = this.ProviderStatusNotificationsToggle.IsOn,
+                    NotifyStatusChanges = notifyStatusChanges,
                 });
         }
     }
@@ -406,10 +409,11 @@ public sealed partial class SettingsWindow : Window, IDisposable
     {
         if (!this._isApplyingSettings)
         {
+            bool notifyConnectionChanges = this.ProviderConnectionNotificationsToggle.IsOn;
             await this.SaveSelectedProviderNotificationsAsync(
                 notifications => notifications with
                 {
-                    NotifyConnectionChanges = this.ProviderConnectionNotificationsToggle.IsOn,
+                    NotifyConnectionChanges = notifyConnectionChanges,
                 });
         }
     }

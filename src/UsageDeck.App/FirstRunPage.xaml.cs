@@ -69,7 +69,7 @@ public sealed partial class FirstRunPage : Page, IDisposable
         try
         {
             IReadOnlyList<ProviderDiscoveryResult> results = await Task.Run(
-                this._providerDiscovery.Discover,
+                () => this._providerDiscovery.Discover(cancellationToken),
                 cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
 

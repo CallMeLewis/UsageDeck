@@ -63,10 +63,34 @@ public sealed class ProviderDiscoveryServiceTests
             results.Single(result => result.ProviderId == ProviderId.Zai).State);
     }
 
+    [Fact]
+    public void DiscoverStopsBeforeTheNextProviderWhenCancelled()
+    {
+        using CancellationTokenSource cancellation = new();
+        List<string> probes = [];
+        CallbackExecutableLocator locator = new(executableName =>
+        {
+            probes.Add(executableName);
+            cancellation.Cancel();
+            return null;
+        });
+        ProviderDiscoveryService service = new(locator, () => null);
+
+        Assert.Throws<OperationCanceledException>(() => service.Discover(cancellation.Token));
+
+        Assert.Equal(["codex"], probes);
+    }
+
     private sealed class FakeExecutableLocator(IReadOnlyDictionary<string, string> executables)
         : IExecutableLocator
     {
         public string? FindExecutable(string executableName) =>
             executables.GetValueOrDefault(executableName);
+    }
+
+    private sealed class CallbackExecutableLocator(Func<string, string?> findExecutable)
+        : IExecutableLocator
+    {
+        public string? FindExecutable(string executableName) => findExecutable(executableName);
     }
 }
