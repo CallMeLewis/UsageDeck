@@ -5,16 +5,34 @@ using UsageDeck.Infrastructure.Settings;
 using Microsoft.UI.System;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Media.Animation;
 
 namespace UsageDeck.App;
 
 public sealed partial class MainWindow : Window
 {
+    private const double MainMinimumHeight = 520;
+    private const double MainMinimumWidth = 400;
+    private const double SetupMinimumHeight = 560;
+    private const double SetupMinimumWidth = 520;
+
+    private bool _isFirstRun;
     private bool _isExiting;
+    private double _minimumHeight;
+    private double _minimumWidth;
+    private AppThemePreference? _previewTheme;
     private ThemeSettings? _themeSettings;
 
     public MainWindow()
+        : this(isFirstRun: false)
     {
+    }
+
+    internal MainWindow(bool isFirstRun)
+    {
+        this._isFirstRun = isFirstRun;
+        this._minimumWidth = isFirstRun ? SetupMinimumWidth : MainMinimumWidth;
+        this._minimumHeight = isFirstRun ? SetupMinimumHeight : MainMinimumHeight;
         this.ToggleWindowCommand = new RelayCommand(this.ToggleWindow);
         this.ShowWindowCommand = new RelayCommand(this.ShowWindow);
         this.RefreshCommand = new AsyncRelayCommand(this.RefreshAllAsync);
@@ -38,11 +56,14 @@ public sealed partial class MainWindow : Window
         }
 
         this.AppWindow.SetIcon("Assets/AppIcon.ico");
-        WindowSizing.Configure(this, 500, 780, 400, 520);
+        WindowSizing.Configure(
+            this,
+            isFirstRun ? 640 : 500,
+            isFirstRun ? 700 : 780,
+            this._minimumWidth,
+            this._minimumHeight);
         this.AppWindow.Changed += this.AppWindow_Changed;
         this.AppWindow.Closing += this.AppWindow_Closing;
-
-        this.RootFrame.Navigate(typeof(MainPage));
     }
 
     public ICommand ToggleWindowCommand { get; }
@@ -57,7 +78,17 @@ public sealed partial class MainWindow : Window
 
     internal void PrepareForShutdown()
     {
+        if (this._isExiting)
+        {
+            return;
+        }
+
         this._isExiting = true;
+        if (this.RootFrame.Content is FirstRunPage firstRunPage)
+        {
+            firstRunPage.Dispose();
+        }
+
         if (this._themeSettings is not null)
         {
             this._themeSettings.Changed -= this.ThemeSettings_Changed;
@@ -68,8 +99,73 @@ public sealed partial class MainWindow : Window
 
     internal void RefreshAppearance(AppSettings settings)
     {
-        App.ApplyWindowAppearance(this, this.RootLayout, this.SolidBackground, settings);
+        AppSettings appearanceSettings = this._isFirstRun && this._previewTheme is AppThemePreference previewTheme
+            ? settings with { Theme = previewTheme }
+            : settings;
+        App.ApplyWindowAppearance(this, this.RootLayout, this.SolidBackground, appearanceSettings);
         App.ApplyCaptionButtonColours(this, this.RootLayout);
+    }
+
+    internal void PreviewFirstRunTheme(AppThemePreference theme)
+    {
+        if (!this._isFirstRun)
+        {
+            return;
+        }
+
+        this._previewTheme = theme;
+        this.RefreshAppearance(((App)Application.Current).CurrentSettings);
+    }
+
+    internal void ShowFirstRunPage()
+    {
+        if (this.RootFrame.Content is FirstRunPage)
+        {
+            return;
+        }
+
+        this._isFirstRun = true;
+        this._previewTheme = ((App)Application.Current).CurrentSettings.Theme;
+        this.SetMinimumSize(SetupMinimumWidth, SetupMinimumHeight);
+        if (!this.RootFrame.Navigate(
+            typeof(FirstRunPage),
+            null,
+            new SuppressNavigationTransitionInfo()))
+        {
+            throw new InvalidOperationException("The first-run page could not be opened.");
+        }
+    }
+
+    internal void ShowMainPage(ProviderId? providerId = null)
+    {
+        FirstRunPage? firstRunPage = this.RootFrame.Content as FirstRunPage;
+        this._isFirstRun = false;
+        this._previewTheme = null;
+        this.SetMinimumSize(MainMinimumWidth, MainMinimumHeight);
+        this.RefreshAppearance(((App)Application.Current).CurrentSettings);
+
+        if (this.RootFrame.Content is not MainPage)
+        {
+            NavigationTransitionInfo transition = firstRunPage is null
+                ? new SuppressNavigationTransitionInfo()
+                : new EntranceNavigationTransitionInfo();
+            if (!this.RootFrame.Navigate(typeof(MainPage), null, transition))
+            {
+                throw new InvalidOperationException("The usage page could not be opened.");
+            }
+        }
+
+        firstRunPage?.Dispose();
+        this.TrayIcon.Visibility = Visibility.Visible;
+        if (!this.TrayIcon.IsCreated)
+        {
+            this.TrayIcon.ForceCreate(enablesEfficiencyMode: false);
+        }
+
+        if (providerId is ProviderId provider)
+        {
+            this.SelectProvider(provider);
+        }
     }
 
     internal void SelectProvider(ProviderId providerId)
@@ -136,7 +232,16 @@ public sealed partial class MainWindow : Window
 
     private void AppWindow_Closing(AppWindow sender, AppWindowClosingEventArgs args)
     {
-        if (!this._isExiting)
+        if (this._isExiting)
+        {
+            return;
+        }
+
+        if (this._isFirstRun)
+        {
+            ((App)Application.Current).Shutdown();
+        }
+        else
         {
             args.Cancel = true;
             sender.Hide();
@@ -147,15 +252,22 @@ public sealed partial class MainWindow : Window
     {
         if (args.DidPositionChange)
         {
-            WindowSizing.UpdateMinimumSize(this, 400, 520);
+            WindowSizing.UpdateMinimumSize(this, this._minimumWidth, this._minimumHeight);
         }
     }
 
     private void App_SettingsChanged(AppSettings settings) =>
-        App.ApplyWindowAppearance(this, this.RootLayout, this.SolidBackground, settings);
+        this.RefreshAppearance(settings);
 
     private void RootLayout_ActualThemeChanged(FrameworkElement sender, object args) =>
         App.ApplyCaptionButtonColours(this, this.RootLayout);
+
+    private void SetMinimumSize(double width, double height)
+    {
+        this._minimumWidth = width;
+        this._minimumHeight = height;
+        WindowSizing.UpdateMinimumSize(this, width, height);
+    }
 
     private sealed class RelayCommand(Action execute) : ICommand
     {

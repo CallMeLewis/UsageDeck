@@ -2,6 +2,7 @@ using UsageDeck.Core.Providers;
 using UsageDeck.Core.Notifications;
 using UsageDeck.Infrastructure.Compatibility;
 using UsageDeck.Infrastructure.Processes;
+using UsageDeck.Infrastructure.Providers;
 using UsageDeck.Infrastructure.Providers.Amp;
 using UsageDeck.Infrastructure.Providers.Antigravity;
 using UsageDeck.Infrastructure.Providers.Claude;
@@ -28,6 +29,7 @@ public partial class App : Application, IDisposable
     private readonly DispatcherQueue _dispatcherQueue;
     private readonly HttpClient _httpClient;
     private readonly OpenCodeGoApiKeyResolver _openCodeGoApiKeys;
+    private readonly ProviderDiscoveryService _providerDiscovery;
     private readonly NotificationEvaluator _notificationEvaluator = new();
     private readonly WindowsNotificationService _notificationService;
     private readonly SemaphoreSlim _providerStatusRefreshLock = new(1, 1);
@@ -37,6 +39,8 @@ public partial class App : Application, IDisposable
     private bool _isDisposed;
     private bool _isHighContrastEnabled;
     private bool _isShuttingDown;
+    private bool _normalSessionStarted;
+    private bool _requiresFirstRun;
     private AppInstance? _mainInstance;
     private ProviderId[] _monitoredStatusProviders = [];
     private SettingsWindow? _settingsWindow;
@@ -54,6 +58,7 @@ public partial class App : Application, IDisposable
             : AppUpdateChannel.Stable;
         AppSettingsStore settingsStore = new(defaultUpdateChannel: defaultUpdateChannel);
         AppSettingsLoadResult settings = settingsStore.Load();
+        this._requiresFirstRun = settings.IsFirstRun;
         this._settingsManager = new AppSettingsManager(settingsStore, settings.Settings);
         this._settingsManager.Changed += this.SettingsManager_Changed;
         this._automaticUpdateChecksEnabled = settings.Settings.CheckForUpdatesAutomatically;
@@ -70,6 +75,7 @@ public partial class App : Application, IDisposable
         ProcessSessionFactory processSessionFactory = new();
         PtySessionFactory ptySessionFactory = new();
         CliVersionReader cliVersionReader = new(processSessionFactory);
+        this._providerDiscovery = new ProviderDiscoveryService(executableLocator);
         IUsageProvider[] providers =
         [
             new CodexUsageProvider(
@@ -125,6 +131,8 @@ public partial class App : Application, IDisposable
 
     public AppSettings CurrentSettings => this._settingsManager.Current;
 
+    internal ProviderDiscoveryService ProviderDiscovery => this._providerDiscovery;
+
     public event Action<AppSettings>? SettingsChanged;
 
     public event Action? AccessibilityChanged;
@@ -168,6 +176,20 @@ public partial class App : Application, IDisposable
         Func<AppSettings, AppSettings> update,
         CancellationToken cancellationToken = default) =>
         this._settingsManager.UpdateAsync(update, cancellationToken);
+
+    internal async Task CompleteFirstRunAsync(
+        AppSettings settings,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        await this._settingsManager.UpdateAsync(_ => settings, cancellationToken);
+
+        this._requiresFirstRun = false;
+        this.StartNormalSession();
+    }
+
+    internal void PreviewFirstRunTheme(AppThemePreference theme) =>
+        this._window?.PreviewFirstRunTheme(theme);
 
     internal ZaiCredentialStatus GetZaiCredentialStatus() => this._zaiApiKeys.GetStatus();
 
@@ -252,12 +274,7 @@ public partial class App : Application, IDisposable
 
         this._mainInstance = mainInstance;
         this._mainInstance.Activated += this.MainInstance_Activated;
-        this.ShowMainWindow();
-        this.ConfigureProviderStatusMonitoring(this.CurrentSettings, forceRefresh: true);
-        if (this.CurrentSettings.CheckForUpdatesAutomatically)
-        {
-            _ = this.CheckForAppUpdateInBackgroundAsync();
-        }
+        this.ShowPrimaryWindow();
     }
 
     internal async Task RefreshProviderStatusesAsync(CancellationToken cancellationToken = default)
@@ -315,10 +332,10 @@ public partial class App : Application, IDisposable
     }
 
     private void MainInstance_Activated(object? sender, AppActivationArguments args) =>
-        _ = this._dispatcherQueue.TryEnqueue(() => this.ShowMainWindow());
+        _ = this._dispatcherQueue.TryEnqueue(() => this.ShowPrimaryWindow());
 
     private void NotificationService_Activated(ProviderId? providerId) =>
-        _ = this._dispatcherQueue.TryEnqueue(() => this.ShowMainWindow(providerId));
+        _ = this._dispatcherQueue.TryEnqueue(() => this.ShowPrimaryWindow(providerId));
 
     private void RefreshCoordinator_SnapshotChanged(object? sender, ProviderSnapshot snapshot)
     {
@@ -423,10 +440,15 @@ public partial class App : Application, IDisposable
             this.NotifyUpdateStateChanged();
         }
 
-        this.ConfigureProviderStatusMonitoring(settings);
+        if (this._normalSessionStarted)
+        {
+            this.ConfigureProviderStatusMonitoring(settings);
+        }
+
         this._notificationEvaluator.RetainProviders(settings.EnabledProviders);
         this.SettingsChanged?.Invoke(settings);
-        if (settings.CheckForUpdatesAutomatically
+        if (this._normalSessionStarted
+            && settings.CheckForUpdatesAutomatically
             && (!automaticUpdateChecksWereEnabled || updateChannelChanged))
         {
             _ = this.CheckForAppUpdateInBackgroundAsync();
@@ -502,14 +524,46 @@ public partial class App : Application, IDisposable
         this.AccessibilityChanged?.Invoke();
     }
 
+    private void ShowPrimaryWindow(ProviderId? providerId = null)
+    {
+        if (this._requiresFirstRun)
+        {
+            this.ShowFirstRunPage();
+            return;
+        }
+
+        this.StartNormalSession(providerId);
+    }
+
+    private void ShowFirstRunPage()
+    {
+        this._window ??= new MainWindow(isFirstRun: true);
+        this._window.ShowFirstRunPage();
+        this._window.AppWindow.Show();
+        this._window.Activate();
+    }
+
+    private void StartNormalSession(ProviderId? providerId = null)
+    {
+        bool isStarting = !this._normalSessionStarted;
+        this._normalSessionStarted = true;
+        this.ShowMainWindow(providerId);
+        if (!isStarting)
+        {
+            return;
+        }
+
+        this.ConfigureProviderStatusMonitoring(this.CurrentSettings, forceRefresh: true);
+        if (this.CurrentSettings.CheckForUpdatesAutomatically)
+        {
+            _ = this.CheckForAppUpdateInBackgroundAsync();
+        }
+    }
 
     private void ShowMainWindow(ProviderId? providerId = null)
     {
-        this._window ??= new MainWindow();
-        if (providerId is ProviderId provider)
-        {
-            this._window.SelectProvider(provider);
-        }
+        this._window ??= new MainWindow(isFirstRun: false);
+        this._window.ShowMainPage(providerId);
 
         this._window.AppWindow.Show();
         this._window.Activate();

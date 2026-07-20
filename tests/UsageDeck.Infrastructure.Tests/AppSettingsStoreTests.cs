@@ -23,6 +23,7 @@ public sealed class AppSettingsStoreTests : IDisposable
         AppSettingsLoadResult actual = store.Load();
 
         Assert.Null(actual.SafeWarning);
+        Assert.False(actual.IsFirstRun);
         Assert.Equal(expected.DefaultProvider, actual.Settings.DefaultProvider);
         Assert.Equal(expected.EnabledProviders, actual.Settings.EnabledProviders);
         Assert.Equal(expected.Theme, actual.Settings.Theme);
@@ -65,6 +66,7 @@ public sealed class AppSettingsStoreTests : IDisposable
 
         Assert.Equal(AppSettings.Default, result.Settings);
         Assert.NotNull(result.SafeWarning);
+        Assert.False(result.IsFirstRun);
     }
 
     [Fact]
@@ -77,6 +79,7 @@ public sealed class AppSettingsStoreTests : IDisposable
 
         Assert.Equal(AppUpdateChannel.Beta, result.Settings.UpdateChannel);
         Assert.Null(result.SafeWarning);
+        Assert.True(result.IsFirstRun);
     }
 
     [Fact]

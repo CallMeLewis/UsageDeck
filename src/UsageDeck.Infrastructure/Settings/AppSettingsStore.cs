@@ -116,7 +116,10 @@ public sealed record AppSettings(
         ProviderId.Supported.Select(providerId => new ProviderNotificationSettings(providerId)).ToArray();
 }
 
-public sealed record AppSettingsLoadResult(AppSettings Settings, string? SafeWarning = null);
+public sealed record AppSettingsLoadResult(
+    AppSettings Settings,
+    string? SafeWarning = null,
+    bool IsFirstRun = false);
 
 public sealed class AppSettingsStore
 {
@@ -149,7 +152,7 @@ public sealed class AppSettingsStore
     {
         if (!File.Exists(this._path))
         {
-            return new AppSettingsLoadResult(this._defaultSettings);
+            return new AppSettingsLoadResult(this._defaultSettings, IsFirstRun: true);
         }
 
         try

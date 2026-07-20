@@ -41,7 +41,7 @@ UsageDeck requires **Windows 11 24H2 or later on x64**.
 
 1. Open the [latest release](https://github.com/CallMeLewis/UsageDeck/releases/latest).
 2. Download the Windows Setup executable, or choose the portable ZIP if you do not want an installed copy.
-3. Start UsageDeck and enable the providers you use in Settings.
+3. Start UsageDeck. First-run setup checks this PC for supported providers and lets you choose providers, theme, and notifications before the first refresh.
 
 The release includes the .NET runtime and the Microsoft-signed Windows App SDK packages required by UsageDeck, so users do not need to install .NET separately. The lightweight launcher registers those packages for the current Windows user before starting the app. If the Windows interface cannot start, UsageDeck displays the error and saves a privacy-safe report under `%LocalAppData%\UsageDeck\diagnostics`. Current development builds are unsigned, so Windows may show an unknown-publisher or SmartScreen warning.
 

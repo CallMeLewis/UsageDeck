@@ -2,11 +2,75 @@ using UsageDeck.App;
 using UsageDeck.Core.Formatting;
 using UsageDeck.Core.Providers;
 using UsageDeck.Infrastructure.Settings;
+using UsageDeck.Infrastructure.Providers;
 
 namespace UsageDeck.App.Tests;
 
 public sealed class PresentationModelsTests
 {
+    [Fact]
+    public void FirstRunSettingsOrderProvidersAndUseAllForMultipleSelections()
+    {
+        AppSettings result = FirstRunSettings.Create(
+            AppSettings.Default,
+            [ProviderId.Amp, ProviderId.Claude],
+            AppThemePreference.Dark,
+            notificationsEnabled: false);
+
+        Assert.Equal([ProviderId.Claude, ProviderId.Amp], result.EnabledProviders);
+        Assert.Equal(ProviderId.All, result.DefaultProvider);
+        Assert.Equal(AppThemePreference.Dark, result.Theme);
+        Assert.False(result.AreNotificationsEnabled);
+    }
+
+    [Fact]
+    public void FirstRunSettingsUseTheOnlyProviderAsTheDefault()
+    {
+        AppSettings result = FirstRunSettings.Create(
+            AppSettings.Default,
+            [ProviderId.Kiro],
+            AppThemePreference.System,
+            notificationsEnabled: true);
+
+        Assert.Equal([ProviderId.Kiro], result.EnabledProviders);
+        Assert.Equal(ProviderId.Kiro, result.DefaultProvider);
+    }
+
+    [Fact]
+    public void FirstRunSettingsRejectAnEmptyProviderSelection()
+    {
+        Assert.Throws<ArgumentException>(() => FirstRunSettings.Create(
+            AppSettings.Default,
+            [],
+            AppThemePreference.System,
+            notificationsEnabled: true));
+    }
+
+    [Fact]
+    public void FirstRunDefaultsPreserveTheBuildUpdateChannel()
+    {
+        AppSettings current = AppSettings.Default with { UpdateChannel = AppUpdateChannel.Beta };
+
+        AppSettings result = FirstRunSettings.CreateDefaults(current);
+
+        Assert.Equal(AppSettings.Default.EnabledProviders, result.EnabledProviders);
+        Assert.Equal(AppUpdateChannel.Beta, result.UpdateChannel);
+    }
+
+    [Fact]
+    public void FirstRunProviderOptionPresentsDiscoveryWithoutAPath()
+    {
+        FirstRunProviderOption option = new(ProviderSettingsPresentation.All[ProviderId.Codex]);
+
+        option.ApplyDiscovery(new ProviderDiscoveryResult(
+            ProviderId.Codex,
+            ProviderDiscoveryState.Detected,
+            "Codex CLI was found on this PC."));
+
+        Assert.Equal("Detected", option.DiscoveryText);
+        Assert.Contains("Codex CLI was found", option.AccessibleName, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void ProviderSettingsCoverEverySupportedProvider()
     {
