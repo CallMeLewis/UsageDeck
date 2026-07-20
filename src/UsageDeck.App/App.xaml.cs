@@ -25,6 +25,8 @@ namespace UsageDeck.App;
 
 public partial class App : Application, IDisposable
 {
+    internal static readonly TimeSpan AutomaticUpdateCheckInterval = TimeSpan.FromHours(6);
+
     private readonly CancellationTokenSource _shutdown = new();
     private readonly DispatcherQueue _dispatcherQueue;
     private readonly HttpClient _httpClient;
@@ -34,6 +36,7 @@ public partial class App : Application, IDisposable
     private readonly WindowsNotificationService _notificationService;
     private readonly SemaphoreSlim _providerStatusRefreshLock = new(1, 1);
     private readonly DispatcherTimer _providerStatusTimer = new() { Interval = TimeSpan.FromMinutes(5) };
+    private readonly DispatcherTimer _updateCheckTimer = new() { Interval = AutomaticUpdateCheckInterval };
     private readonly ZaiApiKeyResolver _zaiApiKeys;
     private bool _automaticUpdateChecksEnabled;
     private bool _isDisposed;
@@ -117,6 +120,7 @@ public partial class App : Application, IDisposable
         this._notificationService.Activated += this.NotificationService_Activated;
         this._notificationService.Initialise();
         this._providerStatusTimer.Tick += this.ProviderStatusTimer_Tick;
+        this._updateCheckTimer.Tick += this.UpdateCheckTimer_Tick;
     }
 
     public ProviderRefreshCoordinator RefreshCoordinator { get; }
@@ -447,9 +451,28 @@ public partial class App : Application, IDisposable
 
         this._notificationEvaluator.RetainProviders(settings.EnabledProviders);
         this.SettingsChanged?.Invoke(settings);
-        if (this._normalSessionStarted
-            && settings.CheckForUpdatesAutomatically
-            && (!automaticUpdateChecksWereEnabled || updateChannelChanged))
+        if (this._normalSessionStarted)
+        {
+            bool checkImmediately = settings.CheckForUpdatesAutomatically
+                && (!automaticUpdateChecksWereEnabled || updateChannelChanged);
+            this.ConfigureAutomaticUpdateChecks(settings, checkImmediately);
+        }
+    }
+
+    private void ConfigureAutomaticUpdateChecks(AppSettings settings, bool checkImmediately = false)
+    {
+        if (!settings.CheckForUpdatesAutomatically || !this.UpdateService.CanCheckForUpdates)
+        {
+            this._updateCheckTimer.Stop();
+            return;
+        }
+
+        if (!this._updateCheckTimer.IsEnabled)
+        {
+            this._updateCheckTimer.Start();
+        }
+
+        if (checkImmediately)
         {
             _ = this.CheckForAppUpdateInBackgroundAsync();
         }
@@ -482,6 +505,9 @@ public partial class App : Application, IDisposable
 
     private async void ProviderStatusTimer_Tick(object? sender, object e) =>
         await this.RefreshProviderStatusesInBackgroundAsync();
+
+    private async void UpdateCheckTimer_Tick(object? sender, object e) =>
+        await this.CheckForAppUpdateInBackgroundAsync();
 
     private async Task RefreshProviderStatusesInBackgroundAsync()
     {
@@ -554,10 +580,7 @@ public partial class App : Application, IDisposable
         }
 
         this.ConfigureProviderStatusMonitoring(this.CurrentSettings, forceRefresh: true);
-        if (this.CurrentSettings.CheckForUpdatesAutomatically)
-        {
-            _ = this.CheckForAppUpdateInBackgroundAsync();
-        }
+        this.ConfigureAutomaticUpdateChecks(this.CurrentSettings, checkImmediately: true);
     }
 
     private void ShowMainWindow(ProviderId? providerId = null)
@@ -579,6 +602,7 @@ public partial class App : Application, IDisposable
         this._isShuttingDown = true;
         this._shutdown.Cancel();
         this._providerStatusTimer.Stop();
+        this._updateCheckTimer.Stop();
         this._settingsWindow?.PrepareForShutdown();
         this._window?.PrepareForShutdown();
         this.Exit();
@@ -609,6 +633,8 @@ public partial class App : Application, IDisposable
 
         this.RefreshCoordinator.SnapshotChanged -= this.RefreshCoordinator_SnapshotChanged;
         this.StatusCoordinator.SnapshotChanged -= this.StatusCoordinator_SnapshotChanged;
+        this._providerStatusTimer.Tick -= this.ProviderStatusTimer_Tick;
+        this._updateCheckTimer.Tick -= this.UpdateCheckTimer_Tick;
         this._notificationService.Activated -= this.NotificationService_Activated;
         this._notificationService.Dispose();
 

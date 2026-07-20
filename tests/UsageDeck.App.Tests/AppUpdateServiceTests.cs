@@ -4,6 +4,12 @@ namespace UsageDeck.App.Tests;
 
 public sealed class AppUpdateServiceTests
 {
+    [Fact]
+    public void AutomaticUpdateChecksRunEverySixHours()
+    {
+        Assert.Equal(TimeSpan.FromHours(6), App.AutomaticUpdateCheckInterval);
+    }
+
     [Theory]
     [InlineData(AppUpdateChannel.Stable, false)]
     [InlineData(AppUpdateChannel.Beta, true)]
