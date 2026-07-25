@@ -9,9 +9,18 @@ public sealed class ClaudeUsageProvider(
     IPtySessionFactory ptySessionFactory,
     IExecutableLocator executableLocator,
     TimeProvider? timeProvider = null,
-    ICliVersionReader? cliVersionReader = null) : IUsageProvider, ICliVersionProvider
+    ICliVersionReader? cliVersionReader = null,
+    HttpClient? httpClient = null,
+    IClaudeCredentialsReader? credentialsReader = null) : IUsageProvider, ICliVersionProvider
 {
+    private static readonly Uri UsageEndpoint = new("https://api.anthropic.com/api/oauth/usage");
+    private static readonly TimeSpan ApiTimeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan SettleBudget = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan SettlePollInterval = TimeSpan.FromMilliseconds(250);
+    private static readonly TimeSpan QuietPeriod = TimeSpan.FromSeconds(1.5);
+
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
+    private readonly IClaudeCredentialsReader _credentialsReader = credentialsReader ?? new ClaudeCredentialsReader();
 
     public ProviderId Id => ProviderId.Claude;
 
@@ -31,6 +40,70 @@ public sealed class ClaudeUsageProvider(
     }
 
     public async Task<ProviderSnapshot> FetchAsync(CancellationToken cancellationToken)
+    {
+        // The /usage panel is drawn from an API the CLI calls, so ask that API directly with the
+        // CLI's own token: sub-second instead of booting a whole Claude Code session, and immune
+        // to the panel's rendering quirks. Any failure - no credentials, expired token, endpoint
+        // changed - falls back to scraping the CLI, which also refreshes the CLI's token for the
+        // next attempt. UsageDeck never writes to Claude's credential store itself.
+        if (httpClient is not null)
+        {
+            ClaudeCredentials? credentials = this._credentialsReader.Read();
+            if (credentials is not null && credentials.ExpiresAt > this._timeProvider.GetUtcNow().AddMinutes(1))
+            {
+                ProviderSnapshot? snapshot = await this.TryFetchFromApiAsync(
+                    credentials.AccessToken, cancellationToken).ConfigureAwait(false);
+                if (snapshot is not null)
+                {
+                    return snapshot;
+                }
+            }
+        }
+
+        return await this.FetchFromCliAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<ProviderSnapshot?> TryFetchFromApiAsync(
+        string accessToken,
+        CancellationToken cancellationToken)
+    {
+        using HttpRequestMessage request = new(HttpMethod.Get, UsageEndpoint);
+        request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {accessToken}");
+        request.Headers.TryAddWithoutValidation("anthropic-beta", "oauth-2025-04-20");
+        using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(ApiTimeout);
+
+        try
+        {
+            using HttpResponseMessage response = await httpClient!.SendAsync(
+                request, HttpCompletionOption.ResponseHeadersRead, timeout.Token).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            string json = await response.Content.ReadAsStringAsync(timeout.Token).ConfigureAwait(false);
+            IReadOnlyList<UsageWindow> windows = ClaudeApiUsageParser.Parse(json);
+            return new ProviderSnapshot(
+                this.Id,
+                this.DisplayName,
+                "Claude API",
+                this._timeProvider.GetUtcNow(),
+                UsageDataState.Fresh,
+                windows);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception) when (
+            exception is ProviderException or HttpRequestException or OperationCanceledException or IOException)
+        {
+            return null;
+        }
+    }
+
+    private async Task<ProviderSnapshot> FetchFromCliAsync(CancellationToken cancellationToken)
     {
         string? executablePath = executableLocator.FindExecutable("claude");
         if (executablePath is null)
@@ -69,24 +142,48 @@ public sealed class ClaudeUsageProvider(
             await Task.Delay(TimeSpan.FromMilliseconds(150), this._timeProvider, timeout.Token).ConfigureAwait(false);
             await session.WriteAsync("\r"u8.ToArray(), timeout.Token).ConfigureAwait(false);
 
-            DateTimeOffset settleUntil = this._timeProvider.GetUtcNow().AddSeconds(10);
+            // The panel does not paint atomically. Measured captures show the per-model weekly
+            // row landing 200-550ms after the rest of the panel on an idle machine, and later
+            // when it is busy, so waiting a fixed time after the first row appears truncates the
+            // capture under load. Wait for the output to stop growing instead: the CLI goes quiet
+            // once the panel is complete, so this settles sooner than a fixed wait in the common
+            // case and still tolerates a slow final row.
+            DateTimeOffset settleUntil = this._timeProvider.GetUtcNow().Add(SettleBudget);
+            int lastLength = 0;
+            DateTimeOffset? quietSince = null;
             while (this._timeProvider.GetUtcNow() < settleUntil)
             {
-                await Task.Delay(TimeSpan.FromMilliseconds(250), this._timeProvider, timeout.Token).ConfigureAwait(false);
+                await Task.Delay(SettlePollInterval, this._timeProvider, timeout.Token).ConfigureAwait(false);
                 string current;
                 lock (captureLock)
                 {
                     current = captured.ToString();
                 }
 
-                if (current.Contains("Current session", StringComparison.OrdinalIgnoreCase))
+                if (current.Length != lastLength)
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(1.25), this._timeProvider, timeout.Token).ConfigureAwait(false);
+                    lastLength = current.Length;
+                    quietSince = null;
+                }
+                else
+                {
+                    quietSince ??= this._timeProvider.GetUtcNow();
+                }
+
+                // Match against a compacted copy: some frames are laid out with cursor movement
+                // rather than literal spaces, so the markers arrive without any whitespace.
+                string markers = ClaudeUsageParser.Compact(
+                    ClaudeUsageParser.StripTerminalSequences(current));
+
+                if (markers.Contains("totalcost:", StringComparison.OrdinalIgnoreCase)
+                    || markers.Contains("currentlyusingyoursubscription", StringComparison.OrdinalIgnoreCase))
+                {
                     break;
                 }
 
-                if (current.Contains("Total cost:", StringComparison.OrdinalIgnoreCase)
-                    || current.Contains("currently using your subscription", StringComparison.OrdinalIgnoreCase))
+                if (quietSince is not null
+                    && this._timeProvider.GetUtcNow() - quietSince.Value >= QuietPeriod
+                    && markers.Contains("currentsession", StringComparison.OrdinalIgnoreCase))
                 {
                     break;
                 }

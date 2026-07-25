@@ -48,6 +48,33 @@ public sealed class ProviderRefreshCoordinatorTests
     }
 
     [Fact]
+    public async Task CancelledWaitDoesNotPreventTheNextRefresh()
+    {
+        TaskCompletionSource release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource firstSnapshotPublished = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        FakeProvider provider = new(async _ =>
+        {
+            await release.Task;
+            return FreshSnapshot();
+        });
+        ProviderRefreshCoordinator coordinator = new([provider]);
+        coordinator.SnapshotChanged += (_, _) => firstSnapshotPublished.TrySetResult();
+        using CancellationTokenSource cancellation = new();
+
+        Task<ProviderSnapshot> cancelledRefresh = coordinator.RefreshAsync(
+            ProviderId.Codex,
+            cancellation.Token);
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => cancelledRefresh);
+
+        release.SetResult();
+        await firstSnapshotPublished.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await coordinator.RefreshAsync(ProviderId.Codex);
+
+        Assert.Equal(2, provider.FetchCount);
+    }
+
+    [Fact]
     public async Task FailedRefreshKeepsLastSnapshotAndMarksItStale()
     {
         Queue<Func<ProviderSnapshot>> results = new([

@@ -86,7 +86,11 @@ public partial class App : Application, IDisposable
                 new CodexProcessSpecFactory(executableLocator),
                 ProviderHost.Native,
                 cliVersionReader: cliVersionReader),
-            new ClaudeUsageProvider(ptySessionFactory, executableLocator, cliVersionReader: cliVersionReader),
+            new ClaudeUsageProvider(
+                ptySessionFactory,
+                executableLocator,
+                cliVersionReader: cliVersionReader,
+                httpClient: this._httpClient),
             new AntigravityUsageProvider(ptySessionFactory, executableLocator, cliVersionReader: cliVersionReader),
             new CopilotUsageProvider(processSessionFactory, executableLocator, cliVersionReader: cliVersionReader),
             new KiroUsageProvider(

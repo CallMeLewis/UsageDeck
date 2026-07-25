@@ -49,22 +49,10 @@ public sealed class ProviderRefreshCoordinator
         Lazy<Task<ProviderSnapshot>> lazyRefresh = this._inFlight.GetOrAdd(
             providerId,
             _ => new Lazy<Task<ProviderSnapshot>>(
-                () => this.RefreshCoreAsync(provider),
+                () => this.RefreshAndRemoveAsync(provider),
                 LazyThreadSafetyMode.ExecutionAndPublication));
         Task<ProviderSnapshot> refreshTask = lazyRefresh.Value;
-
-        try
-        {
-            return await refreshTask.WaitAsync(cancellationToken).ConfigureAwait(false);
-        }
-        finally
-        {
-            if (refreshTask.IsCompleted)
-            {
-                this._inFlight.TryRemove(
-                    new KeyValuePair<ProviderId, Lazy<Task<ProviderSnapshot>>>(providerId, lazyRefresh));
-            }
-        }
+        return await refreshTask.WaitAsync(cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<IReadOnlyList<ProviderSnapshot>> RefreshAllAsync(CancellationToken cancellationToken = default)
@@ -74,6 +62,18 @@ public sealed class ProviderRefreshCoordinator
             .ToArray();
 
         return await Task.WhenAll(tasks).ConfigureAwait(false);
+    }
+
+    private async Task<ProviderSnapshot> RefreshAndRemoveAsync(IUsageProvider provider)
+    {
+        try
+        {
+            return await this.RefreshCoreAsync(provider).ConfigureAwait(false);
+        }
+        finally
+        {
+            this._inFlight.TryRemove(provider.Id, out _);
+        }
     }
 
     private async Task<ProviderSnapshot> RefreshCoreAsync(IUsageProvider provider)

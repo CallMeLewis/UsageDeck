@@ -22,6 +22,11 @@ IUsageProvider provider = args switch
     [] => CreateCodexProvider(ProviderHost.Native),
     [var name] when name.Equals("codex", StringComparison.OrdinalIgnoreCase) => CreateCodexProvider(ProviderHost.Native),
     [var name] when name.Equals("claude", StringComparison.OrdinalIgnoreCase) =>
+        new ClaudeUsageProvider(
+            new PtySessionFactory(),
+            executableLocator,
+            httpClient: new HttpClient { Timeout = Timeout.InfiniteTimeSpan }),
+    [var name] when name.Equals("claude-cli", StringComparison.OrdinalIgnoreCase) =>
         new ClaudeUsageProvider(new PtySessionFactory(), executableLocator),
     [var name] when name.Equals("antigravity", StringComparison.OrdinalIgnoreCase) =>
         new AntigravityUsageProvider(new PtySessionFactory(), executableLocator),
@@ -35,7 +40,7 @@ IUsageProvider provider = args switch
         when name.Equals("codex", StringComparison.OrdinalIgnoreCase)
         && option.Equals("--wsl", StringComparison.OrdinalIgnoreCase) => CreateCodexProvider(ProviderHost.Wsl(distribution)),
     _ => throw new ArgumentException(
-        "Usage: UsageDeck.Probe [codex [--wsl <distribution>] | claude | claude-capture | antigravity | copilot | kiro | amp]")
+        "Usage: UsageDeck.Probe [codex [--wsl <distribution>] | claude | claude-cli | claude-capture | antigravity | copilot | kiro | amp]")
 };
 
 try

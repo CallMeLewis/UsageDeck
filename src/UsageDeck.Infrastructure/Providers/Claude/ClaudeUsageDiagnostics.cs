@@ -49,14 +49,19 @@ public static class ClaudeUsageDiagnostics
                 : "The capture did not contain readable usage data.";
         }
 
+        // Markers are matched against a compacted copy because a frame padded with cursor movement
+        // rather than literal spaces loses all its whitespace, and a diagnostic that reports the
+        // panel as absent when it is plainly there sends support down the wrong path.
+        string markers = ClaudeUsageParser.Compact(clean);
+
         return new ClaudeUsageDiagnostic(
             Math.Min(terminalOutput.Length, captureLimit),
             terminalOutput.Length >= captureLimit,
-            clean.Contains("usage limits", StringComparison.OrdinalIgnoreCase),
-            clean.Contains("Current session", StringComparison.OrdinalIgnoreCase),
-            clean.Contains("Current week", StringComparison.OrdinalIgnoreCase),
-            clean.Contains("Total cost:", StringComparison.OrdinalIgnoreCase),
-            clean.Contains("currently using your subscription", StringComparison.OrdinalIgnoreCase),
+            markers.Contains("usagelimits", StringComparison.OrdinalIgnoreCase),
+            markers.Contains("currentsession", StringComparison.OrdinalIgnoreCase),
+            markers.Contains("currentweek", StringComparison.OrdinalIgnoreCase),
+            markers.Contains("totalcost:", StringComparison.OrdinalIgnoreCase),
+            markers.Contains("currentlyusingyoursubscription", StringComparison.OrdinalIgnoreCase),
             windows,
             safeError);
     }

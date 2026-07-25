@@ -625,37 +625,19 @@ public sealed partial class SettingsWindow : Window, IDisposable
             return;
         }
 
-        AppSettings current = ((App)Application.Current).CurrentSettings;
         bool isEnabled = this.SelectedProviderToggle.IsOn;
-        if (!isEnabled && current.EnabledProviders.Count == 1 && current.EnabledProviders.Contains(selectedProvider))
+        bool preventedLastProviderDisable = false;
+        bool saved = await this.SaveSettingsAsync(settings =>
         {
-            this._isApplyingSettings = true;
-            this.SelectedProviderToggle.IsOn = true;
-            this._isApplyingSettings = false;
-            this.ShowMessage("At least one provider must remain enabled.", InfoBarSeverity.Informational);
-            return;
-        }
-
-        HashSet<ProviderId> enabledProviders = current.EnabledProviders.ToHashSet();
-        if (isEnabled)
-        {
-            enabledProviders.Add(selectedProvider);
-        }
-        else
-        {
-            enabledProviders.Remove(selectedProvider);
-        }
-
-        ProviderId[] enabled = ProviderId.Supported.Where(enabledProviders.Contains).ToArray();
-
-        await this.SaveSettingsAsync(settings => settings with
-        {
-            EnabledProviders = enabled,
-            DefaultProvider = (settings.DefaultProvider == ProviderId.All && settings.IsAllTabEnabled)
-                || enabled.Contains(settings.DefaultProvider)
-                ? settings.DefaultProvider
-                : enabled[0],
+            AppSettings updated = SettingsMutations.SetProviderEnabled(settings, selectedProvider, isEnabled);
+            preventedLastProviderDisable = !isEnabled && ReferenceEquals(updated, settings);
+            return updated;
         });
+
+        if (saved && preventedLastProviderDisable)
+        {
+            this.ShowMessage("At least one provider must remain enabled.", InfoBarSeverity.Informational);
+        }
     }
 
     private bool TrySelectProvider(string tag)
@@ -943,17 +925,19 @@ public sealed partial class SettingsWindow : Window, IDisposable
         }
     }
 
-    private async Task SaveSettingsAsync(Func<AppSettings, AppSettings> update)
+    private async Task<bool> SaveSettingsAsync(Func<AppSettings, AppSettings> update)
     {
         try
         {
             await ((App)Application.Current).UpdateSettingsAsync(update);
             this.SettingsInfoBar.IsOpen = false;
+            return true;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
         {
             this.ShowMessage("That setting could not be saved. Please try again.", InfoBarSeverity.Error);
             this.LoadSettings(((App)Application.Current).CurrentSettings);
+            return false;
         }
     }
 
