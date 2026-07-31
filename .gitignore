@@ -6,6 +6,7 @@
 **/Publish/
 artifacts/
 tmp/
+.worktrees/
 
 # Local product and implementation notes
 AGENTS.md
