@@ -37,6 +37,7 @@ public sealed partial class ProviderLogo : UserControl
         this.AmpMark.Visibility = Visibility.Collapsed;
         this.OpenCodeGoMark.Visibility = Visibility.Collapsed;
         this.ZaiMark.Visibility = Visibility.Collapsed;
+        this.TheClawBayMark.Visibility = Visibility.Collapsed;
 
         FrameworkElement mark = this.ProviderKey.ToLowerInvariant() switch
         {
@@ -48,6 +49,7 @@ public sealed partial class ProviderLogo : UserControl
             "amp" => this.AmpMark,
             "opencode-go" => this.OpenCodeGoMark,
             "zai" => this.ZaiMark,
+            "theclawbay" => this.TheClawBayMark,
             _ => this.OpenAiMark,
         };
         mark.Visibility = Visibility.Visible;

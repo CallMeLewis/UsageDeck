@@ -139,6 +139,16 @@
                         </StackPanel>
                     </NavigationViewItem.Content>
                 </NavigationViewItem>
+                <NavigationViewItem
+                    AutomationProperties.Name="TheClawBay provider settings"
+                    Tag="provider:theclawbay">
+                    <NavigationViewItem.Content>
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <local:ProviderLogo Width="18" Height="18" ProviderKey="theclawbay" />
+                            <TextBlock VerticalAlignment="Center" Text="TheClawBay" />
+                        </StackPanel>
+                    </NavigationViewItem.Content>
+                </NavigationViewItem>
             </NavigationView.MenuItems>
             <NavigationView.FooterMenuItems>
                 <NavigationViewItem
@@ -310,6 +320,7 @@
                                             <ComboBoxItem Content="Amp" Tag="amp" />
                                             <ComboBoxItem Content="OpenCode Go" Tag="opencode-go" />
                                             <ComboBoxItem Content="Z.AI" Tag="zai" />
+                                            <ComboBoxItem Content="TheClawBay" Tag="theclawbay" />
                                         </ComboBox>
                                     </Grid>
                                 </StackPanel>
@@ -875,6 +886,126 @@
                                                 TextWrapping="Wrap" />
                                         </StackPanel>
                                     </Border>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <StackPanel
+                            x:Name="TheClawBayConfigurationPanel"
+                            Spacing="10"
+                            Visibility="Collapsed">
+                            <TextBlock FontWeight="SemiBold" Text="TheClawBay usage access" />
+                            <Border Style="{StaticResource SettingsGroupBorderStyle}">
+                                <StackPanel>
+                                    <Border
+                                        BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                        BorderThickness="0,0,0,1"
+                                        Padding="16">
+                                        <Grid ColumnSpacing="24">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="150" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel VerticalAlignment="Center" Spacing="3">
+                                                <TextBlock FontWeight="SemiBold" Text="Usage source" />
+                                                <TextBlock
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                                    Text="Automatic checks for an API key first, then uses the provider-owned CLI."
+                                                    TextWrapping="Wrap" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Spacing="5">
+                                                <ComboBox
+                                                    x:Name="TheClawBayUsageSourceComboBox"
+                                                    HorizontalAlignment="Stretch"
+                                                    AutomationProperties.Name="TheClawBay usage source"
+                                                    SelectionChanged="TheClawBayUsageSourceComboBox_SelectionChanged">
+                                                    <ComboBoxItem Content="Automatic (recommended)" Tag="Automatic" />
+                                                    <ComboBoxItem Content="TheClawBay CLI" Tag="Cli" />
+                                                    <ComboBoxItem Content="API key" Tag="ApiKey" />
+                                                </ComboBox>
+                                                <TextBlock
+                                                    x:Name="TheClawBayAutomaticStatusText"
+                                                    AutomationProperties.LiveSetting="Polite"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                                    TextWrapping="Wrap"
+                                                    Visibility="Collapsed" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                    <StackPanel
+                                        x:Name="TheClawBayApiKeyConfigurationPanel"
+                                        Visibility="Collapsed">
+                                        <Border
+                                            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                            BorderThickness="0,0,0,1"
+                                            Padding="16">
+                                            <Grid ColumnSpacing="24">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="150" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel VerticalAlignment="Center" Spacing="3">
+                                                    <TextBlock FontWeight="SemiBold" Text="API key storage" />
+                                                    <TextBlock
+                                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                                        Text="Changing the storage location does not copy the API key."
+                                                        TextWrapping="Wrap" />
+                                                </StackPanel>
+                                                <ComboBox
+                                                    x:Name="TheClawBayApiKeyStorageComboBox"
+                                                    Grid.Column="1"
+                                                    HorizontalAlignment="Stretch"
+                                                    AutomationProperties.Name="TheClawBay API key storage"
+                                                    SelectionChanged="TheClawBayApiKeyStorageComboBox_SelectionChanged">
+                                                    <ComboBoxItem Content="Windows Credential Manager (recommended)" Tag="WindowsCredentialManager" />
+                                                    <ComboBoxItem Content="Environment variable" Tag="EnvironmentVariable" />
+                                                    <ComboBoxItem Content="This session only" Tag="SessionOnly" />
+                                                </ComboBox>
+                                            </Grid>
+                                        </Border>
+                                        <Border Padding="16">
+                                            <StackPanel Spacing="10">
+                                                <StackPanel x:Name="TheClawBayManagedKeyPanel" Spacing="8">
+                                                    <TextBlock FontWeight="SemiBold" Text="API key" />
+                                                    <PasswordBox
+                                                        x:Name="TheClawBayApiKeyBox"
+                                                        AutomationProperties.Name="TheClawBay API key"
+                                                        MaxLength="1024"
+                                                        PasswordRevealMode="Peek"
+                                                        PlaceholderText="Enter your TheClawBay API key" />
+                                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                                        <Button
+                                                            AutomationProperties.Name="Save or replace TheClawBay API key"
+                                                            Click="SaveTheClawBayApiKey_Click"
+                                                            Content="Save or replace" />
+                                                        <Button
+                                                            AutomationProperties.Name="Remove TheClawBay API key"
+                                                            Click="RemoveTheClawBayApiKey_Click"
+                                                            Content="Remove" />
+                                                    </StackPanel>
+                                                </StackPanel>
+                                                <StackPanel
+                                                    x:Name="TheClawBayEnvironmentPanel"
+                                                    Spacing="4"
+                                                    Visibility="Collapsed">
+                                                    <TextBlock FontWeight="SemiBold" Text="Environment variable" />
+                                                    <TextBlock
+                                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                        Text="Set THECLAWBAY_API_KEY outside UsageDeck, then restart the app. UsageDeck reads this variable but does not change it."
+                                                        TextWrapping="Wrap" />
+                                                </StackPanel>
+                                                <TextBlock
+                                                    x:Name="TheClawBayCredentialStatusText"
+                                                    AutomationProperties.LiveSetting="Polite"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                                    TextWrapping="Wrap" />
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
                                 </StackPanel>
                             </Border>
                         </StackPanel>

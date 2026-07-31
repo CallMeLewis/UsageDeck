@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using UsageDeck.Core.Formatting;
 using UsageDeck.Core.Providers;
 using UsageDeck.Infrastructure.Providers.OpenCodeGo;
+using UsageDeck.Infrastructure.Providers.TheClawBay;
 using UsageDeck.Infrastructure.Providers.Zai;
 using UsageDeck.Infrastructure.Security;
 using UsageDeck.Infrastructure.Settings;
@@ -153,6 +154,18 @@ public sealed partial class SettingsWindow : Window, IDisposable
                     item.Tag?.ToString(),
                     settings.OpenCodeGoUsageRange.ToString(),
                     StringComparison.Ordinal));
+            this.TheClawBayUsageSourceComboBox.SelectedItem = this.TheClawBayUsageSourceComboBox.Items
+                .OfType<ComboBoxItem>()
+                .First(item => string.Equals(
+                    item.Tag?.ToString(),
+                    settings.TheClawBayUsageSource.ToString(),
+                    StringComparison.Ordinal));
+            this.TheClawBayApiKeyStorageComboBox.SelectedItem = this.TheClawBayApiKeyStorageComboBox.Items
+                .OfType<ComboBoxItem>()
+                .First(item => string.Equals(
+                    item.Tag?.ToString(),
+                    settings.TheClawBayApiKeyStorage.ToString(),
+                    StringComparison.Ordinal));
 
             this.RefreshIntervalComboBox.SelectedItem = this.RefreshIntervalComboBox.Items
                 .OfType<ComboBoxItem>()
@@ -171,6 +184,7 @@ public sealed partial class SettingsWindow : Window, IDisposable
         this.RefreshNotificationPresentation(settings);
         this.RefreshOpenCodeGoPresentation(settings);
         this.RefreshZaiPresentation(settings);
+        this.RefreshTheClawBayPresentation(settings);
         this.RefreshSelectedProviderStatus(settings);
     }
 
@@ -668,6 +682,7 @@ public sealed partial class SettingsWindow : Window, IDisposable
         this.RefreshCodexPresentation();
         this.RefreshOpenCodeGoPresentation(settings);
         this.RefreshZaiPresentation(settings);
+        this.RefreshTheClawBayPresentation(settings);
         this.RefreshSelectedProviderStatus(settings);
         this.RefreshSelectedProviderNotificationPresentation(settings);
         return true;
@@ -814,6 +829,67 @@ public sealed partial class SettingsWindow : Window, IDisposable
         }
     }
 
+    private void RefreshTheClawBayPresentation(AppSettings settings)
+    {
+        bool isTheClawBay = this._selectedProvider == ProviderId.TheClawBay;
+        this.TheClawBayConfigurationPanel.Visibility = isTheClawBay
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        if (!isTheClawBay)
+        {
+            return;
+        }
+
+        bool showApiKey = settings.TheClawBayUsageSource != TheClawBayUsageSource.Cli;
+        this.TheClawBayApiKeyConfigurationPanel.Visibility = showApiKey
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        bool usesEnvironment = settings.TheClawBayApiKeyStorage == ApiKeyStorageMode.EnvironmentVariable;
+        this.TheClawBayManagedKeyPanel.Visibility = usesEnvironment
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+        this.TheClawBayEnvironmentPanel.Visibility = usesEnvironment
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        this.TheClawBayAutomaticStatusText.Visibility =
+            settings.TheClawBayUsageSource == TheClawBayUsageSource.Automatic
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+
+        this.SelectedProviderSource.Text = settings.TheClawBayUsageSource switch
+        {
+            TheClawBayUsageSource.Automatic => "Automatic: TheClawBay API key or CLI",
+            TheClawBayUsageSource.Cli => "TheClawBay CLI",
+            TheClawBayUsageSource.ApiKey => "TheClawBay quota API",
+            _ => "TheClawBay usage source unavailable",
+        };
+        this.SelectedProviderAuthentication.Text = settings.TheClawBayUsageSource switch
+        {
+            TheClawBayUsageSource.Cli => "Managed by TheClawBay CLI",
+            TheClawBayUsageSource.Automatic =>
+                "Uses the configured API-key storage first, then the provider-owned CLI sign-in",
+            _ => "Uses the API-key storage selected below",
+        };
+
+        try
+        {
+            TheClawBayCredentialStatus status =
+                ((App)Application.Current).GetTheClawBayCredentialStatus();
+            this.TheClawBayAutomaticStatusText.Text = status.IsConfigured
+                ? "API key configured · Automatic will try the API first."
+                : "No API key configured · Automatic will try the CLI.";
+            this.TheClawBayCredentialStatusText.Text = status.IsConfigured
+                ? $"Configured · {status.StorageDescription}"
+                : $"No API key found · {status.StorageDescription}";
+        }
+        catch (SecretStoreException exception)
+        {
+            this.TheClawBayAutomaticStatusText.Text = exception.SafeMessage;
+            this.TheClawBayCredentialStatusText.Text = exception.SafeMessage;
+            this.SelectedProviderSource.Text = "TheClawBay usage source unavailable";
+        }
+    }
+
     private void UpdateSelectedProviderEnabledState(AppSettings settings)
     {
         if (this._selectedProvider is not ProviderId selectedProvider)
@@ -861,6 +937,43 @@ public sealed partial class SettingsWindow : Window, IDisposable
         }
 
         await this.SaveSettingsAsync(settings => settings with { ZaiApiKeyStorage = storageMode });
+    }
+
+    private async void TheClawBayUsageSourceComboBox_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs e)
+    {
+        if (this._isApplyingSettings
+            || this.TheClawBayUsageSourceComboBox.SelectedItem is not ComboBoxItem item
+            || !Enum.TryParse(
+                item.Tag?.ToString(),
+                ignoreCase: false,
+                out TheClawBayUsageSource source))
+        {
+            return;
+        }
+
+        await this.SaveSettingsAsync(settings => settings with { TheClawBayUsageSource = source });
+    }
+
+    private async void TheClawBayApiKeyStorageComboBox_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs e)
+    {
+        if (this._isApplyingSettings
+            || this.TheClawBayApiKeyStorageComboBox.SelectedItem is not ComboBoxItem item
+            || !Enum.TryParse(
+                item.Tag?.ToString(),
+                ignoreCase: false,
+                out ApiKeyStorageMode storageMode))
+        {
+            return;
+        }
+
+        await this.SaveSettingsAsync(settings => settings with
+        {
+            TheClawBayApiKeyStorage = storageMode,
+        });
     }
 
     private async void OpenCodeGoApiKeyStorageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -914,6 +1027,48 @@ public sealed partial class SettingsWindow : Window, IDisposable
             this.ZaiApiKeyBox.Password = string.Empty;
             this.RefreshZaiPresentation(((App)Application.Current).CurrentSettings);
             this.ShowMessage("The Z.AI API key was removed from the selected location.", InfoBarSeverity.Success);
+        }
+        catch (SecretStoreException exception)
+        {
+            this.ShowMessage(exception.SafeMessage, InfoBarSeverity.Error);
+        }
+        catch (InvalidOperationException exception)
+        {
+            this.ShowMessage(exception.Message, InfoBarSeverity.Error);
+        }
+    }
+
+    private void SaveTheClawBayApiKey_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            ((App)Application.Current).SaveTheClawBayApiKey(this.TheClawBayApiKeyBox.Password);
+            this.TheClawBayApiKeyBox.Password = string.Empty;
+            this.RefreshTheClawBayPresentation(((App)Application.Current).CurrentSettings);
+            this.ShowMessage(
+                "TheClawBay API key was saved in the selected location.",
+                InfoBarSeverity.Success);
+        }
+        catch (SecretStoreException exception)
+        {
+            this.ShowMessage(exception.SafeMessage, InfoBarSeverity.Error);
+        }
+        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
+        {
+            this.ShowMessage(exception.Message, InfoBarSeverity.Error);
+        }
+    }
+
+    private void RemoveTheClawBayApiKey_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            ((App)Application.Current).DeleteTheClawBayApiKey();
+            this.TheClawBayApiKeyBox.Password = string.Empty;
+            this.RefreshTheClawBayPresentation(((App)Application.Current).CurrentSettings);
+            this.ShowMessage(
+                "TheClawBay API key was removed from the selected location.",
+                InfoBarSeverity.Success);
         }
         catch (SecretStoreException exception)
         {

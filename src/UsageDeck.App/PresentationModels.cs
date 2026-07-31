@@ -104,6 +104,15 @@ public sealed record ProviderSettingsPresentation(
                 false,
                 "Uses the API key storage selected below",
                 "UsageDeck sends the key only to the fixed Z.AI endpoint for the selected region and never stores raw responses."),
+            [ProviderId.TheClawBay] = new(
+                ProviderId.TheClawBay,
+                "Shows pooled 5-hour and weekly limits from TheClawBay.",
+                "Automatic: TheClawBay API key or CLI",
+                "API endpoint",
+                "https://theclawbay.com/api/codex-auth/v1/quota",
+                true,
+                "Uses the source and API-key storage selected below",
+                "UsageDeck sends a configured key only to the fixed TheClawBay quota endpoint or uses the provider-owned CLI sign-in."),
         };
 
     public string DisplayName => this.Id.DisplayName;

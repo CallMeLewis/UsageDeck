@@ -102,12 +102,28 @@ public sealed class PresentationModelsTests
     [InlineData("amp", "amp")]
     [InlineData("opencode-go", "https://console.opencode.ai/api/v1/usage/export")]
     [InlineData("zai", "https://api.z.ai/api/monitor/usage/quota/limit")]
+    [InlineData("theclawbay", "https://theclawbay.com/api/codex-auth/v1/quota")]
     public void ProviderSettingsNameTheExpectedConnection(string providerValue, string expectedConnection)
     {
         ProviderSettingsPresentation provider =
             ProviderSettingsPresentation.All[new ProviderId(providerValue)];
 
         Assert.Equal(expectedConnection, provider.ConnectionValue);
+    }
+
+    [Fact]
+    public void TheClawBayPresentationExplainsBothSupportedSources()
+    {
+        ProviderSettingsPresentation presentation =
+            ProviderSettingsPresentation.All[ProviderId.TheClawBay];
+
+        Assert.Equal("TheClawBay", presentation.DisplayName);
+        Assert.Contains("5-hour", presentation.Description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("API", presentation.UsageSource, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("CLI", presentation.UsageSource, StringComparison.OrdinalIgnoreCase);
+        Assert.True(presentation.ShowsVersion);
+        Assert.Contains("fixed TheClawBay quota endpoint", presentation.PrivacySummary, StringComparison.Ordinal);
+        Assert.Contains("provider-owned CLI sign-in", presentation.PrivacySummary, StringComparison.Ordinal);
     }
 
     [Fact]
