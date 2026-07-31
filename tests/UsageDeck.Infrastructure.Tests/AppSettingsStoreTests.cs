@@ -8,6 +8,85 @@ public sealed class AppSettingsStoreTests : IDisposable
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "UsageDeck.Tests", Guid.NewGuid().ToString("N"));
 
     [Fact]
+    public async Task SaveAndLoadRoundTripsTheClawBaySourceSettings()
+    {
+        AppSettingsStore store = new(Path.Combine(this._directory, "settings.json"));
+        AppSettings expected = AppSettings.Default with
+        {
+            TheClawBayUsageSource = TheClawBayUsageSource.ApiKey,
+            TheClawBayApiKeyStorage = ApiKeyStorageMode.SessionOnly,
+        };
+
+        await store.SaveAsync(expected);
+        AppSettingsLoadResult actual = store.Load();
+
+        Assert.Equal(TheClawBayUsageSource.ApiKey, actual.Settings.TheClawBayUsageSource);
+        Assert.Equal(ApiKeyStorageMode.SessionOnly, actual.Settings.TheClawBayApiKeyStorage);
+    }
+
+    [Fact]
+    public void LoadUsesTheClawBayDefaultsWhenFieldsAreMissing()
+    {
+        Directory.CreateDirectory(this._directory);
+        string path = Path.Combine(this._directory, "settings.json");
+        File.WriteAllText(path, """
+            {
+              "enabledProviders": ["codex"],
+              "defaultProvider": "codex"
+            }
+            """);
+
+        AppSettingsLoadResult result = new AppSettingsStore(path).Load();
+
+        Assert.Equal(TheClawBayUsageSource.Automatic, result.Settings.TheClawBayUsageSource);
+        Assert.Equal(ApiKeyStorageMode.WindowsCredentialManager, result.Settings.TheClawBayApiKeyStorage);
+    }
+
+    [Fact]
+    public void LoadInvalidTheClawBayPreferencesFallsBackSafely()
+    {
+        Directory.CreateDirectory(this._directory);
+        string path = Path.Combine(this._directory, "settings.json");
+        File.WriteAllText(path, """
+            {
+              "enabledProviders": ["codex"],
+              "defaultProvider": "codex",
+              "theClawBayUsageSource": "BrowserCookie",
+              "theClawBayApiKeyStorage": "PlainText"
+            }
+            """);
+
+        AppSettings settings = new AppSettingsStore(path).Load().Settings;
+
+        Assert.Equal(TheClawBayUsageSource.Automatic, settings.TheClawBayUsageSource);
+        Assert.Equal(ApiKeyStorageMode.WindowsCredentialManager, settings.TheClawBayApiKeyStorage);
+    }
+
+    [Fact]
+    public async Task SaveRejectsUndefinedTheClawBayUsageSource()
+    {
+        AppSettingsStore store = new(Path.Combine(this._directory, "settings.json"));
+        AppSettings invalid = AppSettings.Default with
+        {
+            TheClawBayUsageSource = (TheClawBayUsageSource)(-1),
+        };
+
+        await Assert.ThrowsAsync<ArgumentException>(() => store.SaveAsync(invalid));
+    }
+
+    [Fact]
+    public async Task SaveRejectsUndefinedTheClawBayApiKeyStorage()
+    {
+        AppSettingsStore store = new(Path.Combine(this._directory, "settings.json"));
+        AppSettings invalid = AppSettings.Default with
+        {
+            TheClawBayApiKeyStorage = (ApiKeyStorageMode)(-1),
+        };
+
+        await Assert.ThrowsAsync<ArgumentException>(() => store.SaveAsync(invalid));
+    }
+
+    [Fact]
     public async Task SaveAndLoadRoundTripsEnabledProviders()
     {
         AppSettingsStore store = new(Path.Combine(this._directory, "settings.json"));

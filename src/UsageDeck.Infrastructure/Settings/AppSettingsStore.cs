@@ -44,6 +44,13 @@ public enum OpenCodeGoUsageRange
     ThirtyDays,
 }
 
+public enum TheClawBayUsageSource
+{
+    Automatic,
+    Cli,
+    ApiKey,
+}
+
 public enum AppUpdateChannel
 {
     Stable,
@@ -90,7 +97,9 @@ public sealed record AppSettings(
     bool CheckForUpdatesAutomatically = true,
     AppUpdateChannel UpdateChannel = AppUpdateChannel.Stable,
     bool AreNotificationsEnabled = true,
-    IReadOnlyList<ProviderNotificationSettings>? ProviderNotifications = null)
+    IReadOnlyList<ProviderNotificationSettings>? ProviderNotifications = null,
+    TheClawBayUsageSource TheClawBayUsageSource = TheClawBayUsageSource.Automatic,
+    ApiKeyStorageMode TheClawBayApiKeyStorage = ApiKeyStorageMode.WindowsCredentialManager)
 {
     public static AppSettings Default { get; } = new(
         [ProviderId.Codex, ProviderId.Claude],
@@ -241,6 +250,20 @@ public sealed class AppSettingsStore
                 && Enum.IsDefined(parsedOpenCodeGoUsageRange)
                     ? parsedOpenCodeGoUsageRange
                     : OpenCodeGoUsageRange.ThirtyDays;
+            TheClawBayUsageSource theClawBayUsageSource = Enum.TryParse(
+                document.TheClawBayUsageSource,
+                ignoreCase: true,
+                out TheClawBayUsageSource parsedTheClawBayUsageSource)
+                && Enum.IsDefined(parsedTheClawBayUsageSource)
+                    ? parsedTheClawBayUsageSource
+                    : TheClawBayUsageSource.Automatic;
+            ApiKeyStorageMode theClawBayApiKeyStorage = Enum.TryParse(
+                document.TheClawBayApiKeyStorage,
+                ignoreCase: true,
+                out ApiKeyStorageMode parsedTheClawBayApiKeyStorage)
+                && Enum.IsDefined(parsedTheClawBayApiKeyStorage)
+                    ? parsedTheClawBayApiKeyStorage
+                    : ApiKeyStorageMode.WindowsCredentialManager;
             AppUpdateChannel updateChannel = Enum.TryParse(
                 document.UpdateChannel,
                 ignoreCase: true,
@@ -276,7 +299,9 @@ public sealed class AppSettingsStore
                     document.CheckForUpdatesAutomatically ?? true,
                     updateChannel,
                     document.AreNotificationsEnabled ?? true,
-                    providerNotifications),
+                    providerNotifications,
+                    TheClawBayUsageSource: theClawBayUsageSource,
+                    TheClawBayApiKeyStorage: theClawBayApiKeyStorage),
                 warning);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
@@ -311,6 +336,11 @@ public sealed class AppSettingsStore
         if (!IsSupportedRefreshInterval(settings.RefreshIntervalMinutes))
         {
             throw new ArgumentException("The refresh interval is not supported.", nameof(settings));
+        }
+        if (!Enum.IsDefined(settings.TheClawBayUsageSource)
+            || !Enum.IsDefined(settings.TheClawBayApiKeyStorage))
+        {
+            throw new ArgumentException("TheClawBay settings are invalid.", nameof(settings));
         }
         if (settings.ProviderNotifications is not null
             && (settings.ProviderNotifications.Any(value => !IsSupportedProvider(value.ProviderId))
@@ -361,7 +391,9 @@ public sealed class AppSettingsStore
                     value.NotifyResetCredits,
                     value.NotifyStatusChanges,
                     value.NotifyConnectionChanges))
-                .ToArray());
+                .ToArray(),
+            settings.TheClawBayUsageSource.ToString(),
+            settings.TheClawBayApiKeyStorage.ToString());
 
         try
         {
@@ -470,6 +502,8 @@ public sealed class AppSettingsStore
         string? UpdateChannel = null,
         bool? AreNotificationsEnabled = null,
         ProviderNotificationDocument[]? ProviderNotifications = null,
+        string? TheClawBayUsageSource = null,
+        string? TheClawBayApiKeyStorage = null,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         string? LimitNotificationThresholds = null,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

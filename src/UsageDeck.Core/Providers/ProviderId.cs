@@ -11,9 +11,10 @@ public readonly record struct ProviderId
     public static readonly ProviderId Amp = new("amp");
     public static readonly ProviderId OpenCodeGo = new("opencode-go");
     public static readonly ProviderId Zai = new("zai");
+    public static readonly ProviderId TheClawBay = new("theclawbay");
 
     public static IReadOnlyList<ProviderId> Supported { get; } =
-        [Codex, Claude, Antigravity, Copilot, Kiro, Amp, OpenCodeGo, Zai];
+        [Codex, Claude, Antigravity, Copilot, Kiro, Amp, OpenCodeGo, Zai, TheClawBay];
 
     public ProviderId(string value)
     {
@@ -41,6 +42,7 @@ public readonly record struct ProviderId
         "amp" => "Amp",
         "opencode-go" => "OpenCode Go",
         "zai" => "Z.AI",
+        "theclawbay" => "TheClawBay",
         _ => this.Value,
     };
 
