@@ -38,6 +38,7 @@ public static class ProviderStatusSources
                 new Uri("https://ampcodestatus.com/"),
                 ["Amp CLI", "ampcode.com"],
                 ["Amp"]),
+            [ProviderId.TheClawBay] = new TheClawBayStatusProvider(httpClient),
         };
 
         return ProviderId.Supported
