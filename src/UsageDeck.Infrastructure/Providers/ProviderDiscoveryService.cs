@@ -2,6 +2,7 @@ using UsageDeck.Core.Providers;
 using UsageDeck.Infrastructure.Processes;
 using UsageDeck.Infrastructure.Providers.OpenCodeGo;
 using UsageDeck.Infrastructure.Providers.TheClawBay;
+using UsageDeck.Infrastructure.Security;
 
 namespace UsageDeck.Infrastructure.Providers;
 
@@ -10,6 +11,7 @@ public enum ProviderDiscoveryState
     Detected,
     NotDetected,
     RequiresSetup,
+    Unavailable,
 }
 
 public sealed record ProviderDiscoveryResult(
@@ -28,11 +30,11 @@ public sealed class ProviderDiscoveryService
             (ProviderId.Copilot, "gh", "GitHub CLI"),
             (ProviderId.Kiro, "kiro-cli", "Kiro CLI"),
             (ProviderId.Amp, "amp", "Amp CLI"),
-            (ProviderId.TheClawBay, "theclawbay", "TheClawBay CLI"),
         ];
 
     private readonly IExecutableLocator _executableLocator;
     private readonly Func<string?> _openCodeDataPathReader;
+    private readonly ITheClawBayCliCommandResolver _theClawBayCliCommandResolver;
     private readonly Func<string?> _theClawBayEnvironmentReader;
     private readonly Func<bool> _theClawBayWindowsCredentialPresence;
 
@@ -40,12 +42,15 @@ public sealed class ProviderDiscoveryService
         IExecutableLocator executableLocator,
         Func<string?>? openCodeDataPathReader = null,
         Func<string?>? theClawBayEnvironmentReader = null,
-        Func<bool>? theClawBayWindowsCredentialPresence = null)
+        Func<bool>? theClawBayWindowsCredentialPresence = null,
+        ITheClawBayCliCommandResolver? theClawBayCliCommandResolver = null)
     {
         this._executableLocator = executableLocator
             ?? throw new ArgumentNullException(nameof(executableLocator));
         this._openCodeDataPathReader = openCodeDataPathReader
             ?? new OpenCodeGoDataLocator().FindDatabasePath;
+        this._theClawBayCliCommandResolver = theClawBayCliCommandResolver
+            ?? new TheClawBayCliCommandResolver(executableLocator);
         this._theClawBayEnvironmentReader = theClawBayEnvironmentReader
             ?? (() => Environment.GetEnvironmentVariable(TheClawBayApiKeyResolver.EnvironmentVariableName));
         this._theClawBayWindowsCredentialPresence = theClawBayWindowsCredentialPresence
@@ -64,20 +69,32 @@ public sealed class ProviderDiscoveryService
         }
 
         cancellationToken.ThrowIfCancellationRequested();
+        bool hasTheClawBayCli = this._theClawBayCliCommandResolver.Resolve() is not null;
+        cancellationToken.ThrowIfCancellationRequested();
         bool hasTheClawBayEnvironmentKey =
             !string.IsNullOrWhiteSpace(this._theClawBayEnvironmentReader());
         cancellationToken.ThrowIfCancellationRequested();
         bool hasTheClawBayWindowsCredential = false;
-        if (!hasTheClawBayEnvironmentKey)
+        bool theClawBayCredentialProbeFailed = false;
+        if (!hasTheClawBayCli && !hasTheClawBayEnvironmentKey)
         {
-            hasTheClawBayWindowsCredential = this._theClawBayWindowsCredentialPresence();
-            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                hasTheClawBayWindowsCredential = this._theClawBayWindowsCredentialPresence();
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+            catch (SecretStoreException)
+            {
+                theClawBayCredentialProbeFailed = true;
+            }
         }
 
-        bool hasTheClawBayCli =
-            results[ProviderId.TheClawBay].State == ProviderDiscoveryState.Detected;
-        results[ProviderId.TheClawBay] =
-            hasTheClawBayCli || hasTheClawBayEnvironmentKey || hasTheClawBayWindowsCredential
+        results[ProviderId.TheClawBay] = theClawBayCredentialProbeFailed
+            ? new ProviderDiscoveryResult(
+                ProviderId.TheClawBay,
+                ProviderDiscoveryState.Unavailable,
+                "Windows Credential Manager could not be read. Choose TheClawBay manually and review Settings.")
+            : hasTheClawBayCli || hasTheClawBayEnvironmentKey || hasTheClawBayWindowsCredential
                 ? new ProviderDiscoveryResult(
                     ProviderId.TheClawBay,
                     ProviderDiscoveryState.Detected,

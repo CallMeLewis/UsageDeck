@@ -73,7 +73,9 @@ public sealed class FirstRunProviderOption : INotifyPropertyChanged
         {
             ProviderDiscoveryState.Detected => "Detected",
             ProviderDiscoveryState.NotDetected => "Not detected",
-            _ => "Set up in Settings",
+            ProviderDiscoveryState.RequiresSetup => "Set up in Settings",
+            ProviderDiscoveryState.Unavailable => "Check unavailable",
+            _ => "Check unavailable",
         };
         this.DiscoveryDetail = result.Detail;
         this.OnPropertyChanged(nameof(this.AccessibleName));

@@ -72,6 +72,21 @@ public sealed class PresentationModelsTests
     }
 
     [Fact]
+    public void FirstRunProviderOptionPresentsCredentialProbeFailureAsUnavailable()
+    {
+        FirstRunProviderOption option = new(
+            ProviderSettingsPresentation.All[ProviderId.TheClawBay]);
+
+        option.ApplyDiscovery(new ProviderDiscoveryResult(
+            ProviderId.TheClawBay,
+            ProviderDiscoveryState.Unavailable,
+            "Windows Credential Manager could not be read. Choose TheClawBay manually and review Settings."));
+
+        Assert.Equal("Check unavailable", option.DiscoveryText);
+        Assert.Contains("could not be read", option.AccessibleName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void ProviderSettingsCoverEverySupportedProvider()
     {
         Assert.Equal(ProviderId.Supported.Count, ProviderSettingsPresentation.All.Count);

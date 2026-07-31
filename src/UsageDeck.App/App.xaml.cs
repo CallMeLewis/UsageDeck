@@ -83,11 +83,13 @@ public partial class App : Application, IDisposable
         ProcessSessionFactory processSessionFactory = new();
         PtySessionFactory ptySessionFactory = new();
         CliVersionReader cliVersionReader = new(processSessionFactory);
+        TheClawBayCliCommandResolver theClawBayCliCommandResolver = new(executableLocator);
         this._providerDiscovery = new ProviderDiscoveryService(
             executableLocator,
             theClawBayEnvironmentReader: () =>
                 Environment.GetEnvironmentVariable(TheClawBayApiKeyResolver.EnvironmentVariableName),
-            theClawBayWindowsCredentialPresence: this._theClawBayApiKeys.HasWindowsCredential);
+            theClawBayWindowsCredentialPresence: this._theClawBayApiKeys.HasWindowsCredential,
+            theClawBayCliCommandResolver: theClawBayCliCommandResolver);
         IUsageProvider[] providers =
         [
             new CodexUsageProvider(
@@ -122,7 +124,7 @@ public partial class App : Application, IDisposable
                 () => this.CurrentSettings.ZaiRegion),
             new TheClawBayUsageProvider(
                 processSessionFactory,
-                executableLocator,
+                theClawBayCliCommandResolver,
                 this._httpClient,
                 this._theClawBayApiKeys,
                 () => this.CurrentSettings.TheClawBayUsageSource,

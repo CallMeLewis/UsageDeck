@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using UsageDeck.Core.Providers;
 using UsageDeck.Infrastructure.Providers;
+using UsageDeck.Infrastructure.Security;
 using UsageDeck.Infrastructure.Settings;
 
 namespace UsageDeck.App;
@@ -19,7 +20,7 @@ public sealed partial class FirstRunPage : Page, IDisposable
     private bool _isApplyingProviderSelection;
     private bool _isApplyingTheme;
     private bool _isDisposed;
-    private bool _isInitialising = true;
+    private readonly bool _isInitialising = true;
     private bool _isSaving;
     private AppThemePreference _selectedTheme;
     private int _step = 1;
@@ -109,7 +110,8 @@ public sealed partial class FirstRunPage : Page, IDisposable
         }
         catch (Exception exception) when (exception is IOException
             or UnauthorizedAccessException
-            or ArgumentException)
+            or ArgumentException
+            or SecretStoreException)
         {
             this.ProviderDetectionText.Text = "UsageDeck could not finish checking this PC. Choose providers manually.";
         }

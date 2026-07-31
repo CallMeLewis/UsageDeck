@@ -314,6 +314,31 @@ public sealed class TheClawBayUsageProviderTests
     }
 
     [Fact]
+    public async Task AutomaticDoesNotResolveOrStartCliWhenApiFailureArrivesAfterCallerCancellation()
+    {
+        using CancellationTokenSource cancellation = new();
+        RecordingHandler handler = new(_ =>
+        {
+            cancellation.Cancel();
+            return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable);
+        });
+        FakeProcessSessionFactory processes = new(QuotaJson);
+        CountingTheClawBayCliCommandResolver commandResolver = new(@"C:\Tools\theclawbay.exe");
+        TheClawBayUsageProvider provider = new(
+            processes,
+            commandResolver,
+            new HttpClient(handler),
+            new StubApiKeySource("private-key"),
+            () => TheClawBayUsageSource.Automatic);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => provider.FetchAsync(cancellation.Token));
+
+        Assert.Equal(0, commandResolver.CallCount);
+        Assert.Null(processes.StartSpec);
+    }
+
+    [Fact]
     public async Task AutomaticDoesNotMaskApiContractFailuresWithCliFallback()
     {
         RecordingHandler handler = new(_ => new HttpResponseMessage(HttpStatusCode.OK)
@@ -417,7 +442,74 @@ public sealed class TheClawBayUsageProviderTests
     }
 
     [Fact]
-    public async Task CliModeMapsEmptyOutputToAuthenticationRequired()
+    public async Task CliModeMapsTheOfficialMissingCredentialExitToAuthenticationRequired()
+    {
+        FixedProcessRunner processes = new(new ProcessRunResult(
+            [],
+            2,
+            " » Error: No saved credential found. Run \"theclawbay setup\" or pass \r\n » --api-key."));
+        TheClawBayUsageProvider provider = new(
+            processes,
+            new FixedTheClawBayCliCommandResolver(
+                new TheClawBayCliCommand(@"C:\Tools\theclawbay.exe", [])),
+            new HttpClient(new RecordingHandler(_ => throw new InvalidOperationException())),
+            new StubApiKeySource(null),
+            () => TheClawBayUsageSource.Cli);
+
+        ProviderException exception = await Assert.ThrowsAsync<ProviderException>(
+            () => provider.FetchAsync(CancellationToken.None));
+
+        Assert.Equal(ProviderErrorCategory.AuthenticationRequired, exception.Category);
+        Assert.Equal("Run theclawbay setup, then refresh.", exception.SafeMessage);
+        Assert.DoesNotContain("--api-key", exception.SafeMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CliModeMapsUnknownNonZeroExitToUnavailableWithoutExposingStandardError()
+    {
+        FixedProcessRunner processes = new(new ProcessRunResult(
+            [],
+            7,
+            "private-key server-body-marker"));
+        TheClawBayUsageProvider provider = new(
+            processes,
+            new FixedTheClawBayCliCommandResolver(
+                new TheClawBayCliCommand(@"C:\Tools\theclawbay.exe", [])),
+            new HttpClient(new RecordingHandler(_ => throw new InvalidOperationException())),
+            new StubApiKeySource(null),
+            () => TheClawBayUsageSource.Cli);
+
+        ProviderException exception = await Assert.ThrowsAsync<ProviderException>(
+            () => provider.FetchAsync(CancellationToken.None));
+
+        Assert.Equal(ProviderErrorCategory.Unavailable, exception.Category);
+        AssertSafe(exception);
+    }
+
+    [Fact]
+    public async Task CliModeRejectsParseableOutputFromANonZeroExit()
+    {
+        FixedProcessRunner processes = new(new ProcessRunResult(
+            Encoding.UTF8.GetBytes(QuotaJson),
+            1,
+            "server-body-marker"));
+        TheClawBayUsageProvider provider = new(
+            processes,
+            new FixedTheClawBayCliCommandResolver(
+                new TheClawBayCliCommand(@"C:\Tools\theclawbay.exe", [])),
+            new HttpClient(new RecordingHandler(_ => throw new InvalidOperationException())),
+            new StubApiKeySource(null),
+            () => TheClawBayUsageSource.Cli);
+
+        ProviderException exception = await Assert.ThrowsAsync<ProviderException>(
+            () => provider.FetchAsync(CancellationToken.None));
+
+        Assert.Equal(ProviderErrorCategory.Unavailable, exception.Category);
+        AssertSafe(exception);
+    }
+
+    [Fact]
+    public async Task CliModeMapsEmptySuccessfulOutputToInvalidResponse()
     {
         TheClawBayUsageProvider provider = CreateProvider(
             new HttpClient(new RecordingHandler(_ => throw new InvalidOperationException())),
@@ -428,12 +520,12 @@ public sealed class TheClawBayUsageProviderTests
         ProviderException exception = await Assert.ThrowsAsync<ProviderException>(
             () => provider.FetchAsync(CancellationToken.None));
 
-        Assert.Equal(ProviderErrorCategory.AuthenticationRequired, exception.Category);
-        Assert.Equal("Run theclawbay setup, then refresh.", exception.SafeMessage);
+        Assert.Equal(ProviderErrorCategory.InvalidResponse, exception.Category);
+        Assert.Equal("TheClawBay CLI returned an empty usage response.", exception.SafeMessage);
     }
 
     [Fact]
-    public async Task CliModeTreatsWhitespaceOnlyOutputAsEmpty()
+    public async Task CliModeMapsWhitespaceOnlySuccessfulOutputToInvalidResponse()
     {
         TheClawBayUsageProvider provider = CreateProvider(
             new HttpClient(new RecordingHandler(_ => throw new InvalidOperationException())),
@@ -444,8 +536,8 @@ public sealed class TheClawBayUsageProviderTests
         ProviderException exception = await Assert.ThrowsAsync<ProviderException>(
             () => provider.FetchAsync(CancellationToken.None));
 
-        Assert.Equal(ProviderErrorCategory.AuthenticationRequired, exception.Category);
-        Assert.Equal("Run theclawbay setup, then refresh.", exception.SafeMessage);
+        Assert.Equal(ProviderErrorCategory.InvalidResponse, exception.Category);
+        Assert.Equal("TheClawBay CLI returned an empty usage response.", exception.SafeMessage);
     }
 
     [Fact]
@@ -486,7 +578,8 @@ public sealed class TheClawBayUsageProviderTests
     {
         TheClawBayUsageProvider provider = new(
             new BlockingProcessSessionFactory(),
-            new StubExecutableLocator(@"C:\Tools\theclawbay.cmd"),
+            new FixedTheClawBayCliCommandResolver(
+                new TheClawBayCliCommand(@"C:\Tools\theclawbay.exe", [])),
             new HttpClient(new RecordingHandler(_ => throw new InvalidOperationException())),
             new StubApiKeySource("private-key"),
             () => TheClawBayUsageSource.Cli);
@@ -503,7 +596,8 @@ public sealed class TheClawBayUsageProviderTests
         using CancellationTokenSource cancellation = new();
         TheClawBayUsageProvider provider = new(
             new BlockingProcessSessionFactory(),
-            new StubExecutableLocator(@"C:\Tools\theclawbay.cmd"),
+            new FixedTheClawBayCliCommandResolver(
+                new TheClawBayCliCommand(@"C:\Tools\theclawbay.exe", [])),
             new HttpClient(new RecordingHandler(_ => throw new InvalidOperationException())),
             new StubApiKeySource("private-key"),
             () => TheClawBayUsageSource.Cli);
@@ -520,7 +614,8 @@ public sealed class TheClawBayUsageProviderTests
         StubCliVersionReader versionReader = new("1.2.3");
         TheClawBayUsageProvider provider = new(
             new FakeProcessSessionFactory("unused"),
-            new StubExecutableLocator(@"C:\Tools\theclawbay.cmd"),
+            new FixedTheClawBayCliCommandResolver(
+                new TheClawBayCliCommand(@"C:\Tools\theclawbay.exe", [])),
             new HttpClient(new RecordingHandler(_ => throw new InvalidOperationException())),
             new StubApiKeySource(null),
             () => TheClawBayUsageSource.Automatic,
@@ -529,7 +624,7 @@ public sealed class TheClawBayUsageProviderTests
         string? version = await provider.ReadCliVersionAsync(CancellationToken.None);
 
         Assert.Equal("1.2.3", version);
-        Assert.Equal(@"C:\Tools\theclawbay.cmd", versionReader.Spec?.ExecutablePath);
+        Assert.Equal(@"C:\Tools\theclawbay.exe", versionReader.Spec?.ExecutablePath);
         Assert.Equal(["--version"], versionReader.Spec?.Arguments);
     }
 
@@ -538,7 +633,8 @@ public sealed class TheClawBayUsageProviderTests
     {
         TheClawBayUsageProvider provider = new(
             new FakeProcessSessionFactory(QuotaJson),
-            new StubExecutableLocator(@"C:\Tools\theclawbay.cmd"),
+            new FixedTheClawBayCliCommandResolver(
+                new TheClawBayCliCommand(@"C:\Tools\theclawbay.exe", [])),
             new HttpClient(new RecordingHandler(_ => throw new InvalidOperationException("HTTP should not be called."))),
             new ThrowingApiKeySource(),
             () => TheClawBayUsageSource.Automatic);
@@ -559,9 +655,11 @@ public sealed class TheClawBayUsageProviderTests
         FakeProcessSessionFactory processes,
         string? apiKey,
         TheClawBayUsageSource source,
-        string? executablePath = @"C:\Tools\theclawbay.cmd") => new(
+        string? executablePath = @"C:\Tools\theclawbay.exe") => new(
             processes,
-            new StubExecutableLocator(executablePath),
+            new FixedTheClawBayCliCommandResolver(executablePath is null
+                ? null
+                : new TheClawBayCliCommand(executablePath, [])),
             client,
             new StubApiKeySource(apiKey),
             () => source);
@@ -578,58 +676,51 @@ public sealed class TheClawBayUsageProviderTests
             new InvalidOperationException("private-key"));
     }
 
-    private sealed class StubExecutableLocator(string? path) : IExecutableLocator
+    private sealed class CountingTheClawBayCliCommandResolver(string? path)
+        : ITheClawBayCliCommandResolver
     {
-        public string? FindExecutable(string executableName) => path;
+        public int CallCount { get; private set; }
+
+        public TheClawBayCliCommand? Resolve()
+        {
+            this.CallCount++;
+            return path is null ? null : new TheClawBayCliCommand(path, []);
+        }
     }
 
-    private sealed class FakeProcessSessionFactory(string output) : IProcessSessionFactory
+    private sealed class FakeProcessSessionFactory(string output) : IBoundedProcessRunner
     {
         public ProcessStartSpec? StartSpec { get; private set; }
 
-        public IProcessSession Start(ProcessStartSpec spec)
+        public Task<ProcessRunResult> RunAsync(
+            ProcessStartSpec spec,
+            int maximumStandardOutputBytes,
+            int maximumStandardErrorBytes,
+            CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             this.StartSpec = spec;
-            return new FakeProcessSession(output);
+            byte[] standardOutput = Encoding.UTF8.GetBytes(output);
+            if (standardOutput.Length > maximumStandardOutputBytes)
+            {
+                throw new ProcessOutputLimitExceededException(maximumStandardOutputBytes);
+            }
+
+            return Task.FromResult(new ProcessRunResult(standardOutput, 0, string.Empty));
         }
     }
 
-    private sealed class FakeProcessSession : IProcessSession
+    private sealed class BlockingProcessSessionFactory : IBoundedProcessRunner
     {
-        private readonly Queue<string> _lines;
-
-        public FakeProcessSession(string output)
-        {
-            this._lines = new Queue<string>(output.Split(
-                ['\r', '\n'],
-                StringSplitOptions.RemoveEmptyEntries));
-        }
-
-        public Task WriteLineAsync(string line, CancellationToken cancellationToken) =>
-            Task.CompletedTask;
-
-        public Task<string?> ReadLineAsync(CancellationToken cancellationToken) =>
-            Task.FromResult(this._lines.TryDequeue(out string? line) ? line : null);
-
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
-    }
-
-    private sealed class BlockingProcessSessionFactory : IProcessSessionFactory
-    {
-        public IProcessSession Start(ProcessStartSpec spec) => new BlockingProcessSession();
-    }
-
-    private sealed class BlockingProcessSession : IProcessSession
-    {
-        public Task WriteLineAsync(string line, CancellationToken cancellationToken) => Task.CompletedTask;
-
-        public async Task<string?> ReadLineAsync(CancellationToken cancellationToken)
+        public async Task<ProcessRunResult> RunAsync(
+            ProcessStartSpec spec,
+            int maximumStandardOutputBytes,
+            int maximumStandardErrorBytes,
+            CancellationToken cancellationToken)
         {
             await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
-            return null;
+            throw new InvalidOperationException("Unreachable.");
         }
-
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
     private sealed class StubCliVersionReader(string? version) : ICliVersionReader
@@ -641,6 +732,27 @@ public sealed class TheClawBayUsageProviderTests
             this.Spec = spec;
             return Task.FromResult(version);
         }
+    }
+
+    private sealed class FixedProcessRunner(ProcessRunResult result) : IBoundedProcessRunner
+    {
+        public ProcessStartSpec? StartSpec { get; private set; }
+
+        public Task<ProcessRunResult> RunAsync(
+            ProcessStartSpec spec,
+            int maximumStandardOutputBytes,
+            int maximumStandardErrorBytes,
+            CancellationToken cancellationToken)
+        {
+            this.StartSpec = spec;
+            return Task.FromResult(result);
+        }
+    }
+
+    private sealed class FixedTheClawBayCliCommandResolver(TheClawBayCliCommand? command)
+        : ITheClawBayCliCommandResolver
+    {
+        public TheClawBayCliCommand? Resolve() => command;
     }
 
     private sealed class RecordingHandler(

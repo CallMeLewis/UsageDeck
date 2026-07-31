@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using UsageDeck.Core.Providers;
 using UsageDeck.Infrastructure.Providers.TheClawBay;
@@ -104,6 +105,101 @@ public sealed class TheClawBayUsageParserTests
 
         Assert.Equal(new DateTimeOffset(2026, 7, 31, 17, 30, 0, TimeSpan.Zero), snapshot.UsageWindows[0].ResetsAt);
         Assert.Equal(new DateTimeOffset(2026, 8, 3, 0, 0, 0, TimeSpan.Zero), snapshot.UsageWindows[1].ResetsAt);
+    }
+
+    [Theory]
+    [InlineData(-1000)]
+    [InlineData(1000)]
+    [InlineData(-0.0101)]
+    [InlineData(100.0101)]
+    public void ParseRejectsOutOfRangePreferredPercentageWithoutFallingBack(double invalidPercentage)
+    {
+        string json = $$"""
+            {
+              "observedAt": "2026-07-31T16:00:00Z",
+              "usage": {
+                "fiveHour": {
+                  "progressPercentUsed": {{invalidPercentage.ToString(CultureInfo.InvariantCulture)}},
+                  "percentUsed": 25,
+                  "windowEnd": "2026-07-31T20:00:00Z"
+                },
+                "weekly": { "percentUsed": 63, "windowEnd": "2026-08-03T00:00:00Z" }
+              }
+            }
+            """;
+
+        ProviderException exception = Assert.Throws<ProviderException>(
+            () => TheClawBayUsageParser.Parse(Encoding.UTF8.GetBytes(json), "TheClawBay API"));
+
+        Assert.Equal(ProviderErrorCategory.InvalidResponse, exception.Category);
+    }
+
+    [Fact]
+    public void ParseRejectsMalformedPreferredPercentageWithoutFallingBack()
+    {
+        const string Json = """
+            {
+              "observedAt": "2026-07-31T16:00:00Z",
+              "usage": {
+                "fiveHour": {
+                  "progressPercentUsed": "not-a-percentage",
+                  "percentUsed": 25,
+                  "windowEnd": "2026-07-31T20:00:00Z"
+                },
+                "weekly": { "percentUsed": 63, "windowEnd": "2026-08-03T00:00:00Z" }
+              }
+            }
+            """;
+
+        ProviderException exception = Assert.Throws<ProviderException>(
+            () => TheClawBayUsageParser.Parse(Encoding.UTF8.GetBytes(Json), "TheClawBay API"));
+
+        Assert.Equal(ProviderErrorCategory.InvalidResponse, exception.Category);
+    }
+
+    [Theory]
+    [InlineData(-1000)]
+    [InlineData(1000)]
+    public void ParseRejectsOutOfRangeFallbackPercentage(double invalidPercentage)
+    {
+        string json = $$"""
+            {
+              "observedAt": "2026-07-31T16:00:00Z",
+              "usage": {
+                "fiveHour": {
+                  "percentUsed": {{invalidPercentage.ToString(CultureInfo.InvariantCulture)}},
+                  "windowEnd": "2026-07-31T20:00:00Z"
+                },
+                "weekly": { "percentUsed": 63, "windowEnd": "2026-08-03T00:00:00Z" }
+              }
+            }
+            """;
+
+        ProviderException exception = Assert.Throws<ProviderException>(
+            () => TheClawBayUsageParser.Parse(Encoding.UTF8.GetBytes(json), "TheClawBay API"));
+
+        Assert.Equal(ProviderErrorCategory.InvalidResponse, exception.Category);
+    }
+
+    [Fact]
+    public void ParseClampsOnlyBoundaryDriftWithinOneHundredthOfAPercentagePoint()
+    {
+        const string Json = """
+            {
+              "observedAt": "2026-07-31T16:00:00Z",
+              "usage": {
+                "fiveHour": { "percentUsed": -0.01, "windowEnd": "2026-07-31T20:00:00Z" },
+                "weekly": { "percentUsed": 100.01, "windowEnd": "2026-08-03T00:00:00Z" }
+              }
+            }
+            """;
+
+        ProviderSnapshot snapshot = TheClawBayUsageParser.Parse(
+            Encoding.UTF8.GetBytes(Json),
+            "TheClawBay API");
+
+        Assert.Equal(0, snapshot.UsageWindows[0].UsedPercent);
+        Assert.Equal(100, snapshot.UsageWindows[1].UsedPercent);
     }
 
     [Theory]

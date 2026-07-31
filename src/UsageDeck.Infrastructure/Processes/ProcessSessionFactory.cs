@@ -1,15 +1,92 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Text;
 
 namespace UsageDeck.Infrastructure.Processes;
 
-public sealed class ProcessSessionFactory : IProcessSessionFactory
+public sealed class ProcessSessionFactory : IProcessSessionFactory, IBoundedProcessRunner
 {
     public IProcessSession Start(ProcessStartSpec spec)
     {
         ArgumentNullException.ThrowIfNull(spec);
         ArgumentException.ThrowIfNullOrWhiteSpace(spec.ExecutablePath);
+        Process process = new() { StartInfo = CreateStartInfo(spec) };
+        try
+        {
+            if (!process.Start())
+            {
+                throw new InvalidOperationException("The provider process did not start.");
+            }
 
+            return new ProcessSession(process);
+        }
+        catch
+        {
+            process.Dispose();
+            throw;
+        }
+    }
+
+    public async Task<ProcessRunResult> RunAsync(
+        ProcessStartSpec spec,
+        int maximumStandardOutputBytes,
+        int maximumStandardErrorBytes,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(spec);
+        ArgumentException.ThrowIfNullOrWhiteSpace(spec.ExecutablePath);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumStandardOutputBytes);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumStandardErrorBytes);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        using Process process = new() { StartInfo = CreateStartInfo(spec) };
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!process.Start())
+        {
+            throw new InvalidOperationException("The provider process did not start.");
+        }
+
+        using CancellationTokenSource processCancellation =
+            CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        process.StandardInput.Close();
+        Task<byte[]> standardOutput = ReadBoundedStandardOutputAsync(
+            process.StandardOutput.BaseStream,
+            maximumStandardOutputBytes,
+            processCancellation.Token);
+        Task<string> standardError = CaptureBoundedStandardErrorAsync(
+            process.StandardError.BaseStream,
+            maximumStandardErrorBytes,
+            processCancellation.Token);
+        Task exit = process.WaitForExitAsync(processCancellation.Token);
+
+        try
+        {
+            List<Task> pending = [standardOutput, standardError, exit];
+            while (pending.Count > 0)
+            {
+                Task completion = await Task.WhenAny(pending).ConfigureAwait(false);
+                await completion.ConfigureAwait(false);
+                pending.Remove(completion);
+            }
+
+            return new ProcessRunResult(
+                await standardOutput.ConfigureAwait(false),
+                process.ExitCode,
+                await standardError.ConfigureAwait(false));
+        }
+        catch
+        {
+            await processCancellation.CancelAsync().ConfigureAwait(false);
+            TryKill(process);
+            await WaitForExitAfterFailureAsync(process).ConfigureAwait(false);
+            await ObserveFailureAsync(standardOutput).ConfigureAwait(false);
+            await ObserveFailureAsync(standardError).ConfigureAwait(false);
+            throw;
+        }
+    }
+
+    private static ProcessStartInfo CreateStartInfo(ProcessStartSpec spec)
+    {
         ProcessStartInfo startInfo = new()
         {
             FileName = spec.ExecutablePath,
@@ -37,20 +114,91 @@ public sealed class ProcessSessionFactory : IProcessSessionFactory
             }
         }
 
-        Process process = new() { StartInfo = startInfo };
-        try
+        return startInfo;
+    }
+
+    private static async Task<byte[]> ReadBoundedStandardOutputAsync(
+        Stream stream,
+        int maximumBytes,
+        CancellationToken cancellationToken)
+    {
+        using MemoryStream output = new(capacity: Math.Min(maximumBytes, 4096));
+        byte[] buffer = new byte[8192];
+        while (true)
         {
-            if (!process.Start())
+            int read = await stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+            if (read == 0)
             {
-                throw new InvalidOperationException("The provider process did not start.");
+                return output.ToArray();
             }
 
-            return new ProcessSession(process);
+            if (output.Length + read > maximumBytes)
+            {
+                throw new ProcessOutputLimitExceededException(maximumBytes);
+            }
+
+            output.Write(buffer, 0, read);
         }
-        catch
+    }
+
+    private static async Task<string> CaptureBoundedStandardErrorAsync(
+        Stream stream,
+        int maximumBytes,
+        CancellationToken cancellationToken)
+    {
+        using MemoryStream captured = new(capacity: Math.Min(maximumBytes, 4096));
+        byte[] buffer = new byte[2048];
+        while (true)
         {
-            process.Dispose();
-            throw;
+            int read = await stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+            if (read == 0)
+            {
+                return Encoding.UTF8.GetString(captured.GetBuffer(), 0, checked((int)captured.Length));
+            }
+
+            int remaining = maximumBytes - checked((int)captured.Length);
+            if (remaining > 0)
+            {
+                captured.Write(buffer, 0, Math.Min(read, remaining));
+            }
+        }
+    }
+
+    private static async Task ObserveFailureAsync(Task task)
+    {
+        try
+        {
+            await task.ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            // The original runner failure is rethrown after all secondary stream tasks are observed.
+        }
+    }
+
+    private static async Task WaitForExitAfterFailureAsync(Process process)
+    {
+        try
+        {
+            using CancellationTokenSource cleanupTimeout = new(TimeSpan.FromSeconds(5));
+            await process.WaitForExitAsync(cleanupTimeout.Token).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or OperationCanceledException)
+        {
+        }
+    }
+
+    private static void TryKill(Process process)
+    {
+        try
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+            }
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or Win32Exception)
+        {
         }
     }
 

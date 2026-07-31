@@ -10,14 +10,17 @@ using UsageDeck.Infrastructure.Settings;
 namespace UsageDeck.Infrastructure.Providers.TheClawBay;
 
 public sealed class TheClawBayUsageProvider(
-    IProcessSessionFactory processSessionFactory,
-    IExecutableLocator executableLocator,
+    IBoundedProcessRunner processRunner,
+    ITheClawBayCliCommandResolver cliCommandResolver,
     HttpClient httpClient,
     ITheClawBayApiKeySource apiKeySource,
     Func<TheClawBayUsageSource> usageSource,
     ICliVersionReader? cliVersionReader = null) : IUsageProvider, ICliVersionProvider
 {
     private const int MaximumResponseBytes = 1_048_576;
+    private const int MaximumStandardErrorBytes = 16_384;
+    private const string OfficialMissingCredentialError =
+        "Error: No saved credential found. Run \"theclawbay setup\" or pass --api-key.";
     private static readonly Uri UsageEndpoint = new("https://theclawbay.com/api/codex-auth/v1/quota");
 
     public ProviderId Id => ProviderId.TheClawBay;
@@ -36,14 +39,16 @@ public sealed class TheClawBayUsageProvider(
 
     public async Task<string?> ReadCliVersionAsync(CancellationToken cancellationToken)
     {
-        string? executablePath = executableLocator.FindExecutable("theclawbay");
-        if (executablePath is null || cliVersionReader is null)
+        cancellationToken.ThrowIfCancellationRequested();
+        TheClawBayCliCommand? command = cliCommandResolver.Resolve();
+        cancellationToken.ThrowIfCancellationRequested();
+        if (command is null || cliVersionReader is null)
         {
             return null;
         }
 
         return await cliVersionReader.ReadAsync(
-            new ProcessStartSpec(executablePath, ["--version"]),
+            CreateCliSpec(command, ["--version"]),
             cancellationToken).ConfigureAwait(false);
     }
 
@@ -64,6 +69,7 @@ public sealed class TheClawBayUsageProvider(
             apiFailure = exception;
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         try
         {
             return await this.FetchFromCliAsync(cancellationToken).ConfigureAwait(false);
@@ -169,18 +175,20 @@ public sealed class TheClawBayUsageProvider(
 
     private async Task<ProviderSnapshot> FetchFromCliAsync(CancellationToken cancellationToken)
     {
-        string? executablePath = executableLocator.FindExecutable("theclawbay");
-        if (executablePath is null)
+        cancellationToken.ThrowIfCancellationRequested();
+        TheClawBayCliCommand? command = cliCommandResolver.Resolve();
+        cancellationToken.ThrowIfCancellationRequested();
+        if (command is null)
         {
             throw new ProviderException(
                 ProviderErrorCategory.NotInstalled,
                 "TheClawBay CLI is not installed or is not on PATH.");
         }
 
-        ProcessStartSpec spec = new(
-            executablePath,
+        ProcessStartSpec spec = CreateCliSpec(
+            command,
             ["usage", "--json"],
-            Environment: new Dictionary<string, string?>
+            environment: new Dictionary<string, string?>
             {
                 ["NO_COLOR"] = "1",
                 ["TERM"] = "dumb",
@@ -190,37 +198,47 @@ public sealed class TheClawBayUsageProvider(
 
         try
         {
-            await using IProcessSession session = processSessionFactory.Start(spec);
-            StringBuilder output = new(capacity: 4096);
-            long outputBytes = 0;
-            while (await session.ReadLineAsync(timeout.Token).ConfigureAwait(false) is string line)
+            cancellationToken.ThrowIfCancellationRequested();
+            ProcessRunResult result = await processRunner.RunAsync(
+                spec,
+                MaximumResponseBytes,
+                MaximumStandardErrorBytes,
+                timeout.Token).ConfigureAwait(false);
+            if (result.ExitCode != 0)
             {
-                outputBytes += Encoding.UTF8.GetByteCount(line) + Encoding.UTF8.GetByteCount(Environment.NewLine);
-                if (outputBytes > MaximumResponseBytes)
+                if (IsOfficialMissingCredentialError(result.StandardError))
                 {
                     throw new ProviderException(
-                        ProviderErrorCategory.InvalidResponse,
-                        "TheClawBay CLI returned a usage response that was too large to process safely.");
+                        ProviderErrorCategory.AuthenticationRequired,
+                        "Run theclawbay setup, then refresh.");
                 }
 
-                output.AppendLine(line);
+                throw new ProviderException(
+                    ProviderErrorCategory.Unavailable,
+                    "TheClawBay CLI could not return usage. Run theclawbay usage --json directly, then refresh.");
             }
 
-            string response = output.ToString();
-            if (string.IsNullOrWhiteSpace(response))
+            if (IsEmptyOrWhiteSpace(result.StandardOutput))
             {
                 throw new ProviderException(
-                    ProviderErrorCategory.AuthenticationRequired,
-                    "Run theclawbay setup, then refresh.");
+                    ProviderErrorCategory.InvalidResponse,
+                    "TheClawBay CLI returned an empty usage response.");
             }
 
             return TheClawBayUsageParser.Parse(
-                Encoding.UTF8.GetBytes(response),
+                result.StandardOutput,
                 "TheClawBay CLI");
         }
         catch (ProviderException)
         {
             throw;
+        }
+        catch (ProcessOutputLimitExceededException exception)
+        {
+            throw new ProviderException(
+                ProviderErrorCategory.InvalidResponse,
+                "TheClawBay CLI returned a usage response that was too large to process safely.",
+                exception);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -243,6 +261,59 @@ public sealed class TheClawBayUsageProvider(
                 "TheClawBay CLI usage could not be read.",
                 exception);
         }
+    }
+
+    private static ProcessStartSpec CreateCliSpec(
+        TheClawBayCliCommand command,
+        IReadOnlyList<string> arguments,
+        IReadOnlyDictionary<string, string?>? environment = null) => new(
+            command.ExecutablePath,
+            [.. command.PrefixArguments, .. arguments],
+            Environment: environment);
+
+    private static bool IsEmptyOrWhiteSpace(ReadOnlySpan<byte> output)
+    {
+        foreach (byte value in output)
+        {
+            if (value is not ((byte)' ' or (byte)'\t' or (byte)'\r' or (byte)'\n'))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool IsOfficialMissingCredentialError(string standardError)
+    {
+        StringBuilder normalized = new();
+        foreach (string rawLine in standardError.Split(
+            ['\r', '\n'],
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            string line = rawLine;
+            while (line.StartsWith('»'))
+            {
+                line = line[1..].TrimStart();
+            }
+
+            if (line.Length == 0)
+            {
+                continue;
+            }
+
+            if (normalized.Length > 0)
+            {
+                normalized.Append(' ');
+            }
+
+            normalized.Append(line);
+        }
+
+        return string.Equals(
+            normalized.ToString(),
+            OfficialMissingCredentialError,
+            StringComparison.Ordinal);
     }
 
     private string? ReadApiKey()

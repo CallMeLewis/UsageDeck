@@ -6,6 +6,9 @@ namespace UsageDeck.Infrastructure.Providers.TheClawBay;
 
 public static class TheClawBayUsageParser
 {
+    // The upstream percentage can drift by one hundredth of a percentage point at a rounded boundary.
+    private const double PercentageRoundingTolerance = 0.01;
+
     public static ProviderSnapshot Parse(ReadOnlySpan<byte> response, string sourceDescription)
     {
         if (response.IsEmpty)
@@ -96,9 +99,7 @@ public static class TheClawBayUsageParser
             throw InvalidResponse("TheClawBay returned incomplete usage data.");
         }
 
-        double usedPercent = ReadFiniteDouble(value, "progressPercentUsed")
-            ?? ReadFiniteDouble(value, "percentUsed")
-            ?? throw InvalidResponse("TheClawBay returned usage without a percentage.");
+        double usedPercent = ReadUsedPercentage(value);
         DateTimeOffset resetsAt = ReadReset(value, observedAt);
         return new UsageWindow(
             id,
@@ -116,6 +117,35 @@ public static class TheClawBayUsageParser
         && double.IsFinite(parsed)
             ? parsed
             : null;
+
+    private static double ReadUsedPercentage(JsonElement window)
+    {
+        if (window.TryGetProperty("progressPercentUsed", out JsonElement preferred))
+        {
+            return ReadPercentage(preferred);
+        }
+
+        if (window.TryGetProperty("percentUsed", out JsonElement fallback))
+        {
+            return ReadPercentage(fallback);
+        }
+
+        throw InvalidResponse("TheClawBay returned usage without a percentage.");
+    }
+
+    private static double ReadPercentage(JsonElement value)
+    {
+        if (value.ValueKind != JsonValueKind.Number
+            || !value.TryGetDouble(out double parsed)
+            || !double.IsFinite(parsed)
+            || parsed < -PercentageRoundingTolerance
+            || parsed > 100 + PercentageRoundingTolerance)
+        {
+            throw InvalidResponse("TheClawBay returned an invalid usage percentage.");
+        }
+
+        return Math.Clamp(parsed, 0, 100);
+    }
 
     private static DateTimeOffset ReadReset(JsonElement window, DateTimeOffset observedAt)
     {

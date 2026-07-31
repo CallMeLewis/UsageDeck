@@ -1,6 +1,8 @@
 using UsageDeck.Core.Providers;
 using UsageDeck.Infrastructure.Processes;
 using UsageDeck.Infrastructure.Providers;
+using UsageDeck.Infrastructure.Providers.TheClawBay;
+using UsageDeck.Infrastructure.Security;
 
 namespace UsageDeck.Infrastructure.Tests;
 
@@ -42,14 +44,14 @@ public sealed class ProviderDiscoveryServiceTests
         string? environmentKey,
         bool hasWindowsCredential)
     {
-        Dictionary<string, string> executables = cliInstalled
-            ? new Dictionary<string, string> { ["theclawbay"] = @"C:\Tools\theclawbay.cmd" }
-            : [];
         ProviderDiscoveryService service = new(
-            new FakeExecutableLocator(executables),
+            new FakeExecutableLocator(new Dictionary<string, string>()),
             () => null,
             () => environmentKey,
-            () => hasWindowsCredential);
+            () => hasWindowsCredential,
+            new FixedTheClawBayCliCommandResolver(cliInstalled
+                ? new TheClawBayCliCommand(@"C:\Tools\node.exe", [@"C:\Tools\node_modules\theclawbay\dist\index.js"])
+                : null));
 
         ProviderDiscoveryResult result = service.Discover()
             .Single(value => value.ProviderId == ProviderId.TheClawBay);
@@ -74,6 +76,27 @@ public sealed class ProviderDiscoveryServiceTests
         Assert.Equal(ProviderDiscoveryState.RequiresSetup, result.State);
         Assert.Contains("theclawbay setup", result.Detail, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("add an API key in Settings", result.Detail, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void DiscoverReportsTheClawBayCredentialProbeFailureWithoutTreatingItAsMissing()
+    {
+        ProviderDiscoveryService service = new(
+            new FakeExecutableLocator(new Dictionary<string, string>()),
+            () => null,
+            () => null,
+            () => throw new SecretStoreException(
+                "Windows Credential Manager could not be read.",
+                new InvalidOperationException(@"private-key C:\Sensitive\credential")),
+            new FixedTheClawBayCliCommandResolver(null));
+
+        ProviderDiscoveryResult result = service.Discover()
+            .Single(value => value.ProviderId == ProviderId.TheClawBay);
+
+        Assert.Equal(ProviderDiscoveryState.Unavailable, result.State);
+        Assert.Contains("could not be read", result.Detail, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("private-key", result.Detail, StringComparison.Ordinal);
+        Assert.DoesNotContain(@"C:\Sensitive", result.Detail, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -159,5 +182,11 @@ public sealed class ProviderDiscoveryServiceTests
         : IExecutableLocator
     {
         public string? FindExecutable(string executableName) => findExecutable(executableName);
+    }
+
+    private sealed class FixedTheClawBayCliCommandResolver(TheClawBayCliCommand? command)
+        : ITheClawBayCliCommandResolver
+    {
+        public TheClawBayCliCommand? Resolve() => command;
     }
 }

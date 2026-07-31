@@ -58,6 +58,65 @@ public sealed class ProcessSessionFactoryTests
     }
 
     [Fact]
+    public async Task BoundedRunnerStopsAStreamingProcessWhenStandardOutputExceedsTheLimit()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "UsageDeck.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        string completionMarker = Path.Combine(directory, "completed.txt");
+        string escapedMarker = completionMarker.Replace("'", "''", StringComparison.Ordinal);
+        string script =
+            "$chunk = 'x' * 8192; "
+            + "for ($index = 0; $index -lt 2048; $index++) { [Console]::Out.Write($chunk) }; "
+            + $"[IO.File]::WriteAllText('{escapedMarker}', 'completed')";
+        string powershell = new ExecutableLocator().FindExecutable("pwsh")
+            ?? throw new InvalidOperationException("PowerShell 7 is required by the process integration test.");
+
+        try
+        {
+            using CancellationTokenSource timeout = new(TimeSpan.FromSeconds(10));
+            ProcessOutputLimitExceededException exception = await Assert.ThrowsAsync<ProcessOutputLimitExceededException>(
+                () => new ProcessSessionFactory().RunAsync(
+                    new ProcessStartSpec(
+                        powershell,
+                        ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script]),
+                    maximumStandardOutputBytes: 65_536,
+                    maximumStandardErrorBytes: 4096,
+                    timeout.Token));
+
+            Assert.Equal(65_536, exception.MaximumBytes);
+            Assert.False(File.Exists(completionMarker));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task BoundedRunnerCapturesExitCodeAndBoundsPrivateStandardError()
+    {
+        string powershell = new ExecutableLocator().FindExecutable("pwsh")
+            ?? throw new InvalidOperationException("PowerShell 7 is required by the process integration test.");
+        const string Script =
+            "[Console]::Out.Write('usage-output'); "
+            + "[Console]::Error.Write(('s' * 8192)); "
+            + "exit 7";
+
+        using CancellationTokenSource timeout = new(TimeSpan.FromSeconds(10));
+        ProcessRunResult result = await new ProcessSessionFactory().RunAsync(
+            new ProcessStartSpec(
+                powershell,
+                ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", Script]),
+            maximumStandardOutputBytes: 1024,
+            maximumStandardErrorBytes: 64,
+            timeout.Token);
+
+        Assert.Equal(7, result.ExitCode);
+        Assert.Equal("usage-output", Encoding.UTF8.GetString(result.StandardOutput));
+        Assert.Equal(64, Encoding.UTF8.GetByteCount(result.StandardError));
+    }
+
+    [Fact]
     public async Task PtySessionStartsCapturesOutputAndCleansUp()
     {
         string commandInterpreter = Environment.GetEnvironmentVariable("ComSpec") ?? "cmd.exe";
