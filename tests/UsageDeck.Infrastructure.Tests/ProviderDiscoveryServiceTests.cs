@@ -33,6 +33,49 @@ public sealed class ProviderDiscoveryServiceTests
             result => result.Detail.Contains(@"C:\Tools", StringComparison.OrdinalIgnoreCase));
     }
 
+    [Theory]
+    [InlineData(true, null, false)]
+    [InlineData(false, "environment-key", false)]
+    [InlineData(false, null, true)]
+    public void DiscoverDetectsAnyConfiguredTheClawBaySource(
+        bool cliInstalled,
+        string? environmentKey,
+        bool hasWindowsCredential)
+    {
+        Dictionary<string, string> executables = cliInstalled
+            ? new Dictionary<string, string> { ["theclawbay"] = @"C:\Tools\theclawbay.cmd" }
+            : [];
+        ProviderDiscoveryService service = new(
+            new FakeExecutableLocator(executables),
+            () => null,
+            () => environmentKey,
+            () => hasWindowsCredential);
+
+        ProviderDiscoveryResult result = service.Discover()
+            .Single(value => value.ProviderId == ProviderId.TheClawBay);
+
+        Assert.Equal(ProviderDiscoveryState.Detected, result.State);
+        Assert.DoesNotContain("environment-key", result.Detail, StringComparison.Ordinal);
+        Assert.DoesNotContain(@"C:\Tools", result.Detail, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void DiscoverRequiresTheClawBaySetupWhenNoSourceIsConfigured()
+    {
+        ProviderDiscoveryService service = new(
+            new FakeExecutableLocator(new Dictionary<string, string>()),
+            () => null,
+            () => null,
+            () => false);
+
+        ProviderDiscoveryResult result = service.Discover()
+            .Single(value => value.ProviderId == ProviderId.TheClawBay);
+
+        Assert.Equal(ProviderDiscoveryState.RequiresSetup, result.State);
+        Assert.Contains("theclawbay setup", result.Detail, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("add an API key in Settings", result.Detail, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Fact]
     public void DiscoverReportsOpenCodeLocalHistoryAsDetected()
     {
@@ -79,6 +122,30 @@ public sealed class ProviderDiscoveryServiceTests
         Assert.Throws<OperationCanceledException>(() => service.Discover(cancellation.Token));
 
         Assert.Equal(["codex"], probes);
+    }
+
+    [Fact]
+    public void DiscoverStopsBeforeWindowsCredentialProbeWhenEnvironmentProbeCancels()
+    {
+        using CancellationTokenSource cancellation = new();
+        bool windowsCredentialProbed = false;
+        ProviderDiscoveryService service = new(
+            new FakeExecutableLocator(new Dictionary<string, string>()),
+            () => null,
+            () =>
+            {
+                cancellation.Cancel();
+                return null;
+            },
+            () =>
+            {
+                windowsCredentialProbed = true;
+                return false;
+            });
+
+        Assert.Throws<OperationCanceledException>(() => service.Discover(cancellation.Token));
+
+        Assert.False(windowsCredentialProbed);
     }
 
     private sealed class FakeExecutableLocator(IReadOnlyDictionary<string, string> executables)

@@ -11,6 +11,7 @@ using UsageDeck.Infrastructure.Providers.Copilot;
 using UsageDeck.Infrastructure.Providers.Kiro;
 using UsageDeck.Infrastructure.Providers.OpenCodeGo;
 using UsageDeck.Infrastructure.Providers.Status;
+using UsageDeck.Infrastructure.Providers.TheClawBay;
 using UsageDeck.Infrastructure.Providers.Zai;
 using UsageDeck.Infrastructure.Security;
 using UsageDeck.Infrastructure.Settings;
@@ -37,6 +38,7 @@ public partial class App : Application, IDisposable
     private readonly SemaphoreSlim _providerStatusRefreshLock = new(1, 1);
     private readonly DispatcherTimer _providerStatusTimer = new() { Interval = TimeSpan.FromMinutes(5) };
     private readonly DispatcherTimer _updateCheckTimer = new() { Interval = AutomaticUpdateCheckInterval };
+    private readonly TheClawBayApiKeyResolver _theClawBayApiKeys;
     private readonly ZaiApiKeyResolver _zaiApiKeys;
     private bool _automaticUpdateChecksEnabled;
     private bool _isDisposed;
@@ -72,13 +74,20 @@ public partial class App : Application, IDisposable
         this._openCodeGoApiKeys = new OpenCodeGoApiKeyResolver(
             new WindowsCredentialManagerSecretStore(ApplicationIdentity.CredentialTargetPrefix),
             () => this.CurrentSettings.OpenCodeGoApiKeyStorage);
+        this._theClawBayApiKeys = new TheClawBayApiKeyResolver(
+            new WindowsCredentialManagerSecretStore(ApplicationIdentity.CredentialTargetPrefix),
+            () => this.CurrentSettings.TheClawBayApiKeyStorage);
         this.UpdateService = new AppUpdateService(
             BuildInformation.UpdateRepository,
             settings.Settings.UpdateChannel);
         ProcessSessionFactory processSessionFactory = new();
         PtySessionFactory ptySessionFactory = new();
         CliVersionReader cliVersionReader = new(processSessionFactory);
-        this._providerDiscovery = new ProviderDiscoveryService(executableLocator);
+        this._providerDiscovery = new ProviderDiscoveryService(
+            executableLocator,
+            theClawBayEnvironmentReader: () =>
+                Environment.GetEnvironmentVariable(TheClawBayApiKeyResolver.EnvironmentVariableName),
+            theClawBayWindowsCredentialPresence: this._theClawBayApiKeys.HasWindowsCredential);
         IUsageProvider[] providers =
         [
             new CodexUsageProvider(
@@ -111,6 +120,13 @@ public partial class App : Application, IDisposable
                 this._httpClient,
                 this._zaiApiKeys,
                 () => this.CurrentSettings.ZaiRegion),
+            new TheClawBayUsageProvider(
+                processSessionFactory,
+                executableLocator,
+                this._httpClient,
+                this._theClawBayApiKeys,
+                () => this.CurrentSettings.TheClawBayUsageSource,
+                cliVersionReader),
         ];
 
         this.RefreshCoordinator = new ProviderRefreshCoordinator(providers, this._shutdown.Token);
@@ -210,6 +226,13 @@ public partial class App : Application, IDisposable
     internal void SaveOpenCodeGoApiKey(string apiKey) => this._openCodeGoApiKeys.Save(apiKey);
 
     internal void DeleteOpenCodeGoApiKey() => this._openCodeGoApiKeys.Delete();
+
+    internal TheClawBayCredentialStatus GetTheClawBayCredentialStatus() =>
+        this._theClawBayApiKeys.GetStatus();
+
+    internal void SaveTheClawBayApiKey(string apiKey) => this._theClawBayApiKeys.Save(apiKey);
+
+    internal void DeleteTheClawBayApiKey() => this._theClawBayApiKeys.Delete();
 
     public void ShowSettingsWindow()
     {
@@ -644,6 +667,7 @@ public partial class App : Application, IDisposable
 
         this._settingsManager.Dispose();
         this._openCodeGoApiKeys.Dispose();
+        this._theClawBayApiKeys.Dispose();
         this._zaiApiKeys.Dispose();
         this._httpClient.Dispose();
 
