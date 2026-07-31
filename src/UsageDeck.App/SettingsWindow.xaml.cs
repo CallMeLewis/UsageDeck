@@ -1,12 +1,5 @@
 using System.Globalization;
 using System.Runtime.InteropServices;
-using UsageDeck.Core.Formatting;
-using UsageDeck.Core.Providers;
-using UsageDeck.Infrastructure.Providers.OpenCodeGo;
-using UsageDeck.Infrastructure.Providers.TheClawBay;
-using UsageDeck.Infrastructure.Providers.Zai;
-using UsageDeck.Infrastructure.Security;
-using UsageDeck.Infrastructure.Settings;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.System;
 using Microsoft.UI.Windowing;
@@ -14,6 +7,13 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using UsageDeck.Core.Formatting;
+using UsageDeck.Core.Providers;
+using UsageDeck.Infrastructure.Providers.OpenCodeGo;
+using UsageDeck.Infrastructure.Providers.TheClawBay;
+using UsageDeck.Infrastructure.Providers.Zai;
+using UsageDeck.Infrastructure.Security;
+using UsageDeck.Infrastructure.Settings;
 
 namespace UsageDeck.App;
 

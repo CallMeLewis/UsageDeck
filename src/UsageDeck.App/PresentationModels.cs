@@ -2,12 +2,12 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.CompilerServices;
-using UsageDeck.Core.Formatting;
-using UsageDeck.Core.Providers;
-using UsageDeck.Infrastructure.Settings;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Media;
+using UsageDeck.Core.Formatting;
+using UsageDeck.Core.Providers;
+using UsageDeck.Infrastructure.Settings;
 using Windows.UI.ViewManagement;
 
 namespace UsageDeck.App;

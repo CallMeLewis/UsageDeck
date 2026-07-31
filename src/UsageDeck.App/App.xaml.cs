@@ -1,5 +1,10 @@
-using UsageDeck.Core.Providers;
+using Microsoft.UI.Dispatching;
+using Microsoft.UI.Windowing;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Media;
+using Microsoft.Windows.AppLifecycle;
 using UsageDeck.Core.Notifications;
+using UsageDeck.Core.Providers;
 using UsageDeck.Infrastructure.Compatibility;
 using UsageDeck.Infrastructure.Processes;
 using UsageDeck.Infrastructure.Providers;
@@ -15,11 +20,6 @@ using UsageDeck.Infrastructure.Providers.TheClawBay;
 using UsageDeck.Infrastructure.Providers.Zai;
 using UsageDeck.Infrastructure.Security;
 using UsageDeck.Infrastructure.Settings;
-using Microsoft.UI.Dispatching;
-using Microsoft.UI.Windowing;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Media;
-using Microsoft.Windows.AppLifecycle;
 using Windows.UI.ViewManagement;
 
 namespace UsageDeck.App;

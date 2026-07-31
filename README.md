@@ -34,6 +34,7 @@ UsageDeck brings usage from several coding assistants into one compact WinUI 3 w
 | Amp | `amp` CLI |
 | OpenCode Go | OpenCode Console API billing export or read-only local `opencode.db` history |
 | Z.AI | Personal Coding Plan quota API |
+| TheClawBay | Official quota API through a configured key, or `theclawbay usage --json` through the signed-in CLI |
 
 ## Install
 
@@ -49,6 +50,8 @@ The portable ZIP does not install UsageDeck itself, but its first launch registe
 
 Provider-owned CLIs must already be installed and signed in. OpenCode Go can instead use an OpenCode Console service-account key (`oc_sk_…`) under **Settings → Providers → OpenCode Go**; ordinary Go or Zen inference keys cannot access the billing export. Z.AI does not require a CLI; add its API key under **Settings → Providers → Z.AI** using Windows Credential Manager, the `Z_AI_API_KEY` environment variable, or session-only storage.
 
+For TheClawBay, open **Settings → Providers → TheClawBay** and choose **Automatic (recommended)**, **TheClawBay CLI**, or **API key**. Automatic prefers a configured API key and falls back to `theclawbay usage --json` through the signed-in CLI. API keys can be held in Windows Credential Manager, read from the externally managed `THECLAWBAY_API_KEY` environment variable, or kept in memory until UsageDeck exits.
+
 ## Privacy
 
 Most usage collection happens locally through provider-owned tools. UsageDeck does not log tokens, cookies, raw provider responses, or captured terminal output.
@@ -56,6 +59,7 @@ Most usage collection happens locally through provider-owned tools. UsageDeck do
 - Codex, Claude, Antigravity, Copilot, Kiro, and Amp keep authentication under their own tools.
 - OpenCode Go sends a configured service-account key only to `https://console.opencode.ai/api/v1/usage/export`. Without one, it reads `opencode.db` locally and never reads `auth.json` or browser cookies. Keys can be held in Windows Credential Manager, `OPENCODE_CONSOLE_SERVICE_API_KEY`, or session memory and are never written to the settings file.
 - Z.AI sends its key only to the fixed endpoint for the selected region and never writes it to the settings file.
+- A UsageDeck-managed TheClawBay key is sent only to `https://theclawbay.com/api/codex-auth/v1/quota`. CLI mode leaves sign-in under the CLI's ownership, the public status request is unauthenticated, and raw responses are not logged.
 - Service-status checks use public official endpoints and do not send provider credentials. Providers without a verified public source are labelled unavailable rather than inferred to be operational.
 
 ## Development

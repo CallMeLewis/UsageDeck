@@ -1,8 +1,8 @@
 using UsageDeck.App;
 using UsageDeck.Core.Formatting;
 using UsageDeck.Core.Providers;
-using UsageDeck.Infrastructure.Settings;
 using UsageDeck.Infrastructure.Providers;
+using UsageDeck.Infrastructure.Settings;
 
 namespace UsageDeck.App.Tests;
 
