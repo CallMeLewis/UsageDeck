@@ -25,4 +25,10 @@
     <ProjectReference Include="..\..\src\UsageDeck.App\UsageDeck.App.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="..\..\src\UsageDeck.App\MainPage.xaml.cs"
+             Link="SourceUnderTest\MainPage.xaml.cs"
+             CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

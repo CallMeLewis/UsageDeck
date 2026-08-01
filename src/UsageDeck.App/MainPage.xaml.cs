@@ -238,7 +238,6 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
         this._hasShownInitialContent = true;
         this.UsageContent.Visibility = Visibility.Visible;
         this.UsageContent.IsHitTestVisible = true;
-        this.UsageContent.UpdateLayout();
 
         if (!this._uiSettings.AnimationsEnabled)
         {
