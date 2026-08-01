@@ -18,7 +18,7 @@ UsageDeck brings usage from several coding assistants into one compact WinUI 3 w
 - Per-provider Windows notification rules for limit thresholds and resets, Codex reset credits, provider incidents, sign-in requirements, repeated refresh failures, and recoveries. Settings also reports Windows delivery status and can send a test notification.
 - Automatic refresh every 1, 5, 15, or 30 minutes, with manual refresh at any time.
 - System, light, and dark themes with optional Mica.
-- Settings stored per Windows user under `%LOCALAPPDATA%\UsageDeck`.
+- Settings stored per Windows user in `%LOCALAPPDATA%\UsageDeckData\settings.json`, outside the installer-owned application directory.
 - UsageDeck-branded application, installer, executable, and update packages.
 - Built-in updates through versioned Velopack releases.
 
@@ -44,7 +44,7 @@ UsageDeck requires **Windows 11 24H2 or later on x64**.
 2. Download the Windows Setup executable, or choose the portable ZIP if you do not want an installed copy.
 3. Start UsageDeck. First-run setup checks this PC for supported providers and lets you choose providers, theme, and notifications before the first refresh.
 
-The release includes the .NET runtime and the Microsoft-signed Windows App SDK packages required by UsageDeck, so users do not need to install .NET separately. The lightweight launcher registers those packages for the current Windows user before starting the app. If the Windows interface cannot start, UsageDeck displays the error and saves a privacy-safe report under `%LocalAppData%\UsageDeck\diagnostics`. Current development builds are unsigned, so Windows may show an unknown-publisher or SmartScreen warning.
+The release includes the .NET runtime and the Microsoft-signed Windows App SDK packages required by UsageDeck, so users do not need to install .NET separately. The lightweight launcher registers those packages for the current Windows user before starting the app. If the Windows interface cannot start, UsageDeck displays the error and saves a privacy-safe report under `%LocalAppData%\UsageDeckData\diagnostics`. Current development builds are unsigned, so Windows may show an unknown-publisher or SmartScreen warning.
 
 The portable ZIP does not install UsageDeck itself, but its first launch registers the same shared Microsoft runtime packages for the current Windows user.
 
@@ -73,7 +73,7 @@ dotnet test UsageDeck.slnx -c Debug -p:SkipReleaseArtifacts=true
 & src/UsageDeck.App/bin/Debug/net10.0-windows10.0.26100.0/win-x64/UsageDeck.App.exe
 ```
 
-Visual Studio users can open `UsageDeck.slnx` and select the shared **UsageDeck** launch profile. The legacy package ID and local-data identities are retained so existing installations can update without losing their settings or saved credentials; upgraded installations remove the obsolete executable launcher.
+Visual Studio users can open `UsageDeck.slnx` and select the shared **UsageDeck** launch profile. The package ID and credential identity remain unchanged so existing installations keep their update path and saved credentials. On the first launch of this build, UsageDeck copies legacy settings from `%LOCALAPPDATA%\UsageDeck\settings.json` to the protected `UsageDeckData` location and retains the original as a recovery copy.
 
 ## Releases
 

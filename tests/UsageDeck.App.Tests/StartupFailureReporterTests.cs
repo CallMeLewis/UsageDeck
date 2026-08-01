@@ -8,6 +8,18 @@ public sealed class StartupFailureReporterTests : IDisposable
         Guid.NewGuid().ToString("N"));
 
     [Fact]
+    public void DiagnosticPathUsesPersistentDataDirectoryOutsidePackageRoot()
+    {
+        string expected = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "UsageDeckData",
+            "diagnostics",
+            "startup-failure.log");
+
+        Assert.Equal(expected, StartupFailureReporter.DiagnosticPath);
+    }
+
+    [Fact]
     public void ReportContainsActionableDetailsWithoutExceptionData()
     {
         InvalidOperationException exception = new(

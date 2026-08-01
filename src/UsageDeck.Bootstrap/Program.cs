@@ -82,7 +82,7 @@ internal static class Program
 
     private static string GetStartupDiagnosticPath() => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "UsageDeck",
+        "UsageDeckData",
         "diagnostics",
         "startup-failure.log");
 

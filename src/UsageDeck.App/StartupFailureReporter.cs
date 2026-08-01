@@ -17,7 +17,7 @@ internal static class StartupFailureReporter
 
     public static string DiagnosticPath { get; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        ApplicationIdentity.LocalDataDirectoryName,
+        ApplicationIdentity.PersistentDataDirectoryName,
         "diagnostics",
         ReportFileName);
 
