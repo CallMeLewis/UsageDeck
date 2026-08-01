@@ -1,3 +1,4 @@
+using System.Security;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using UsageDeck.Core.Providers;
@@ -139,11 +140,18 @@ public sealed class AppSettingsStore
     };
 
     private readonly AppSettings _defaultSettings;
+    private readonly string? _legacyPath;
     private readonly string _path;
+
+    public static string DefaultPath { get; } = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        ApplicationIdentity.PersistentDataDirectoryName,
+        "settings.json");
 
     public AppSettingsStore(
         string? path = null,
-        AppUpdateChannel defaultUpdateChannel = AppUpdateChannel.Stable)
+        AppUpdateChannel defaultUpdateChannel = AppUpdateChannel.Stable,
+        string? legacyPath = null)
     {
         if (!Enum.IsDefined(defaultUpdateChannel))
         {
@@ -151,26 +159,54 @@ public sealed class AppSettingsStore
         }
 
         this._defaultSettings = AppSettings.Default with { UpdateChannel = defaultUpdateChannel };
-        this._path = path ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            ApplicationIdentity.LocalDataDirectoryName,
-            "settings.json");
+        this._path = path ?? DefaultPath;
+        this._legacyPath = legacyPath ?? (path is null
+            ? Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                ApplicationIdentity.LocalDataDirectoryName,
+                "settings.json")
+            : null);
     }
 
     public AppSettingsLoadResult Load()
     {
-        if (!File.Exists(this._path))
+        string loadPath = this._path;
+        string? migrationWarning = null;
+        if (!File.Exists(loadPath))
         {
-            return new AppSettingsLoadResult(this._defaultSettings, IsFirstRun: true);
+            if (string.IsNullOrWhiteSpace(this._legacyPath) || !File.Exists(this._legacyPath))
+            {
+                return new AppSettingsLoadResult(this._defaultSettings, IsFirstRun: true);
+            }
+
+            try
+            {
+                this.MigrateLegacySettings(this._legacyPath);
+            }
+            catch (Exception exception) when (exception is
+                ArgumentException
+                or IOException
+                or NotSupportedException
+                or SecurityException
+                or UnauthorizedAccessException)
+            {
+                loadPath = this._legacyPath;
+                migrationWarning = "UsageDeck could not move saved settings to the protected data location. "
+                    + "It will keep using the previous location and try again next time.";
+            }
         }
 
         try
         {
-            using FileStream stream = File.OpenRead(this._path);
+            using FileStream stream = File.OpenRead(loadPath);
             SettingsDocument? document = JsonSerializer.Deserialize<SettingsDocument>(stream, JsonOptions);
             if (document?.EnabledProviders is null || document.EnabledProviders.Length == 0)
             {
-                return new AppSettingsLoadResult(this._defaultSettings, "Saved provider settings were invalid, so defaults were restored.");
+                return new AppSettingsLoadResult(
+                    this._defaultSettings,
+                    CombineWarnings(
+                        migrationWarning,
+                        "Saved provider settings were invalid, so defaults were restored."));
             }
 
             ProviderId[] savedEnabled = document.EnabledProviders
@@ -185,7 +221,9 @@ public sealed class AppSettingsStore
             {
                 return new AppSettingsLoadResult(
                     this._defaultSettings,
-                    "Saved provider settings were unsupported, so defaults were restored.");
+                    CombineWarnings(
+                        migrationWarning,
+                        "Saved provider settings were unsupported, so defaults were restored."));
             }
 
             string? savedDefaultProvider = string.IsNullOrWhiteSpace(document.DefaultProvider)
@@ -302,11 +340,15 @@ public sealed class AppSettingsStore
                     providerNotifications,
                     TheClawBayUsageSource: theClawBayUsageSource,
                     TheClawBayApiKeyStorage: theClawBayApiKeyStorage),
-                warning);
+                CombineWarnings(migrationWarning, warning));
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
         {
-            return new AppSettingsLoadResult(this._defaultSettings, "Saved settings could not be read, so defaults were restored.");
+            return new AppSettingsLoadResult(
+                this._defaultSettings,
+                CombineWarnings(
+                    migrationWarning,
+                    "Saved settings could not be read, so defaults were restored."));
         }
     }
 
@@ -407,6 +449,58 @@ public sealed class AppSettingsStore
             {
                 await JsonSerializer.SerializeAsync(stream, document, JsonOptions, cancellationToken).ConfigureAwait(false);
                 await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            File.Move(temporaryPath, this._path, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath))
+            {
+                File.Delete(temporaryPath);
+            }
+        }
+    }
+
+    private static string? CombineWarnings(string? first, string? second)
+    {
+        if (string.IsNullOrWhiteSpace(first))
+        {
+            return second;
+        }
+
+        return string.IsNullOrWhiteSpace(second)
+            ? first
+            : first + " " + second;
+    }
+
+    private void MigrateLegacySettings(string legacyPath)
+    {
+        string? directory = Path.GetDirectoryName(this._path);
+        if (string.IsNullOrEmpty(directory))
+        {
+            throw new InvalidOperationException("The settings path has no parent directory.");
+        }
+
+        Directory.CreateDirectory(directory);
+        string temporaryPath = this._path + ".migration.tmp";
+        try
+        {
+            using FileStream source = new(
+                legacyPath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read);
+            using (FileStream destination = new(
+                temporaryPath,
+                FileMode.Create,
+                FileAccess.Write,
+                FileShare.None,
+                4096,
+                FileOptions.WriteThrough))
+            {
+                source.CopyTo(destination);
+                destination.Flush(flushToDisk: true);
             }
 
             File.Move(temporaryPath, this._path, overwrite: true);

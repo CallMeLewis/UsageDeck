@@ -8,6 +8,94 @@ public sealed class AppSettingsStoreTests : IDisposable
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "UsageDeck.Tests", Guid.NewGuid().ToString("N"));
 
     [Fact]
+    public void DefaultPathUsesPersistentDataDirectoryOutsidePackageRoot()
+    {
+        string localApplicationData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        string expected = Path.Combine(localApplicationData, "UsageDeckData", "settings.json");
+        string packageRoot = Path.Combine(localApplicationData, "UsageDeck") + Path.DirectorySeparatorChar;
+
+        Assert.Equal(expected, AppSettingsStore.DefaultPath);
+        Assert.False(AppSettingsStore.DefaultPath.StartsWith(packageRoot, StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void LoadMigratesLegacySettingsAndRetainsLegacyFile()
+    {
+        string currentPath = Path.Combine(this._directory, "current", "settings.json");
+        string legacyPath = Path.Combine(this._directory, "legacy", "settings.json");
+        WriteSettings(legacyPath, "Dark");
+        string legacyJson = File.ReadAllText(legacyPath);
+
+        AppSettingsLoadResult result = new AppSettingsStore(currentPath, legacyPath: legacyPath).Load();
+
+        Assert.Equal(AppThemePreference.Dark, result.Settings.Theme);
+        Assert.False(result.IsFirstRun);
+        Assert.Null(result.SafeWarning);
+        Assert.Equal(legacyJson, File.ReadAllText(currentPath));
+        Assert.Equal(legacyJson, File.ReadAllText(legacyPath));
+    }
+
+    [Fact]
+    public void LoadPrefersCurrentSettingsWhenLegacySettingsAlsoExist()
+    {
+        string currentPath = Path.Combine(this._directory, "current", "settings.json");
+        string legacyPath = Path.Combine(this._directory, "legacy", "settings.json");
+        WriteSettings(currentPath, "Light");
+        WriteSettings(legacyPath, "Dark");
+
+        AppSettingsLoadResult result = new AppSettingsStore(currentPath, legacyPath: legacyPath).Load();
+
+        Assert.Equal(AppThemePreference.Light, result.Settings.Theme);
+        Assert.Equal(AppThemePreference.Dark, new AppSettingsStore(legacyPath).Load().Settings.Theme);
+    }
+
+    [Fact]
+    public void LoadTreatsMissingCurrentAndLegacySettingsAsFirstRun()
+    {
+        string currentPath = Path.Combine(this._directory, "current", "settings.json");
+        string legacyPath = Path.Combine(this._directory, "legacy", "settings.json");
+
+        AppSettingsLoadResult result = new AppSettingsStore(currentPath, legacyPath: legacyPath).Load();
+
+        Assert.Equal(AppSettings.Default, result.Settings);
+        Assert.True(result.IsFirstRun);
+    }
+
+    [Fact]
+    public void LoadUsesLegacySettingsWhenMigrationFails()
+    {
+        Directory.CreateDirectory(this._directory);
+        string blockedDirectory = Path.Combine(this._directory, "blocked");
+        File.WriteAllText(blockedDirectory, "This file prevents creation of the destination directory.");
+        string currentPath = Path.Combine(blockedDirectory, "settings.json");
+        string legacyPath = Path.Combine(this._directory, "legacy", "settings.json");
+        WriteSettings(legacyPath, "Dark");
+
+        AppSettingsLoadResult result = new AppSettingsStore(currentPath, legacyPath: legacyPath).Load();
+
+        Assert.Equal(AppThemePreference.Dark, result.Settings.Theme);
+        Assert.False(result.IsFirstRun);
+        Assert.Contains("could not move", result.SafeWarning, StringComparison.OrdinalIgnoreCase);
+        Assert.True(File.Exists(legacyPath));
+    }
+
+    [Fact]
+    public async Task SaveAfterMigrationWritesCurrentSettingsAndRetainsLegacySettings()
+    {
+        string currentPath = Path.Combine(this._directory, "current", "settings.json");
+        string legacyPath = Path.Combine(this._directory, "legacy", "settings.json");
+        WriteSettings(legacyPath, "Dark");
+        string legacyJson = File.ReadAllText(legacyPath);
+        AppSettingsStore store = new(currentPath, legacyPath: legacyPath);
+        AppSettings migrated = store.Load().Settings;
+
+        await store.SaveAsync(migrated with { Theme = AppThemePreference.Light });
+
+        Assert.Equal(AppThemePreference.Light, store.Load().Settings.Theme);
+        Assert.Equal(legacyJson, File.ReadAllText(legacyPath));
+    }
+
+    [Fact]
     public async Task SaveAndLoadRoundTripsTheClawBaySourceSettings()
     {
         AppSettingsStore store = new(Path.Combine(this._directory, "settings.json"));
@@ -652,5 +740,17 @@ public sealed class AppSettingsStoreTests : IDisposable
         }
 
         GC.SuppressFinalize(this);
+    }
+
+    private static void WriteSettings(string path, string theme)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, $$"""
+            {
+              "enabledProviders": ["codex"],
+              "defaultProvider": "codex",
+              "theme": "{{theme}}"
+            }
+            """);
     }
 }

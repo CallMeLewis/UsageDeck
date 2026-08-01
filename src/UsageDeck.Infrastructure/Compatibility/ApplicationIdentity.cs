@@ -7,6 +7,8 @@ public static class ApplicationIdentity
 {
     public const string LocalDataDirectoryName = "UsageDeck";
 
+    public const string PersistentDataDirectoryName = "UsageDeckData";
+
     public const string CredentialTargetPrefix = "UsageDeck";
 
     public const string MainInstanceKey = "UsageDeck.Main.v1";
