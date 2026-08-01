@@ -69,6 +69,48 @@ public sealed class NotificationEvaluatorTests
     }
 
     [Fact]
+    public void IneligibleUsageWindowDoesNotProduceLimitNotifications()
+    {
+        NotificationEvaluator evaluator = new();
+        NotificationEvaluationOptions options = new([20, 0]);
+        evaluator.EvaluateUsage(
+            Snapshot(usedPercent: 79, isLimitNotificationEligible: false),
+            options);
+
+        IReadOnlyList<UsageNotificationEvent> notifications = evaluator.EvaluateUsage(
+            Snapshot(
+                usedPercent: 100,
+                capturedAt: Now.AddMinutes(5),
+                isLimitNotificationEligible: false),
+            options);
+
+        Assert.Empty(notifications);
+    }
+
+    [Fact]
+    public void IneligibleUsageWindowClearsPreviousThresholdState()
+    {
+        NotificationEvaluator evaluator = new();
+        NotificationEvaluationOptions options = new([20]);
+        evaluator.EvaluateUsage(Snapshot(usedPercent: 81), options);
+        evaluator.EvaluateUsage(
+            Snapshot(
+                usedPercent: 81,
+                capturedAt: Now.AddMinutes(5),
+                isLimitNotificationEligible: false),
+            options);
+        evaluator.EvaluateUsage(
+            Snapshot(usedPercent: 79, capturedAt: Now.AddMinutes(10)),
+            options);
+
+        IReadOnlyList<UsageNotificationEvent> notifications = evaluator.EvaluateUsage(
+            Snapshot(usedPercent: 81, capturedAt: Now.AddMinutes(15)),
+            options);
+
+        Assert.IsType<LimitThresholdCrossedNotification>(Assert.Single(notifications));
+    }
+
+    [Fact]
     public void StaleUsageDoesNotCrossThreshold()
     {
         NotificationEvaluator evaluator = new();
@@ -233,13 +275,19 @@ public sealed class NotificationEvaluatorTests
         DateTimeOffset? resetsAt = null,
         UsageDataState state = UsageDataState.Fresh,
         ProviderErrorCategory? errorCategory = null,
-        long? resetCreditCount = null) => new(
+        long? resetCreditCount = null,
+        bool isLimitNotificationEligible = true) => new(
         ProviderId.Codex,
         "Codex",
         "Test source",
         capturedAt ?? Now,
         state,
-        [new UsageWindow("five-hour", "5-hour", usedPercent, resetsAt)],
+        [new UsageWindow(
+            "five-hour",
+            "5-hour",
+            usedPercent,
+            resetsAt,
+            isLimitNotificationEligible: isLimitNotificationEligible)],
         resetCredits: resetCreditCount is long count ? new RateLimitResetCredits(count) : null,
         safeError: errorCategory is null ? null : "Usage could not be refreshed.",
         errorCategory: errorCategory);

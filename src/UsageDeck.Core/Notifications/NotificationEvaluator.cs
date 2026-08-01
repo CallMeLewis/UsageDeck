@@ -136,9 +136,26 @@ public sealed class NotificationEvaluator
             .ToDictionary(window => window.Id, StringComparer.Ordinal);
         foreach (UsageWindow window in current.UsageWindows)
         {
+            UsageWindowKey key = new(current.ProviderId, window.Id);
+            if (!window.IsLimitNotificationEligible)
+            {
+                this._notifiedThresholds.Remove(key);
+                continue;
+            }
+
+            if (!previousWindows.TryGetValue(window.Id, out UsageWindow? previousWindow)
+                || !previousWindow.IsLimitNotificationEligible)
+            {
+                if (window.UsageKnown && !window.IsUnlimited)
+                {
+                    this.SeedThresholds(current.ProviderId, window, options);
+                }
+
+                continue;
+            }
+
             if (!window.UsageKnown
                 || window.IsUnlimited
-                || !previousWindows.TryGetValue(window.Id, out UsageWindow? previousWindow)
                 || !previousWindow.UsageKnown
                 || previousWindow.IsUnlimited)
             {
@@ -147,7 +164,7 @@ public sealed class NotificationEvaluator
 
             if (HasReset(previousWindow, window, current.CapturedAt))
             {
-                this._notifiedThresholds.Remove(new UsageWindowKey(current.ProviderId, window.Id));
+                this._notifiedThresholds.Remove(key);
                 if (options.NotifyLimitResets)
                 {
                     notifications.Add(new UsageWindowResetNotification(
@@ -196,16 +213,24 @@ public sealed class NotificationEvaluator
         NotificationEvaluationOptions options)
     {
         foreach (UsageWindow window in snapshot.UsageWindows.Where(window =>
-            window.UsageKnown && !window.IsUnlimited))
+            window.UsageKnown
+            && !window.IsUnlimited
+            && window.IsLimitNotificationEligible))
         {
-            HashSet<int> notifiedThresholds = this.GetNotifiedThresholds(
-                snapshot.ProviderId,
-                window.Id);
-            foreach (int threshold in options.RemainingThresholds.Where(threshold =>
-                window.UsedPercent >= 100 - threshold))
-            {
-                notifiedThresholds.Add(threshold);
-            }
+            this.SeedThresholds(snapshot.ProviderId, window, options);
+        }
+    }
+
+    private void SeedThresholds(
+        ProviderId providerId,
+        UsageWindow window,
+        NotificationEvaluationOptions options)
+    {
+        HashSet<int> notifiedThresholds = this.GetNotifiedThresholds(providerId, window.Id);
+        foreach (int threshold in options.RemainingThresholds.Where(threshold =>
+            window.UsedPercent >= 100 - threshold))
+        {
+            notifiedThresholds.Add(threshold);
         }
     }
 

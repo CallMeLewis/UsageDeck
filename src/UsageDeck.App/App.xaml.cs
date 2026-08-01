@@ -37,7 +37,7 @@ public partial class App : Application, IDisposable
     private readonly WindowsNotificationService _notificationService;
     private readonly SemaphoreSlim _providerStatusRefreshLock = new(1, 1);
     private readonly DispatcherTimer _providerStatusTimer = new() { Interval = TimeSpan.FromMinutes(5) };
-    private readonly SemaphoreSlim _usageRefreshLock = new(1, 1);
+    private readonly ProviderRefreshQueue _usageRefreshQueue;
     private readonly DispatcherTimer _usageRefreshTimer = new() { Interval = TimeSpan.FromMinutes(5) };
     private readonly DispatcherTimer _updateCheckTimer = new() { Interval = AutomaticUpdateCheckInterval };
     private readonly TheClawBayApiKeyResolver _theClawBayApiKeys;
@@ -50,7 +50,7 @@ public partial class App : Application, IDisposable
     private bool _requiresFirstRun;
     private AppInstance? _mainInstance;
     private ProviderId[] _monitoredStatusProviders = [];
-    private ProviderId[] _monitoredUsageProviders = [];
+    private AppSettings _usageRefreshSettings;
     private SettingsWindow? _settingsWindow;
     private MainWindow? _window;
 
@@ -135,6 +135,14 @@ public partial class App : Application, IDisposable
         ];
 
         this.RefreshCoordinator = new ProviderRefreshCoordinator(providers, this._shutdown.Token);
+        this._usageRefreshQueue = new ProviderRefreshQueue(
+            maximumConcurrency: 2,
+            async (providerId, cancellationToken) =>
+            {
+                await this.RefreshCoordinator.RefreshAfterCurrentAsync(providerId, cancellationToken);
+            },
+            this._shutdown.Token);
+        this._usageRefreshSettings = settings.Settings;
         this.StatusCoordinator = new ProviderStatusCoordinator(
             ProviderStatusSources.Create(this._httpClient),
             this._shutdown.Token);
@@ -223,22 +231,46 @@ public partial class App : Application, IDisposable
 
     internal ZaiCredentialStatus GetZaiCredentialStatus() => this._zaiApiKeys.GetStatus();
 
-    internal void SaveZaiApiKey(string apiKey) => this._zaiApiKeys.Save(apiKey);
+    internal void SaveZaiApiKey(string apiKey)
+    {
+        this._zaiApiKeys.Save(apiKey);
+        this.RequestUsageProviderRefresh(ProviderId.Zai);
+    }
 
-    internal void DeleteZaiApiKey() => this._zaiApiKeys.Delete();
+    internal void DeleteZaiApiKey()
+    {
+        this._zaiApiKeys.Delete();
+        this.RequestUsageProviderRefresh(ProviderId.Zai);
+    }
 
     internal OpenCodeGoCredentialStatus GetOpenCodeGoCredentialStatus() => this._openCodeGoApiKeys.GetStatus();
 
-    internal void SaveOpenCodeGoApiKey(string apiKey) => this._openCodeGoApiKeys.Save(apiKey);
+    internal void SaveOpenCodeGoApiKey(string apiKey)
+    {
+        this._openCodeGoApiKeys.Save(apiKey);
+        this.RequestUsageProviderRefresh(ProviderId.OpenCodeGo);
+    }
 
-    internal void DeleteOpenCodeGoApiKey() => this._openCodeGoApiKeys.Delete();
+    internal void DeleteOpenCodeGoApiKey()
+    {
+        this._openCodeGoApiKeys.Delete();
+        this.RequestUsageProviderRefresh(ProviderId.OpenCodeGo);
+    }
 
     internal TheClawBayCredentialStatus GetTheClawBayCredentialStatus() =>
         this._theClawBayApiKeys.GetStatus();
 
-    internal void SaveTheClawBayApiKey(string apiKey) => this._theClawBayApiKeys.Save(apiKey);
+    internal void SaveTheClawBayApiKey(string apiKey)
+    {
+        this._theClawBayApiKeys.Save(apiKey);
+        this.RequestUsageProviderRefresh(ProviderId.TheClawBay);
+    }
 
-    internal void DeleteTheClawBayApiKey() => this._theClawBayApiKeys.Delete();
+    internal void DeleteTheClawBayApiKey()
+    {
+        this._theClawBayApiKeys.Delete();
+        this.RequestUsageProviderRefresh(ProviderId.TheClawBay);
+    }
 
     public void ShowSettingsWindow()
     {
@@ -540,8 +572,8 @@ public partial class App : Application, IDisposable
     private async void ProviderStatusTimer_Tick(object? sender, object e) =>
         await this.RefreshProviderStatusesInBackgroundAsync();
 
-    private async void UsageRefreshTimer_Tick(object? sender, object e) =>
-        await this.RefreshUsageProvidersInBackgroundAsync();
+    private void UsageRefreshTimer_Tick(object? sender, object e) =>
+        this._usageRefreshQueue.Request(this.CurrentSettings.EnabledProviders);
 
     private async void UpdateCheckTimer_Tick(object? sender, object e) =>
         await this.CheckForAppUpdateInBackgroundAsync();
@@ -559,55 +591,26 @@ public partial class App : Application, IDisposable
 
     private void ConfigureUsageRefreshing(AppSettings settings, bool forceRefresh = false)
     {
-        ProviderId[] enabledProviders = settings.EnabledProviders.ToArray();
-        bool providersChanged = !this._monitoredUsageProviders.SequenceEqual(enabledProviders);
-        bool intervalChanged = this._usageRefreshTimer.Interval
-            != TimeSpan.FromMinutes(settings.RefreshIntervalMinutes);
-        this._monitoredUsageProviders = enabledProviders;
+        IReadOnlyCollection<ProviderId> affectedProviders = forceRefresh
+            ? settings.EnabledProviders.ToArray()
+            : UsageRefreshChangeDetector.AffectedProviders(this._usageRefreshSettings, settings);
+        this._usageRefreshSettings = settings;
         this._usageRefreshTimer.Interval = TimeSpan.FromMinutes(settings.RefreshIntervalMinutes);
 
         if (!this._usageRefreshTimer.IsEnabled)
         {
             this._usageRefreshTimer.Start();
-            forceRefresh = true;
+            affectedProviders = settings.EnabledProviders.ToArray();
         }
 
-        if (forceRefresh || providersChanged || intervalChanged)
-        {
-            _ = this.RefreshUsageProvidersInBackgroundAsync();
-        }
+        this._usageRefreshQueue.Request(affectedProviders);
     }
 
-    private async Task RefreshUsageProvidersInBackgroundAsync()
+    private void RequestUsageProviderRefresh(ProviderId providerId)
     {
-        bool entered = false;
-        try
+        if (this._normalSessionStarted && this.CurrentSettings.EnabledProviders.Contains(providerId))
         {
-            entered = await this._usageRefreshLock.WaitAsync(0, this._shutdown.Token);
-            if (!entered)
-            {
-                return;
-            }
-
-            ProviderId[] enabledProviders = this.CurrentSettings.EnabledProviders.ToArray();
-            await ProviderRefreshBatch.RunAsync(
-                enabledProviders,
-                maximumConcurrency: 2,
-                async (providerId, cancellationToken) =>
-                {
-                    await this.RefreshCoordinator.RefreshAsync(providerId, cancellationToken);
-                },
-                this._shutdown.Token);
-        }
-        catch (OperationCanceledException) when (this._shutdown.IsCancellationRequested)
-        {
-        }
-        finally
-        {
-            if (entered)
-            {
-                this._usageRefreshLock.Release();
-            }
+            this._usageRefreshQueue.Request([providerId]);
         }
     }
 

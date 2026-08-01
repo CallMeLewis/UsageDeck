@@ -101,8 +101,9 @@ public static class OpenCodeGoUsageExportParser
             coverage: UsageDataCoverage.OrganisationGateway);
     }
 
-    public static string ApiRange(OpenCodeGoUsageRange range) => range switch
+    public static string ApiRange(OpenCodeGoUsageRange range, DateTimeOffset capturedAt) => range switch
     {
+        OpenCodeGoUsageRange.OneDay when capturedAt.UtcDateTime.TimeOfDay < FiveHours => "7d",
         OpenCodeGoUsageRange.OneDay => "24h",
         OpenCodeGoUsageRange.SevenDays => "7d",
         OpenCodeGoUsageRange.ThirtyDays => "30d",
@@ -136,7 +137,8 @@ public static class OpenCodeGoUsageExportParser
             Math.Round(usedPercent, 1, MidpointRounding.AwayFromZero),
             resetsAt,
             duration,
-            UsageConfidence.Estimated);
+            UsageConfidence.Estimated,
+            isLimitNotificationEligible: false);
     }
 
     private static int FindColumn(string[] header, string name)

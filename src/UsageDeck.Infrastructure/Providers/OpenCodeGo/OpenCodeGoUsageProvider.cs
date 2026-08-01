@@ -94,7 +94,9 @@ public sealed class OpenCodeGoUsageProvider(
         OpenCodeGoUsageRange range,
         CancellationToken cancellationToken)
     {
-        Uri endpoint = new($"{UsageEndpoint}?scope=organization&range={OpenCodeGoUsageExportParser.ApiRange(range)}");
+        DateTimeOffset capturedAt = this._timeProvider.GetUtcNow();
+        string apiRange = OpenCodeGoUsageExportParser.ApiRange(range, capturedAt);
+        Uri endpoint = new($"{UsageEndpoint}?scope=organization&range={apiRange}");
         using HttpRequestMessage request = new(HttpMethod.Get, endpoint);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/csv"));
@@ -129,7 +131,7 @@ public sealed class OpenCodeGoUsageProvider(
             }
 
             byte[] body = await ReadBoundedResponseAsync(response.Content, timeout.Token).ConfigureAwait(false);
-            return OpenCodeGoUsageExportParser.Parse(body, this._timeProvider.GetUtcNow(), range);
+            return OpenCodeGoUsageExportParser.Parse(body, capturedAt, range);
         }
         catch (ProviderException)
         {

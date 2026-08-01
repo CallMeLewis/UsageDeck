@@ -31,6 +31,7 @@ public sealed class OpenCodeGoUsageExportParserTests
             window => AssertWindow(window, "7-day spend vs $30", 30),
             window => AssertWindow(window, "30-day spend vs $60", 20));
         Assert.All(snapshot.UsageWindows, window => Assert.Equal(UsageConfidence.Estimated, window.Confidence));
+        Assert.All(snapshot.UsageWindows, window => Assert.False(window.IsLimitNotificationEligible));
     }
 
     [Theory]

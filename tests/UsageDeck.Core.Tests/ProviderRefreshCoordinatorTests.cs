@@ -48,6 +48,82 @@ public sealed class ProviderRefreshCoordinatorTests
     }
 
     [Fact]
+    public async Task IndependentRefreshesShareTheGlobalConcurrencyLimit()
+    {
+        int active = 0;
+        int highestActive = 0;
+        TaskCompletionSource release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        ProviderId[] providerIds =
+        [
+            ProviderId.Codex,
+            ProviderId.Claude,
+            ProviderId.Antigravity,
+            ProviderId.Copilot,
+        ];
+        FakeProvider[] providers = providerIds.Select(providerId => new FakeProvider(
+            async cancellationToken =>
+            {
+                int current = Interlocked.Increment(ref active);
+                int observed;
+                do
+                {
+                    observed = Volatile.Read(ref highestActive);
+                }
+                while (current > observed
+                    && Interlocked.CompareExchange(ref highestActive, current, observed) != observed);
+
+                await release.Task.WaitAsync(cancellationToken);
+                Interlocked.Decrement(ref active);
+                return FreshSnapshot(providerId);
+            },
+            providerId: providerId)).ToArray();
+        ProviderRefreshCoordinator coordinator = new(providers, maximumConcurrency: 2);
+
+        Task<ProviderSnapshot>[] refreshes = providerIds
+            .Select(providerId => coordinator.RefreshAsync(providerId))
+            .ToArray();
+
+        await WaitUntilAsync(() => Volatile.Read(ref active) == 2);
+        Assert.Equal(2, Volatile.Read(ref highestActive));
+
+        release.SetResult();
+        await Task.WhenAll(refreshes);
+        Assert.Equal(0, Volatile.Read(ref active));
+    }
+
+    [Fact]
+    public async Task RefreshAfterCurrentRunsOnceMoreAndCoalescesCallers()
+    {
+        int fetchCount = 0;
+        TaskCompletionSource releaseFirst = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource secondStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        FakeProvider provider = new(async cancellationToken =>
+        {
+            if (Interlocked.Increment(ref fetchCount) == 1)
+            {
+                await releaseFirst.Task.WaitAsync(cancellationToken);
+            }
+            else
+            {
+                secondStarted.SetResult();
+            }
+
+            return FreshSnapshot();
+        });
+        ProviderRefreshCoordinator coordinator = new([provider]);
+
+        Task<ProviderSnapshot> current = coordinator.RefreshAsync(ProviderId.Codex);
+        Task<ProviderSnapshot> queuedFirst = coordinator.RefreshAfterCurrentAsync(ProviderId.Codex);
+        Task<ProviderSnapshot> queuedSecond = coordinator.RefreshAfterCurrentAsync(ProviderId.Codex);
+        releaseFirst.SetResult();
+
+        await secondStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await Task.WhenAll(current, queuedFirst, queuedSecond);
+
+        Assert.Equal(2, provider.FetchCount);
+    }
+
+    [Fact]
     public async Task CancelledWaitDoesNotPreventTheNextRefresh()
     {
         TaskCompletionSource release = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -78,7 +154,7 @@ public sealed class ProviderRefreshCoordinatorTests
     public async Task FailedRefreshKeepsLastSnapshotAndMarksItStale()
     {
         Queue<Func<ProviderSnapshot>> results = new([
-            FreshSnapshot,
+            () => FreshSnapshot(),
             () => throw new ProviderException(ProviderErrorCategory.Transient, "Codex is temporarily unavailable."),
         ]);
         FakeProvider provider = new(_ => Task.FromResult(results.Dequeue()()));
@@ -128,25 +204,35 @@ public sealed class ProviderRefreshCoordinatorTests
         Assert.Equal(0, provider.FetchCount);
     }
 
-    private static ProviderSnapshot FreshSnapshot() => new(
-        ProviderId.Codex,
-        "Codex",
+    private static ProviderSnapshot FreshSnapshot(ProviderId? providerId = null) => new(
+        providerId ?? ProviderId.Codex,
+        (providerId ?? ProviderId.Codex).DisplayName,
         "Native CLI",
         new DateTimeOffset(2026, 7, 16, 12, 0, 0, TimeSpan.Zero),
         UsageDataState.Fresh,
         [new UsageWindow("session", "Session", 42)],
         resetCredits: new RateLimitResetCredits(1));
 
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        using CancellationTokenSource timeout = new(TimeSpan.FromSeconds(2));
+        while (!condition())
+        {
+            await Task.Delay(10, timeout.Token);
+        }
+    }
+
     private sealed class FakeProvider(
         Func<CancellationToken, Task<ProviderSnapshot>> fetch,
-        string? cliVersion = null) : IUsageProvider, ICliVersionProvider
+        string? cliVersion = null,
+        ProviderId? providerId = null) : IUsageProvider, ICliVersionProvider
     {
         private int _fetchCount;
         private int _versionReadCount;
 
-        public ProviderId Id => ProviderId.Codex;
+        public ProviderId Id => providerId ?? ProviderId.Codex;
 
-        public string DisplayName => "Codex";
+        public string DisplayName => this.Id.DisplayName;
 
         public int FetchCount => this._fetchCount;
 

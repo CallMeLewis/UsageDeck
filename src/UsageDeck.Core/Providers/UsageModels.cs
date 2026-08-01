@@ -59,7 +59,8 @@ public sealed record UsageWindow
         TimeSpan? duration = null,
         UsageConfidence confidence = UsageConfidence.Authoritative,
         bool usageKnown = true,
-        bool isUnlimited = false)
+        bool isUnlimited = false,
+        bool isLimitNotificationEligible = true)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
@@ -82,6 +83,7 @@ public sealed record UsageWindow
         this.Confidence = confidence;
         this.UsageKnown = usageKnown;
         this.IsUnlimited = isUnlimited;
+        this.IsLimitNotificationEligible = isLimitNotificationEligible;
     }
 
     public string Id { get; }
@@ -101,6 +103,8 @@ public sealed record UsageWindow
     public bool UsageKnown { get; }
 
     public bool IsUnlimited { get; }
+
+    public bool IsLimitNotificationEligible { get; }
 }
 
 public sealed record ProviderSnapshot

@@ -1,18 +1,37 @@
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 
 namespace UsageDeck.Core.Providers;
 
+[SuppressMessage(
+    "Design",
+    "CA1001:Types that own disposable fields should be disposable",
+    Justification = "The semaphore has the same process lifetime as the coordinator and its wait handle is never created.")]
 public sealed class ProviderRefreshCoordinator
 {
     private readonly IReadOnlyDictionary<ProviderId, IUsageProvider> _providers;
     private readonly ConcurrentDictionary<ProviderId, ProviderSnapshot> _snapshots = new();
     private readonly ConcurrentDictionary<ProviderId, Lazy<Task<ProviderSnapshot>>> _inFlight = new();
+    private readonly ConcurrentDictionary<ProviderId, Lazy<Task<ProviderSnapshot>>> _queuedRefreshes = new();
+    private readonly SemaphoreSlim _refreshConcurrency;
     private readonly CancellationToken _shutdownToken;
 
-    public ProviderRefreshCoordinator(IEnumerable<IUsageProvider> providers, CancellationToken shutdownToken = default)
+    public ProviderRefreshCoordinator(
+        IEnumerable<IUsageProvider> providers,
+        CancellationToken shutdownToken = default)
+        : this(providers, maximumConcurrency: 2, shutdownToken)
+    {
+    }
+
+    public ProviderRefreshCoordinator(
+        IEnumerable<IUsageProvider> providers,
+        int maximumConcurrency,
+        CancellationToken shutdownToken = default)
     {
         ArgumentNullException.ThrowIfNull(providers);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maximumConcurrency, 1);
         this._providers = providers.ToDictionary(provider => provider.Id);
+        this._refreshConcurrency = new SemaphoreSlim(maximumConcurrency, maximumConcurrency);
         this._shutdownToken = shutdownToken;
     }
 
@@ -55,6 +74,23 @@ public sealed class ProviderRefreshCoordinator
         return await refreshTask.WaitAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<ProviderSnapshot> RefreshAfterCurrentAsync(
+        ProviderId providerId,
+        CancellationToken cancellationToken = default)
+    {
+        if (!this._providers.ContainsKey(providerId))
+        {
+            throw new KeyNotFoundException($"Provider '{providerId}' is not registered.");
+        }
+
+        Lazy<Task<ProviderSnapshot>> queuedRefresh = this._queuedRefreshes.GetOrAdd(
+            providerId,
+            _ => new Lazy<Task<ProviderSnapshot>>(
+                () => this.RefreshAfterCurrentAndRemoveAsync(providerId),
+                LazyThreadSafetyMode.ExecutionAndPublication));
+        return await queuedRefresh.Value.WaitAsync(cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task<IReadOnlyList<ProviderSnapshot>> RefreshAllAsync(CancellationToken cancellationToken = default)
     {
         Task<ProviderSnapshot>[] tasks = this._providers.Keys
@@ -68,11 +104,38 @@ public sealed class ProviderRefreshCoordinator
     {
         try
         {
-            return await this.RefreshCoreAsync(provider).ConfigureAwait(false);
+            await this._refreshConcurrency.WaitAsync(this._shutdownToken).ConfigureAwait(false);
+            try
+            {
+                return await this.RefreshCoreAsync(provider).ConfigureAwait(false);
+            }
+            finally
+            {
+                this._refreshConcurrency.Release();
+            }
         }
         finally
         {
             this._inFlight.TryRemove(provider.Id, out _);
+        }
+    }
+
+    private async Task<ProviderSnapshot> RefreshAfterCurrentAndRemoveAsync(ProviderId providerId)
+    {
+        try
+        {
+            if (this._inFlight.TryGetValue(
+                    providerId,
+                    out Lazy<Task<ProviderSnapshot>>? currentRefresh))
+            {
+                await currentRefresh.Value.ConfigureAwait(false);
+            }
+
+            return await this.RefreshAsync(providerId).ConfigureAwait(false);
+        }
+        finally
+        {
+            this._queuedRefreshes.TryRemove(providerId, out _);
         }
     }
 

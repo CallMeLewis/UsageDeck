@@ -39,6 +39,27 @@ public sealed class OpenCodeGoUsageProviderTests
     }
 
     [Fact]
+    public async Task OneDayRangeRequestsSevenDaysBeforeFiveAmUtc()
+    {
+        RecordingHandler handler = new(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(EmptyCsv, Encoding.UTF8, "text/csv"),
+        });
+        using HttpClient client = new(handler);
+        OpenCodeGoUsageProvider provider = CreateProvider(
+            client,
+            "oc_sk_private",
+            OpenCodeGoUsageRange.OneDay,
+            new DateTimeOffset(2026, 7, 18, 2, 0, 0, TimeSpan.Zero));
+
+        await provider.FetchAsync(CancellationToken.None);
+
+        Assert.Equal(
+            "https://console.opencode.ai/api/v1/usage/export?scope=organization&range=7d",
+            handler.RequestUri?.AbsoluteUri);
+    }
+
+    [Fact]
     public async Task FetchMapsUnauthorisedResponseWithoutExposingSecretsOrBody()
     {
         RecordingHandler handler = new(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized)
@@ -81,11 +102,12 @@ public sealed class OpenCodeGoUsageProviderTests
     private static OpenCodeGoUsageProvider CreateProvider(
         HttpClient client,
         string apiKey,
-        OpenCodeGoUsageRange range) =>
+        OpenCodeGoUsageRange range,
+        DateTimeOffset? now = null) =>
         new(
             new OpenCodeGoDataLocator(),
             new OpenCodeGoUsageReader(),
-            timeProvider: new FixedTimeProvider(Now),
+            timeProvider: new FixedTimeProvider(now ?? Now),
             httpClient: client,
             apiKeySource: new StubApiKeySource(apiKey),
             usageRange: () => range);
