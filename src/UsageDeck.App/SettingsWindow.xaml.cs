@@ -840,7 +840,7 @@ public sealed partial class SettingsWindow : Window, IDisposable
             return;
         }
 
-        bool showApiKey = settings.TheClawBayUsageSource != TheClawBayUsageSource.Cli;
+        bool showApiKey = TheClawBaySettingsPresentation.UsesApiKey(settings.TheClawBayUsageSource);
         this.TheClawBayApiKeyConfigurationPanel.Visibility = showApiKey
             ? Visibility.Visible
             : Visibility.Collapsed;
@@ -870,6 +870,13 @@ public sealed partial class SettingsWindow : Window, IDisposable
                 "Uses the configured API-key storage first, then the provider-owned CLI sign-in",
             _ => "Uses the API-key storage selected below",
         };
+
+        if (!showApiKey)
+        {
+            this.TheClawBayAutomaticStatusText.Text = string.Empty;
+            this.TheClawBayCredentialStatusText.Text = string.Empty;
+            return;
+        }
 
         try
         {

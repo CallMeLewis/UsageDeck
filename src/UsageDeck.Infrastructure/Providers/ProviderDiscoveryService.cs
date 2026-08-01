@@ -3,6 +3,7 @@ using UsageDeck.Infrastructure.Processes;
 using UsageDeck.Infrastructure.Providers.OpenCodeGo;
 using UsageDeck.Infrastructure.Providers.TheClawBay;
 using UsageDeck.Infrastructure.Security;
+using UsageDeck.Infrastructure.Settings;
 
 namespace UsageDeck.Infrastructure.Providers;
 
@@ -17,7 +18,8 @@ public enum ProviderDiscoveryState
 public sealed record ProviderDiscoveryResult(
     ProviderId ProviderId,
     ProviderDiscoveryState State,
-    string Detail);
+    string Detail,
+    ApiKeyStorageMode? DetectedApiKeyStorage = null);
 
 public sealed class ProviderDiscoveryService
 {
@@ -98,7 +100,12 @@ public sealed class ProviderDiscoveryService
                 ? new ProviderDiscoveryResult(
                     ProviderId.TheClawBay,
                     ProviderDiscoveryState.Detected,
-                    "TheClawBay CLI or API-key configuration was found on this PC.")
+                    "TheClawBay CLI or API-key configuration was found on this PC.",
+                    hasTheClawBayEnvironmentKey
+                        ? ApiKeyStorageMode.EnvironmentVariable
+                        : hasTheClawBayWindowsCredential
+                            ? ApiKeyStorageMode.WindowsCredentialManager
+                            : null)
                 : new ProviderDiscoveryResult(
                     ProviderId.TheClawBay,
                     ProviderDiscoveryState.RequiresSetup,

@@ -3,6 +3,7 @@ using UsageDeck.Infrastructure.Processes;
 using UsageDeck.Infrastructure.Providers;
 using UsageDeck.Infrastructure.Providers.TheClawBay;
 using UsageDeck.Infrastructure.Security;
+using UsageDeck.Infrastructure.Settings;
 
 namespace UsageDeck.Infrastructure.Tests;
 
@@ -57,6 +58,12 @@ public sealed class ProviderDiscoveryServiceTests
             .Single(value => value.ProviderId == ProviderId.TheClawBay);
 
         Assert.Equal(ProviderDiscoveryState.Detected, result.State);
+        ApiKeyStorageMode? expectedStorage = environmentKey is not null
+            ? ApiKeyStorageMode.EnvironmentVariable
+            : hasWindowsCredential
+                ? ApiKeyStorageMode.WindowsCredentialManager
+                : null;
+        Assert.Equal(expectedStorage, result.DetectedApiKeyStorage);
         Assert.DoesNotContain("environment-key", result.Detail, StringComparison.Ordinal);
         Assert.DoesNotContain(@"C:\Tools", result.Detail, StringComparison.OrdinalIgnoreCase);
     }

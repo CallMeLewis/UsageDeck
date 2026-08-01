@@ -267,11 +267,18 @@ public sealed partial class FirstRunPage : Page, IDisposable
         }
 
         App app = (App)Application.Current;
+        FirstRunProviderOption[] selectedProviders = this.ProviderOptions
+            .Where(option => option.IsSelected)
+            .ToArray();
+        ApiKeyStorageMode? detectedTheClawBayApiKeyStorage = selectedProviders
+            .SingleOrDefault(option => option.Id == ProviderId.TheClawBay)
+            ?.DetectedApiKeyStorage;
         AppSettings settings = FirstRunSettings.Create(
             app.CurrentSettings,
-            this.ProviderOptions.Where(option => option.IsSelected).Select(option => option.Id),
+            selectedProviders.Select(option => option.Id),
             this._selectedTheme,
-            this.ImportantNotificationsToggle.IsOn);
+            this.ImportantNotificationsToggle.IsOn,
+            detectedTheClawBayApiKeyStorage);
         await this.SaveAndFinishAsync(settings);
     }
 

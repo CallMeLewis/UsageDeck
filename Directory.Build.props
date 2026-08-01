@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <Version>0.6.2-beta.1</Version>
+    <Version>0.6.2-beta.2</Version>
     <WindowsAppSdkVersion>2.2.0</WindowsAppSdkVersion>
     <LangVersion>14.0</LangVersion>
     <AnalysisLevel>latest-recommended</AnalysisLevel>

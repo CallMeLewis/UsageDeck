@@ -19,6 +19,12 @@ public enum ProviderStatusVisualLevel
     Warning,
 }
 
+internal static class TheClawBaySettingsPresentation
+{
+    public static bool UsesApiKey(TheClawBayUsageSource source) =>
+        source is TheClawBayUsageSource.Automatic or TheClawBayUsageSource.ApiKey;
+}
+
 public sealed record ProviderSettingsPresentation(
     ProviderId Id,
     string Description,

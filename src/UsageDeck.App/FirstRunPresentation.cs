@@ -60,6 +60,8 @@ public sealed class FirstRunProviderOption : INotifyPropertyChanged
 
     public ProviderDiscoveryState? DiscoveryState { get; private set; }
 
+    public ApiKeyStorageMode? DetectedApiKeyStorage { get; private set; }
+
     public void ApplyDiscovery(ProviderDiscoveryResult result)
     {
         ArgumentNullException.ThrowIfNull(result);
@@ -69,6 +71,7 @@ public sealed class FirstRunProviderOption : INotifyPropertyChanged
         }
 
         this.DiscoveryState = result.State;
+        this.DetectedApiKeyStorage = result.DetectedApiKeyStorage;
         this.DiscoveryText = result.State switch
         {
             ProviderDiscoveryState.Detected => "Detected",
@@ -103,13 +106,19 @@ internal static class FirstRunSettings
         AppSettings current,
         IEnumerable<ProviderId> selectedProviders,
         AppThemePreference theme,
-        bool notificationsEnabled)
+        bool notificationsEnabled,
+        ApiKeyStorageMode? detectedTheClawBayApiKeyStorage = null)
     {
         ArgumentNullException.ThrowIfNull(current);
         ArgumentNullException.ThrowIfNull(selectedProviders);
         if (!Enum.IsDefined(theme))
         {
             throw new ArgumentOutOfRangeException(nameof(theme));
+        }
+        if (detectedTheClawBayApiKeyStorage is ApiKeyStorageMode detectedStorage
+            && !Enum.IsDefined(detectedStorage))
+        {
+            throw new ArgumentOutOfRangeException(nameof(detectedTheClawBayApiKeyStorage));
         }
 
         HashSet<ProviderId> selected = selectedProviders.ToHashSet();
@@ -128,6 +137,10 @@ internal static class FirstRunSettings
             DefaultProvider = defaultProvider,
             Theme = theme,
             AreNotificationsEnabled = notificationsEnabled,
+            TheClawBayApiKeyStorage = enabled.Contains(ProviderId.TheClawBay)
+                && detectedTheClawBayApiKeyStorage is ApiKeyStorageMode storage
+                    ? storage
+                    : current.TheClawBayApiKeyStorage,
         };
     }
 

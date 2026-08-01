@@ -37,6 +37,19 @@ public sealed class PresentationModelsTests
     }
 
     [Fact]
+    public void FirstRunSettingsUseDetectedTheClawBayEnvironmentKey()
+    {
+        AppSettings result = FirstRunSettings.Create(
+            AppSettings.Default,
+            [ProviderId.TheClawBay],
+            AppThemePreference.System,
+            notificationsEnabled: true,
+            detectedTheClawBayApiKeyStorage: ApiKeyStorageMode.EnvironmentVariable);
+
+        Assert.Equal(ApiKeyStorageMode.EnvironmentVariable, result.TheClawBayApiKeyStorage);
+    }
+
+    [Fact]
     public void FirstRunSettingsRejectAnEmptyProviderSelection()
     {
         Assert.Throws<ArgumentException>(() => FirstRunSettings.Create(
@@ -84,6 +97,32 @@ public sealed class PresentationModelsTests
 
         Assert.Equal("Check unavailable", option.DiscoveryText);
         Assert.Contains("could not be read", option.AccessibleName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void FirstRunProviderOptionRetainsDetectedApiKeyStorage()
+    {
+        FirstRunProviderOption option = new(
+            ProviderSettingsPresentation.All[ProviderId.TheClawBay]);
+
+        option.ApplyDiscovery(new ProviderDiscoveryResult(
+            ProviderId.TheClawBay,
+            ProviderDiscoveryState.Detected,
+            "TheClawBay API-key configuration was found on this PC.",
+            ApiKeyStorageMode.EnvironmentVariable));
+
+        Assert.Equal(ApiKeyStorageMode.EnvironmentVariable, option.DetectedApiKeyStorage);
+    }
+
+    [Theory]
+    [InlineData(TheClawBayUsageSource.Automatic, true)]
+    [InlineData(TheClawBayUsageSource.ApiKey, true)]
+    [InlineData(TheClawBayUsageSource.Cli, false)]
+    public void TheClawBaySettingsOnlyReadCredentialsForApiKeySources(
+        TheClawBayUsageSource source,
+        bool expected)
+    {
+        Assert.Equal(expected, TheClawBaySettingsPresentation.UsesApiKey(source));
     }
 
     [Fact]
