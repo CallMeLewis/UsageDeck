@@ -34,7 +34,8 @@ public sealed class OpenCodeGoUsageProviderTests
         Assert.Equal("Bearer", handler.AuthorizationScheme);
         Assert.Equal("oc_sk_private", handler.AuthorizationParameter);
         Assert.Contains("text/csv", handler.AcceptMediaTypes);
-        Assert.Equal("OpenCode Console API billing", snapshot.SourceDescription);
+        Assert.Equal("OpenCode Console organisation billing estimate", snapshot.SourceDescription);
+        Assert.Equal(UsageDataCoverage.OrganisationGateway, snapshot.Coverage);
     }
 
     [Fact]

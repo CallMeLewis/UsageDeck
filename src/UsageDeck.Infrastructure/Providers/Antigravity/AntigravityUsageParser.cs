@@ -86,12 +86,12 @@ public static partial class AntigravityUsageParser
         {
             throw new ProviderException(
                 ProviderErrorCategory.AuthenticationRequired,
-                "Antigravity needs you to sign in. Run `agy`, sign in, then refresh.");
+                "Antigravity needs you to sign in. Run `agy`, sign in with the account used by your cloud agents, then refresh.");
         }
 
         throw new ProviderException(
             ProviderErrorCategory.InvalidResponse,
-            "Antigravity opened, but its model quota panel could not be read.");
+            "Antigravity opened, but its backend model quota panel could not be read. Update `agy`, then refresh.");
     }
 
     public static string StripTerminalSequences(string value)

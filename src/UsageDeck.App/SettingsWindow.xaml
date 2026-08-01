@@ -680,7 +680,7 @@
                             x:Name="OpenCodeGoConfigurationPanel"
                             Spacing="10"
                             Visibility="Collapsed">
-                            <TextBlock FontWeight="SemiBold" Text="OpenCode API billing" />
+                            <TextBlock FontWeight="SemiBold" Text="OpenCode Console organisation billing" />
                             <Border Style="{StaticResource SettingsGroupBorderStyle}">
                                 <StackPanel>
                                     <Border
@@ -692,7 +692,7 @@
                                             <TextBlock
                                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                 Style="{StaticResource CaptionTextBlockStyle}"
-                                                Text="Use an OpenCode Console service-account API key beginning with oc_sk_. OpenCode Go and Zen inference keys cannot export billing usage."
+                                                Text="Use an OpenCode Console service-account API key beginning with oc_sk_. This reports organisation gateway billing, not authoritative OpenCode Go subscription quota. Go and Zen inference keys cannot access this export."
                                                 TextWrapping="Wrap" />
                                             <HyperlinkButton
                                                 HorizontalAlignment="Left"
@@ -715,7 +715,7 @@
                                                 <TextBlock
                                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                     Style="{StaticResource CaptionTextBlockStyle}"
-                                                    Text="Choose how much billing history to export. Longer periods add more usage estimates."
+                                                    Text="Choose how much separate Console billing history to export. These estimates cover only requests routed through that organisation gateway."
                                                     TextWrapping="Wrap" />
                                             </StackPanel>
                                             <ComboBox

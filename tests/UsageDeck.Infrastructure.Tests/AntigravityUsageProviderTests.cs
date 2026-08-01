@@ -20,7 +20,8 @@ public sealed class AntigravityUsageProviderTests
         ProviderSnapshot snapshot = await provider.FetchAsync(CancellationToken.None);
 
         Assert.Equal(ProviderId.Antigravity, snapshot.ProviderId);
-        Assert.Equal("Antigravity CLI", snapshot.SourceDescription);
+        Assert.Equal("Antigravity CLI backend quota", snapshot.SourceDescription);
+        Assert.Equal(UsageDataCoverage.SignedInAccount, snapshot.Coverage);
         Assert.Equal(40, Assert.Single(snapshot.UsageWindows).UsedPercent);
         Assert.Contains("/usage", session.WrittenText, StringComparison.Ordinal);
         Assert.Equal("C:\\tools\\agy.exe", sessions.StartSpec?.ExecutablePath);

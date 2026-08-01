@@ -48,23 +48,23 @@ public sealed class ZaiUsageProvider(
                 "Add a Z.AI API key in Settings, then refresh.");
         }
 
-        using HttpRequestMessage request = new(HttpMethod.Get, EndpointFor(region()));
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        ZaiApiRegion selectedRegion = region();
+        Uri endpoint = EndpointFor(selectedRegion);
         using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromSeconds(15));
 
         try
         {
-            using HttpResponseMessage response = await httpClient.SendAsync(
-                request,
-                HttpCompletionOption.ResponseHeadersRead,
+            using HttpResponseMessage response = await SendWithCompatibleAuthenticationAsync(
+                httpClient,
+                endpoint,
+                apiKey,
                 timeout.Token).ConfigureAwait(false);
             if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
             {
                 throw new ProviderException(
                     ProviderErrorCategory.AuthenticationRequired,
-                    "Z.AI rejected the API key. Check it in Settings, then refresh.");
+                    $"Z.AI rejected the API key for the {RegionName(selectedRegion)} endpoint. Check the key and region in Settings, then refresh.");
             }
 
             if (response.StatusCode == HttpStatusCode.TooManyRequests || (int)response.StatusCode >= 500)
@@ -114,6 +114,63 @@ public sealed class ZaiUsageProvider(
                 exception);
         }
     }
+
+    private static async Task<HttpResponseMessage> SendWithCompatibleAuthenticationAsync(
+        HttpClient httpClient,
+        Uri endpoint,
+        string apiKey,
+        CancellationToken cancellationToken)
+    {
+        HttpResponseMessage response = await SendAsync(
+            httpClient,
+            endpoint,
+            apiKey,
+            useBearerScheme: false,
+            cancellationToken).ConfigureAwait(false);
+        if (response.StatusCode is not (HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden))
+        {
+            return response;
+        }
+
+        response.Dispose();
+        return await SendAsync(
+            httpClient,
+            endpoint,
+            apiKey,
+            useBearerScheme: true,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<HttpResponseMessage> SendAsync(
+        HttpClient httpClient,
+        Uri endpoint,
+        string apiKey,
+        bool useBearerScheme,
+        CancellationToken cancellationToken)
+    {
+        using HttpRequestMessage request = new(HttpMethod.Get, endpoint);
+        if (useBearerScheme)
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        }
+        else
+        {
+            request.Headers.TryAddWithoutValidation("Authorization", apiKey);
+        }
+
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        return await httpClient.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private static string RegionName(ZaiApiRegion region) => region switch
+    {
+        ZaiApiRegion.Global => "Global",
+        ZaiApiRegion.BigModelChina => "BigModel China",
+        _ => throw new ArgumentOutOfRangeException(nameof(region), region, "Unsupported Z.AI API region."),
+    };
 
     private static async Task<byte[]> ReadBoundedResponseAsync(
         HttpContent content,

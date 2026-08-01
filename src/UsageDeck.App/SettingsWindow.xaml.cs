@@ -716,11 +716,11 @@ public sealed partial class SettingsWindow : Window, IDisposable
         {
             OpenCodeGoCredentialStatus status = ((App)Application.Current).GetOpenCodeGoCredentialStatus();
             this.OpenCodeGoCredentialStatusText.Text = status.IsConfigured
-                ? $"Configured · {status.StorageDescription} · API billing will be used"
-                : $"No service-account key found · {status.StorageDescription} · local history will be used";
+                ? $"Configured · {status.StorageDescription} · separate Console organisation billing will be used"
+                : $"No service-account key found · {status.StorageDescription} · this-PC-only local estimate will be used";
             this.SelectedProviderSource.Text = status.IsConfigured
-                ? "OpenCode Console API billing export"
-                : "Local OpenCode history";
+                ? "OpenCode Console organisation billing estimate"
+                : "Local OpenCode Go estimate · this PC only";
         }
         catch (SecretStoreException exception)
         {

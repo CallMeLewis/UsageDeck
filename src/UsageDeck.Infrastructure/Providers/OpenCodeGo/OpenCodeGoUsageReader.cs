@@ -41,9 +41,10 @@ public sealed class OpenCodeGoUsageReader : IOpenCodeGoUsageReader
             return new ProviderSnapshot(
                 ProviderId.OpenCodeGo,
                 ProviderId.OpenCodeGo.DisplayName,
-                "Local OpenCode history",
+                "Local OpenCode Go estimate",
                 capturedAt,
-                UsageDataState.Fresh);
+                UsageDataState.Fresh,
+                coverage: UsageDataCoverage.ThisDevice);
         }
 
         return CreateSnapshot(rows, capturedAt);
@@ -219,10 +220,11 @@ public sealed class OpenCodeGoUsageReader : IOpenCodeGoUsageReader
         return new ProviderSnapshot(
             ProviderId.OpenCodeGo,
             ProviderId.OpenCodeGo.DisplayName,
-            "Local OpenCode history",
+            "Local OpenCode Go estimate",
             capturedAt,
             UsageDataState.Fresh,
-            windows);
+            windows,
+            coverage: UsageDataCoverage.ThisDevice);
     }
 
     private static double Sum(List<UsageRow> rows, long startMs, long endMs) =>

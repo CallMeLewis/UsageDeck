@@ -25,7 +25,8 @@ public sealed class OpenCodeGoUsageReaderTests : IDisposable
         ProviderSnapshot snapshot = new OpenCodeGoUsageReader().Read(databasePath, now);
 
         Assert.Equal(ProviderId.OpenCodeGo, snapshot.ProviderId);
-        Assert.Equal("Local OpenCode history", snapshot.SourceDescription);
+        Assert.Equal("Local OpenCode Go estimate", snapshot.SourceDescription);
+        Assert.Equal(UsageDataCoverage.ThisDevice, snapshot.Coverage);
         Assert.Null(snapshot.Identity);
         Assert.Collection(
             snapshot.UsageWindows,
@@ -63,7 +64,8 @@ public sealed class OpenCodeGoUsageReaderTests : IDisposable
         ProviderSnapshot snapshot = new OpenCodeGoUsageReader().Read(databasePath, now);
 
         Assert.Equal(UsageDataState.Fresh, snapshot.State);
-        Assert.Equal("Local OpenCode history", snapshot.SourceDescription);
+        Assert.Equal("Local OpenCode Go estimate", snapshot.SourceDescription);
+        Assert.Equal(UsageDataCoverage.ThisDevice, snapshot.Coverage);
         Assert.Null(snapshot.Identity);
         Assert.Empty(snapshot.UsageWindows);
         Assert.Null(snapshot.SafeError);

@@ -81,5 +81,6 @@ public sealed class AntigravityUsageParserTests
             AntigravityUsageParser.Parse("Sign in with Google to continue", Now));
 
         Assert.Equal(ProviderErrorCategory.AuthenticationRequired, exception.Category);
+        Assert.Contains("account used by your cloud agents", exception.Message, StringComparison.Ordinal);
     }
 }

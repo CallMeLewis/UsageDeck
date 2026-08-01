@@ -15,6 +15,14 @@ public enum UsageConfidence
     Estimated,
 }
 
+public enum UsageDataCoverage
+{
+    Unspecified,
+    SignedInAccount,
+    OrganisationGateway,
+    ThisDevice,
+}
+
 public sealed record AccountIdentity(string? Email, string? Plan, string? Organisation = null);
 
 public sealed record CreditBalance(string? Balance, bool HasCredits, bool IsUnlimited);
@@ -109,7 +117,8 @@ public sealed record ProviderSnapshot
         RateLimitResetCredits? resetCredits = null,
         string? safeError = null,
         string? cliVersion = null,
-        ProviderErrorCategory? errorCategory = null)
+        ProviderErrorCategory? errorCategory = null,
+        UsageDataCoverage coverage = UsageDataCoverage.Unspecified)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
         ArgumentException.ThrowIfNullOrWhiteSpace(sourceDescription);
@@ -126,6 +135,7 @@ public sealed record ProviderSnapshot
         this.SafeError = string.IsNullOrWhiteSpace(safeError) ? null : safeError.Trim();
         this.CliVersion = string.IsNullOrWhiteSpace(cliVersion) ? null : cliVersion.Trim();
         this.ErrorCategory = errorCategory;
+        this.Coverage = coverage;
     }
 
     public ProviderId ProviderId { get; }
@@ -152,6 +162,8 @@ public sealed record ProviderSnapshot
 
     public ProviderErrorCategory? ErrorCategory { get; }
 
+    public UsageDataCoverage Coverage { get; }
+
     public double HighestUsedPercent => this.UsageWindows.Count == 0
         ? 0
         : this.UsageWindows.Max(window => window.UsedPercent);
@@ -171,7 +183,8 @@ public sealed record ProviderSnapshot
         this.ResetCredits,
         safeError,
         this.CliVersion,
-        errorCategory);
+        errorCategory,
+        this.Coverage);
 
     public ProviderSnapshot WithCliVersion(string? cliVersion) => new(
         this.ProviderId,
@@ -185,5 +198,6 @@ public sealed record ProviderSnapshot
         this.ResetCredits,
         this.SafeError,
         cliVersion,
-        this.ErrorCategory);
+        this.ErrorCategory,
+        this.Coverage);
 }

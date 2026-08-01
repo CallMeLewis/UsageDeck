@@ -17,9 +17,9 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
 {
     private readonly ProviderTabViewModel _allProvidersTab = new(ProviderId.All, ProviderId.All.DisplayName);
     private readonly ProviderRefreshCoordinator _refreshCoordinator;
+    private readonly Dictionary<ProviderId, ProviderSnapshot> _lastAppliedSnapshots = [];
     private readonly HashSet<ProviderTabViewModel> _providerRefreshesInProgress = [];
     private readonly DispatcherTimer _presentationTimer = new() { Interval = TimeSpan.FromSeconds(1) };
-    private readonly DispatcherTimer _refreshTimer = new() { Interval = TimeSpan.FromMinutes(5) };
     private readonly UISettings _uiSettings = new();
     private readonly string _appVersionText = $"v{App.VersionNumber}";
     private bool _hasCompletedInitialLoad;
@@ -28,6 +28,7 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
     private bool _showCodexSparkCard = true;
     private int _refreshOperationsInProgress;
     private ResetTimeDisplayMode _resetTimeDisplay = ResetTimeDisplayMode.Countdown;
+    private TimeSpan _refreshInterval = TimeSpan.FromMinutes(5);
     private Storyboard? _skeletonShimmerStoryboard;
     private ProviderTabViewModel _selectedProvider = null!;
     private TimeDisplayPrecision _timeDisplayPrecision = TimeDisplayPrecision.Seconds;
@@ -43,7 +44,7 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
         this._showCodexSparkCard = app.CurrentSettings.ShowCodexSparkCard;
         this._resetTimeDisplay = app.CurrentSettings.ResetTimeDisplay;
         this._usageValueDisplay = app.CurrentSettings.UsageValueDisplay;
-        this._refreshTimer.Interval = TimeSpan.FromMinutes(app.CurrentSettings.RefreshIntervalMinutes);
+        this._refreshInterval = TimeSpan.FromMinutes(app.CurrentSettings.RefreshIntervalMinutes);
         this.ApplyPresentationCadence(app.CurrentSettings.RefreshIntervalMinutes);
         app.SettingsChanged += this.App_SettingsChanged;
         app.AccessibilityChanged += this.App_AccessibilityChanged;
@@ -57,7 +58,7 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
         this.Unloaded += this.MainPage_Unloaded;
         this.ActualThemeChanged += this.MainPage_ActualThemeChanged;
         this._presentationTimer.Tick += this.PresentationTimer_Tick;
-        this._refreshTimer.Tick += this.RefreshTimer_Tick;
+        this._refreshCoordinator.SnapshotChanged += this.RefreshCoordinator_SnapshotChanged;
         this.RefreshProviderStatusPresentation();
         this.RefreshUpdatePresentation();
     }
@@ -144,8 +145,13 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
         this._allProvidersTab.IsLoading = true;
         try
         {
-            Task[] refreshes = providersToRefresh.Select(this.RefreshProviderAsync).ToArray();
-            await Task.WhenAll(refreshes);
+            Dictionary<ProviderId, ProviderTabViewModel> providersById = providersToRefresh
+                .ToDictionary(provider => provider.Id);
+            await ProviderRefreshBatch.RunAsync(
+                providersById.Keys,
+                maximumConcurrency: 2,
+                (providerId, _) => this.RefreshProviderAsync(providersById[providerId]),
+                CancellationToken.None);
         }
         finally
         {
@@ -158,17 +164,7 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
     {
         provider.IsLoading = true;
         ProviderSnapshot snapshot = await this._refreshCoordinator.RefreshAsync(provider.Id);
-        provider.ApplySnapshot(
-            snapshot,
-            DateTimeOffset.Now,
-            this._timeDisplayPrecision,
-            this._showCodexSparkCard,
-            this._resetTimeDisplay,
-            this._usageValueDisplay);
-        if (ReferenceEquals(provider, this.SelectedProvider))
-        {
-            this.ShowInitialContent();
-        }
+        this.ApplyProviderSnapshot(snapshot);
     }
 
     private async Task EnsureSelectedProviderFreshAsync(ProviderTabViewModel provider)
@@ -176,7 +172,7 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
         if (provider.IsAll)
         {
             ProviderTabViewModel[] providersDueForRefresh = this.Providers
-                .Where(candidate => candidate.NeedsRefresh(DateTimeOffset.Now, this._refreshTimer.Interval))
+                .Where(candidate => candidate.NeedsRefresh(DateTimeOffset.Now, this._refreshInterval))
                 .ToArray();
             if (providersDueForRefresh.Length > 0)
             {
@@ -191,7 +187,7 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
             return;
         }
 
-        if (!provider.NeedsRefresh(DateTimeOffset.Now, this._refreshTimer.Interval)
+        if (!provider.NeedsRefresh(DateTimeOffset.Now, this._refreshInterval)
             || !this._providerRefreshesInProgress.Add(provider))
         {
             return;
@@ -210,7 +206,6 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
     private async void MainPage_Loaded(object sender, RoutedEventArgs e)
     {
         this._presentationTimer.Start();
-        this._refreshTimer.Start();
         this.StartSkeletonShimmer();
         if (this._hasCompletedInitialLoad)
         {
@@ -224,7 +219,6 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
     private void MainPage_Unloaded(object sender, RoutedEventArgs e)
     {
         this._presentationTimer.Stop();
-        this._refreshTimer.Stop();
         this.StopSkeletonShimmer();
     }
 
@@ -334,15 +328,44 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
         }
     }
 
-    private async void RefreshTimer_Tick(object? sender, object e)
+    private void RefreshCoordinator_SnapshotChanged(object? sender, ProviderSnapshot snapshot)
     {
-        if (this.SelectedProvider.IsAll)
+        if (!this.DispatcherQueue.HasThreadAccess)
         {
-            await this.RefreshProvidersAsync(this.Providers);
+            _ = this.DispatcherQueue.TryEnqueue(() => this.ApplyProviderSnapshot(snapshot));
             return;
         }
 
-        await this.RefreshProviderAsync(this.SelectedProvider);
+        this.ApplyProviderSnapshot(snapshot);
+    }
+
+    private void ApplyProviderSnapshot(ProviderSnapshot snapshot)
+    {
+        if (this._lastAppliedSnapshots.TryGetValue(snapshot.ProviderId, out ProviderSnapshot? previous)
+            && ReferenceEquals(previous, snapshot))
+        {
+            return;
+        }
+
+        ProviderTabViewModel? provider = this.Providers
+            .FirstOrDefault(candidate => candidate.Id == snapshot.ProviderId);
+        if (provider is null)
+        {
+            return;
+        }
+
+        this._lastAppliedSnapshots[snapshot.ProviderId] = snapshot;
+        provider.ApplySnapshot(
+            snapshot,
+            DateTimeOffset.Now,
+            this._timeDisplayPrecision,
+            this._showCodexSparkCard,
+            this._resetTimeDisplay,
+            this._usageValueDisplay);
+        if (ReferenceEquals(provider, this.SelectedProvider))
+        {
+            this.ShowInitialContent();
+        }
     }
 
     private async void RefreshButton_Click(object sender, RoutedEventArgs e) =>
@@ -690,8 +713,8 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
         }
 
         TimeSpan refreshInterval = TimeSpan.FromMinutes(settings.RefreshIntervalMinutes);
-        bool refreshIntervalChanged = this._refreshTimer.Interval != refreshInterval;
-        this._refreshTimer.Interval = refreshInterval;
+        bool refreshIntervalChanged = this._refreshInterval != refreshInterval;
+        this._refreshInterval = refreshInterval;
         if (this.ApplyPresentationCadence(settings.RefreshIntervalMinutes)
             || resetTimeDisplayChanged
             || usageValueDisplayChanged)

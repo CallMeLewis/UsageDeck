@@ -111,7 +111,8 @@ public static class ZaiUsageParser
                 capturedAt,
                 UsageDataState.Fresh,
                 windows,
-                new AccountIdentity(null, plan));
+                new AccountIdentity(null, plan),
+                coverage: UsageDataCoverage.SignedInAccount);
         }
         catch (ProviderException)
         {

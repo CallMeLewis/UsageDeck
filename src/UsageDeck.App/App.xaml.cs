@@ -37,6 +37,8 @@ public partial class App : Application, IDisposable
     private readonly WindowsNotificationService _notificationService;
     private readonly SemaphoreSlim _providerStatusRefreshLock = new(1, 1);
     private readonly DispatcherTimer _providerStatusTimer = new() { Interval = TimeSpan.FromMinutes(5) };
+    private readonly SemaphoreSlim _usageRefreshLock = new(1, 1);
+    private readonly DispatcherTimer _usageRefreshTimer = new() { Interval = TimeSpan.FromMinutes(5) };
     private readonly DispatcherTimer _updateCheckTimer = new() { Interval = AutomaticUpdateCheckInterval };
     private readonly TheClawBayApiKeyResolver _theClawBayApiKeys;
     private readonly ZaiApiKeyResolver _zaiApiKeys;
@@ -48,6 +50,7 @@ public partial class App : Application, IDisposable
     private bool _requiresFirstRun;
     private AppInstance? _mainInstance;
     private ProviderId[] _monitoredStatusProviders = [];
+    private ProviderId[] _monitoredUsageProviders = [];
     private SettingsWindow? _settingsWindow;
     private MainWindow? _window;
 
@@ -142,6 +145,7 @@ public partial class App : Application, IDisposable
         this._notificationService.Activated += this.NotificationService_Activated;
         this._notificationService.Initialise();
         this._providerStatusTimer.Tick += this.ProviderStatusTimer_Tick;
+        this._usageRefreshTimer.Tick += this.UsageRefreshTimer_Tick;
         this._updateCheckTimer.Tick += this.UpdateCheckTimer_Tick;
     }
 
@@ -476,6 +480,7 @@ public partial class App : Application, IDisposable
         if (this._normalSessionStarted)
         {
             this.ConfigureProviderStatusMonitoring(settings);
+            this.ConfigureUsageRefreshing(settings);
         }
 
         this._notificationEvaluator.RetainProviders(settings.EnabledProviders);
@@ -535,6 +540,9 @@ public partial class App : Application, IDisposable
     private async void ProviderStatusTimer_Tick(object? sender, object e) =>
         await this.RefreshProviderStatusesInBackgroundAsync();
 
+    private async void UsageRefreshTimer_Tick(object? sender, object e) =>
+        await this.RefreshUsageProvidersInBackgroundAsync();
+
     private async void UpdateCheckTimer_Tick(object? sender, object e) =>
         await this.CheckForAppUpdateInBackgroundAsync();
 
@@ -546,6 +554,60 @@ public partial class App : Application, IDisposable
         }
         catch (OperationCanceledException) when (this._shutdown.IsCancellationRequested)
         {
+        }
+    }
+
+    private void ConfigureUsageRefreshing(AppSettings settings, bool forceRefresh = false)
+    {
+        ProviderId[] enabledProviders = settings.EnabledProviders.ToArray();
+        bool providersChanged = !this._monitoredUsageProviders.SequenceEqual(enabledProviders);
+        bool intervalChanged = this._usageRefreshTimer.Interval
+            != TimeSpan.FromMinutes(settings.RefreshIntervalMinutes);
+        this._monitoredUsageProviders = enabledProviders;
+        this._usageRefreshTimer.Interval = TimeSpan.FromMinutes(settings.RefreshIntervalMinutes);
+
+        if (!this._usageRefreshTimer.IsEnabled)
+        {
+            this._usageRefreshTimer.Start();
+            forceRefresh = true;
+        }
+
+        if (forceRefresh || providersChanged || intervalChanged)
+        {
+            _ = this.RefreshUsageProvidersInBackgroundAsync();
+        }
+    }
+
+    private async Task RefreshUsageProvidersInBackgroundAsync()
+    {
+        bool entered = false;
+        try
+        {
+            entered = await this._usageRefreshLock.WaitAsync(0, this._shutdown.Token);
+            if (!entered)
+            {
+                return;
+            }
+
+            ProviderId[] enabledProviders = this.CurrentSettings.EnabledProviders.ToArray();
+            await ProviderRefreshBatch.RunAsync(
+                enabledProviders,
+                maximumConcurrency: 2,
+                async (providerId, cancellationToken) =>
+                {
+                    await this.RefreshCoordinator.RefreshAsync(providerId, cancellationToken);
+                },
+                this._shutdown.Token);
+        }
+        catch (OperationCanceledException) when (this._shutdown.IsCancellationRequested)
+        {
+        }
+        finally
+        {
+            if (entered)
+            {
+                this._usageRefreshLock.Release();
+            }
         }
     }
 
@@ -609,6 +671,7 @@ public partial class App : Application, IDisposable
         }
 
         this.ConfigureProviderStatusMonitoring(this.CurrentSettings, forceRefresh: true);
+        this.ConfigureUsageRefreshing(this.CurrentSettings, forceRefresh: true);
         this.ConfigureAutomaticUpdateChecks(this.CurrentSettings, checkImmediately: true);
     }
 
@@ -631,6 +694,7 @@ public partial class App : Application, IDisposable
         this._isShuttingDown = true;
         this._shutdown.Cancel();
         this._providerStatusTimer.Stop();
+        this._usageRefreshTimer.Stop();
         this._updateCheckTimer.Stop();
         this._settingsWindow?.PrepareForShutdown();
         this._window?.PrepareForShutdown();
@@ -663,6 +727,7 @@ public partial class App : Application, IDisposable
         this.RefreshCoordinator.SnapshotChanged -= this.RefreshCoordinator_SnapshotChanged;
         this.StatusCoordinator.SnapshotChanged -= this.StatusCoordinator_SnapshotChanged;
         this._providerStatusTimer.Tick -= this.ProviderStatusTimer_Tick;
+        this._usageRefreshTimer.Tick -= this.UsageRefreshTimer_Tick;
         this._updateCheckTimer.Tick -= this.UpdateCheckTimer_Tick;
         this._notificationService.Activated -= this.NotificationService_Activated;
         this._notificationService.Dispose();

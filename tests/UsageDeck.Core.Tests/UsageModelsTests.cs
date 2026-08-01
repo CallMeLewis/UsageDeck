@@ -68,10 +68,12 @@ public sealed class UsageModelsTests
             "Native CLI",
             DateTimeOffset.UtcNow,
             UsageDataState.Fresh,
-            cliVersion: "0.144.5");
+            cliVersion: "0.144.5",
+            coverage: UsageDataCoverage.SignedInAccount);
 
         ProviderSnapshot stale = snapshot.WithFailure(UsageDataState.Stale, "Refresh failed.");
 
         Assert.Equal("0.144.5", stale.CliVersion);
+        Assert.Equal(UsageDataCoverage.SignedInAccount, stale.Coverage);
     }
 }

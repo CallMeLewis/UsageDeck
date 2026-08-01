@@ -27,7 +27,7 @@ public sealed class ZaiUsageProviderTests
     [Theory]
     [InlineData(ZaiApiRegion.Global, "https://api.z.ai/api/monitor/usage/quota/limit")]
     [InlineData(ZaiApiRegion.BigModelChina, "https://open.bigmodel.cn/api/monitor/usage/quota/limit")]
-    public async Task FetchUsesTheFixedRegionalEndpointAndBearerKey(ZaiApiRegion region, string expectedEndpoint)
+    public async Task FetchUsesTheFixedRegionalEndpointAndOfficialRawKey(ZaiApiRegion region, string expectedEndpoint)
     {
         const string Json = """
             {
@@ -54,10 +54,44 @@ public sealed class ZaiUsageProviderTests
         ProviderSnapshot snapshot = await provider.FetchAsync(CancellationToken.None);
 
         Assert.Equal(expectedEndpoint, handler.RequestUri?.AbsoluteUri);
-        Assert.Equal("Bearer", handler.AuthorizationScheme);
-        Assert.Equal("private-api-key", handler.AuthorizationParameter);
+        Assert.Equal(["private-api-key"], handler.AuthorizationHeaders);
         Assert.Contains("application/json", handler.AcceptMediaTypes);
         Assert.Equal(Now, snapshot.CapturedAt);
+        Assert.Equal(12, Assert.Single(snapshot.UsageWindows).UsedPercent);
+        Assert.Equal(UsageDataCoverage.SignedInAccount, snapshot.Coverage);
+    }
+
+    [Fact]
+    public async Task FetchRetriesWithBearerOnlyWhenRawAuthenticationIsRejected()
+    {
+        const string Json = """
+            {
+              "code": 200,
+              "success": true,
+              "data": {
+                "limits": [
+                  { "type": "TOKENS_LIMIT", "unit": 3, "number": 5, "percentage": 12 }
+                ]
+              }
+            }
+            """;
+        int requestCount = 0;
+        RecordingHandler handler = new(_ => ++requestCount == 1
+            ? new HttpResponseMessage(HttpStatusCode.Unauthorized)
+            : new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(Json, Encoding.UTF8, "application/json"),
+            });
+        using HttpClient client = new(handler);
+        ZaiUsageProvider provider = new(
+            client,
+            new StubApiKeySource("private-api-key"),
+            () => ZaiApiRegion.Global,
+            new FixedTimeProvider(Now));
+
+        ProviderSnapshot snapshot = await provider.FetchAsync(CancellationToken.None);
+
+        Assert.Equal(["private-api-key", "Bearer private-api-key"], handler.AuthorizationHeaders);
         Assert.Equal(12, Assert.Single(snapshot.UsageWindows).UsedPercent);
     }
 
@@ -75,8 +109,10 @@ public sealed class ZaiUsageProviderTests
             () => provider.FetchAsync(CancellationToken.None));
 
         Assert.Equal(ProviderErrorCategory.AuthenticationRequired, exception.Category);
+        Assert.Contains("Global", exception.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("private-api-key", exception.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("server-secret", exception.Message, StringComparison.Ordinal);
+        Assert.Equal(["private-api-key", "Bearer private-api-key"], handler.AuthorizationHeaders);
     }
 
     [Fact]
@@ -110,9 +146,7 @@ public sealed class ZaiUsageProviderTests
     {
         public Uri? RequestUri { get; private set; }
 
-        public string? AuthorizationScheme { get; private set; }
-
-        public string? AuthorizationParameter { get; private set; }
+        public List<string> AuthorizationHeaders { get; } = [];
 
         public IReadOnlyList<string> AcceptMediaTypes { get; private set; } = [];
 
@@ -121,8 +155,10 @@ public sealed class ZaiUsageProviderTests
             CancellationToken cancellationToken)
         {
             this.RequestUri = request.RequestUri;
-            this.AuthorizationScheme = request.Headers.Authorization?.Scheme;
-            this.AuthorizationParameter = request.Headers.Authorization?.Parameter;
+            if (request.Headers.TryGetValues("Authorization", out IEnumerable<string>? values))
+            {
+                this.AuthorizationHeaders.AddRange(values);
+            }
             this.AcceptMediaTypes = request.Headers.Accept
                 .Select(value => value.MediaType ?? string.Empty)
                 .ToArray();

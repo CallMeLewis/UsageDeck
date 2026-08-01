@@ -111,10 +111,11 @@ public sealed class AntigravityUsageProvider(
             return new ProviderSnapshot(
                 this.Id,
                 this.DisplayName,
-                "Antigravity CLI",
+                "Antigravity CLI backend quota",
                 capturedAt,
                 UsageDataState.Fresh,
-                windows);
+                windows,
+                coverage: UsageDataCoverage.SignedInAccount);
         }
         catch (ProviderException)
         {

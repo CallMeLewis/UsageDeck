@@ -23,12 +23,13 @@ public sealed class OpenCodeGoUsageExportParserTests
             Now,
             OpenCodeGoUsageRange.ThirtyDays);
 
-        Assert.Equal("OpenCode Console API billing", snapshot.SourceDescription);
+        Assert.Equal("OpenCode Console organisation billing estimate", snapshot.SourceDescription);
+        Assert.Equal(UsageDataCoverage.OrganisationGateway, snapshot.Coverage);
         Assert.Collection(
             snapshot.UsageWindows,
-            window => AssertWindow(window, "5-hour", 25),
-            window => AssertWindow(window, "7-day", 30),
-            window => AssertWindow(window, "30-day", 20));
+            window => AssertWindow(window, "5-hour spend vs $12", 25),
+            window => AssertWindow(window, "7-day spend vs $30", 30),
+            window => AssertWindow(window, "30-day spend vs $60", 20));
         Assert.All(snapshot.UsageWindows, window => Assert.Equal(UsageConfidence.Estimated, window.Confidence));
     }
 

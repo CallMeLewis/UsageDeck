@@ -79,25 +79,26 @@ public static class OpenCodeGoUsageExportParser
 
         List<UsageWindow> windows =
         [
-            CreateWindow(usage, capturedAt, "five-hour", "5-hour", FiveHours, 12m),
+            CreateWindow(usage, capturedAt, "five-hour", "5-hour spend vs $12", FiveHours, 12m),
         ];
         if (range is OpenCodeGoUsageRange.SevenDays or OpenCodeGoUsageRange.ThirtyDays)
         {
-            windows.Add(CreateWindow(usage, capturedAt, "seven-day", "7-day", SevenDays, 30m));
+            windows.Add(CreateWindow(usage, capturedAt, "seven-day", "7-day spend vs $30", SevenDays, 30m));
         }
 
         if (range == OpenCodeGoUsageRange.ThirtyDays)
         {
-            windows.Add(CreateWindow(usage, capturedAt, "thirty-day", "30-day", ThirtyDays, 60m));
+            windows.Add(CreateWindow(usage, capturedAt, "thirty-day", "30-day spend vs $60", ThirtyDays, 60m));
         }
 
         return new ProviderSnapshot(
             ProviderId.OpenCodeGo,
             ProviderId.OpenCodeGo.DisplayName,
-            "OpenCode Console API billing",
+            "OpenCode Console organisation billing estimate",
             capturedAt,
             UsageDataState.Fresh,
-            windows);
+            windows,
+            coverage: UsageDataCoverage.OrganisationGateway);
     }
 
     public static string ApiRange(OpenCodeGoUsageRange range) => range switch

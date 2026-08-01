@@ -353,7 +353,7 @@ public sealed class PresentationModelsTests
     }
 
     [Fact]
-    public void OpenCodeGoEmptyStateExplainsApiAndLocalSources()
+    public void OpenCodeGoEmptyStateExplainsConsoleAndDeviceOnlySources()
     {
         DateTimeOffset now = new(2026, 7, 17, 12, 0, 0, TimeSpan.Zero);
         ProviderTabViewModel model = new(ProviderId.OpenCodeGo, "OpenCode Go");
@@ -361,13 +361,15 @@ public sealed class PresentationModelsTests
         model.ApplySnapshot(new ProviderSnapshot(
             ProviderId.OpenCodeGo,
             "OpenCode Go",
-            "Local OpenCode history",
+            "Local OpenCode Go estimate",
             now,
-            UsageDataState.Fresh), now, TimeDisplayPrecision.Seconds);
+            UsageDataState.Fresh,
+            coverage: UsageDataCoverage.ThisDevice), now, TimeDisplayPrecision.Seconds);
 
         Assert.True(model.HasNoUsageData);
         Assert.Equal("No OpenCode Go usage found", model.EmptyStateTitle);
-        Assert.Contains("API billing range or local OpenCode history", model.EmptyStateMessage, StringComparison.Ordinal);
+        Assert.Contains("this PC's local Go history", model.EmptyStateMessage, StringComparison.Ordinal);
+        Assert.EndsWith("this PC only", model.UpdatedText, StringComparison.Ordinal);
     }
 
     [Fact]

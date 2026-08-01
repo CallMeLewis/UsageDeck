@@ -58,13 +58,13 @@ public sealed record ProviderSettingsPresentation(
                 "UsageDeck uses the provider-owned sign-in and does not store credentials from the Claude Code CLI."),
             [ProviderId.Antigravity] = new(
                 ProviderId.Antigravity,
-                "Shows model quota data from the signed-in Antigravity CLI.",
-                "Antigravity CLI",
+                "Shows backend model quota data for the account signed in to the Antigravity CLI.",
+                "Antigravity CLI backend quota",
                 "Command-line tool",
                 "agy",
                 true,
                 "Managed by the Antigravity CLI",
-                "UsageDeck uses the provider-owned sign-in and does not store credentials from the Antigravity CLI."),
+                "UsageDeck uses the provider-owned sign-in and does not store credentials from the Antigravity CLI. Cloud activity is included when it uses the same account and quota."),
             [ProviderId.Copilot] = new(
                 ProviderId.Copilot,
                 "Shows GitHub Copilot quota data through the signed-in GitHub CLI.",
@@ -94,13 +94,13 @@ public sealed record ProviderSettingsPresentation(
                 "UsageDeck uses the provider-owned sign-in and does not store credentials from the Amp CLI."),
             [ProviderId.OpenCodeGo] = new(
                 ProviderId.OpenCodeGo,
-                "Shows estimated OpenCode usage from Console API billing or local assistant costs.",
-                "OpenCode Console API billing or local history",
+                "Shows a device-only OpenCode Go estimate, or separate organisation billing from OpenCode Console.",
+                "Local Go estimate or Console organisation billing",
                 "API endpoint",
                 "https://console.opencode.ai/api/v1/usage/export",
                 true,
-                "Uses the optional service-account key storage selected below",
-                "UsageDeck sends a configured service key only to the fixed OpenCode Console usage endpoint. Without one, it opens opencode.db read-only and never reads auth.json."),
+                "Uses an optional OpenCode Console service-account key; this is not a Go API key",
+                "UsageDeck sends a configured service key only to the fixed OpenCode Console usage endpoint. Console billing is not authoritative Go subscription quota. Without a key, UsageDeck opens opencode.db read-only and never reads auth.json or browser cookies."),
             [ProviderId.Zai] = new(
                 ProviderId.Zai,
                 "Shows personal Z.AI Coding Plan limits from the selected regional API.",
@@ -146,6 +146,7 @@ public sealed class ProviderTabViewModel : INotifyPropertyChanged
     private bool _hasServiceProblem;
     private string _statusMessage = string.Empty;
     private string _sourceDescription = "No source";
+    private UsageDataCoverage _usageDataCoverage;
     private string _summaryUpdatedText = "Not refreshed";
     private UsageDataState _state = UsageDataState.Unavailable;
     private string _updatedText = "Not refreshed yet";
@@ -347,7 +348,7 @@ public sealed class ProviderTabViewModel : INotifyPropertyChanged
         : "No rate-limit data reported";
 
     public string EmptyStateMessage => this.Id == ProviderId.OpenCodeGo
-        ? "No charged OpenCode usage was found in the configured API billing range or local OpenCode history."
+        ? "No usage was found in this PC's local Go history or the configured, separate OpenCode Console organisation billing export."
         : "This provider did not return any rate-limit windows.";
 
     public bool CanRetry
@@ -400,6 +401,7 @@ public sealed class ProviderTabViewModel : INotifyPropertyChanged
         this.IsLoading = false;
         this._capturedAt = snapshot.CapturedAt;
         this._sourceDescription = snapshot.SourceDescription;
+        this._usageDataCoverage = snapshot.Coverage;
         this._state = snapshot.State;
         this.PlanText = FormatPlanName(snapshot.ProviderId, snapshot.Identity?.Plan);
         this.CliVersionText = string.IsNullOrWhiteSpace(snapshot.CliVersion)
@@ -552,7 +554,16 @@ public sealed class ProviderTabViewModel : INotifyPropertyChanged
         this.SummaryUpdatedText = this._state == UsageDataState.Stale
             ? age == "just now" ? "Saved just now" : $"Saved {age}"
             : age == "just now" ? "Updated just now" : $"Updated {age}";
-        this.UpdatedText = $"{freshness} · {this._sourceDescription}";
+        string coverage = this._usageDataCoverage switch
+        {
+            UsageDataCoverage.SignedInAccount => "signed-in account",
+            UsageDataCoverage.OrganisationGateway => "organisation gateway only",
+            UsageDataCoverage.ThisDevice => "this PC only",
+            _ => string.Empty,
+        };
+        this.UpdatedText = string.IsNullOrEmpty(coverage)
+            ? $"{freshness} · {this._sourceDescription}"
+            : $"{freshness} · {this._sourceDescription} · {coverage}";
     }
 
     public void RefreshVisualState()
