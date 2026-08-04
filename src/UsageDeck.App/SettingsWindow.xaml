@@ -175,6 +175,7 @@
                     x:Name="GeneralPanel"
                     Grid.Row="1"
                     HorizontalContentAlignment="Stretch"
+                    HorizontalScrollMode="Disabled"
                     HorizontalScrollBarVisibility="Disabled"
                     Padding="0,8,12,0">
                     <StackPanel MaxWidth="620" HorizontalAlignment="Stretch" Spacing="20">
@@ -323,6 +324,7 @@
                     x:Name="AppearancePanel"
                     Grid.Row="1"
                     HorizontalContentAlignment="Stretch"
+                    HorizontalScrollMode="Disabled"
                     HorizontalScrollBarVisibility="Disabled"
                     Padding="0,8,12,0"
                     Visibility="Collapsed">
@@ -464,6 +466,7 @@
                     x:Name="NotificationsPanel"
                     Grid.Row="1"
                     HorizontalContentAlignment="Stretch"
+                    HorizontalScrollMode="Disabled"
                     HorizontalScrollBarVisibility="Disabled"
                     Padding="0,8,12,0"
                     Visibility="Collapsed">
@@ -576,6 +579,7 @@
                     x:Name="ProviderPanel"
                     Grid.Row="1"
                     HorizontalContentAlignment="Stretch"
+                    HorizontalScrollMode="Disabled"
                     HorizontalScrollBarVisibility="Disabled"
                     Padding="0,8,12,0"
                     Visibility="Collapsed">
@@ -1300,6 +1304,7 @@
                     x:Name="DebugPanel"
                     Grid.Row="1"
                     HorizontalContentAlignment="Stretch"
+                    HorizontalScrollMode="Disabled"
                     HorizontalScrollBarVisibility="Disabled"
                     Padding="0,8,12,0"
                     Visibility="Collapsed">
@@ -1380,6 +1385,7 @@
                     x:Name="AboutPanel"
                     Grid.Row="1"
                     HorizontalContentAlignment="Stretch"
+                    HorizontalScrollMode="Disabled"
                     HorizontalScrollBarVisibility="Disabled"
                     Padding="0,8,12,0"
                     Visibility="Collapsed">
@@ -1429,6 +1435,36 @@
                                 </StackPanel>
                             </Grid>
                         </Border>
+
+                        <Expander
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Stretch"
+                            IsExpanded="False"
+                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="10"
+                            AutomationProperties.Name="Release notes for the installed version">
+                            <Expander.Header>
+                                <Grid MinHeight="48" Padding="4,2">
+                                    <StackPanel VerticalAlignment="Center" Spacing="3">
+                                        <TextBlock
+                                            x:Name="ReleaseNotesTitleText"
+                                            FontWeight="SemiBold" />
+                                        <TextBlock
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Style="{StaticResource CaptionTextBlockStyle}"
+                                            Text="Select to view what’s new" />
+                                    </StackPanel>
+                                </Grid>
+                            </Expander.Header>
+                            <Border
+                                Padding="16,14,16,16"
+                                BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                BorderThickness="0,1,0,0">
+                                <local:ReleaseNotesView x:Name="AboutReleaseNotesView" />
+                            </Border>
+                        </Expander>
 
                         <StackPanel Spacing="8">
                             <TextBlock FontWeight="SemiBold" Text="Updates" />

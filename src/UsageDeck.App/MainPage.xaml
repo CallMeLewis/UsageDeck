@@ -625,11 +625,74 @@
                         Foreground="{StaticResource BrandAccentBrush}"
                         IsActive="{Binding SelectedProvider.IsLoading}"
                         Visibility="{Binding SelectedProvider.IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                    <TextBlock
+                    <Button
+                        x:Name="VersionButton"
                         VerticalAlignment="Center"
-                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                        Style="{StaticResource CaptionTextBlockStyle}"
-                        Text="{Binding AppVersionText}" />
+                        MinWidth="0"
+                        MinHeight="28"
+                        Padding="7,3"
+                        AutomationProperties.Name="View release notes for the current version"
+                        CornerRadius="6"
+                        PointerEntered="VersionButton_PointerEntered"
+                        Style="{StaticResource SubtleButtonStyle}"
+                        ToolTipService.ToolTip="What’s new in this version">
+                        <Button.Flyout>
+                            <Flyout
+                                x:Name="VersionFlyout"
+                                Closed="VersionFlyout_Closed"
+                                Opened="VersionFlyout_Opened"
+                                Placement="TopEdgeAlignedLeft">
+                                <StackPanel Width="360" Spacing="16">
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Border
+                                            Width="36"
+                                            Height="36"
+                                            Background="{StaticResource BrandAccentSubtleBrush}"
+                                            CornerRadius="8">
+                                            <FontIcon
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                Foreground="{StaticResource BrandAccentBrush}"
+                                                FontSize="17"
+                                                Glyph="&#xE8A5;"
+                                                IsTextScaleFactorEnabled="False" />
+                                        </Border>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                            <TextBlock FontWeight="SemiBold" Text="What’s new" />
+                                            <TextBlock
+                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                Style="{StaticResource CaptionTextBlockStyle}"
+                                                Text="{Binding AppVersionText}" />
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <local:ReleaseNotesView x:Name="VersionReleaseNotesView" />
+
+                                    <Button
+                                        HorizontalAlignment="Left"
+                                        AutomationProperties.Name="View all release notes in Settings"
+                                        Click="ViewReleaseNotesInSettingsButton_Click"
+                                        Style="{StaticResource AccentButtonStyle}">
+                                        <StackPanel Orientation="Horizontal" Spacing="7">
+                                            <TextBlock Text="View in Settings" />
+                                            <FontIcon
+                                                FontSize="12"
+                                                Glyph="&#xE72A;"
+                                                IsTextScaleFactorEnabled="False" />
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+                            </Flyout>
+                        </Button.Flyout>
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{Binding AppVersionText}" />
+                    </Button>
                     <Button
                         x:Name="UpdateActionButton"
                         AutomationProperties.LiveSetting="Polite"

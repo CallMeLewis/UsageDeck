@@ -1,3 +1,5 @@
+using System.Xml.Linq;
+
 namespace UsageDeck.App.Tests;
 
 public sealed class MainPageLayoutTests
@@ -57,6 +59,39 @@ public sealed class MainPageLayoutTests
         string source = File.ReadAllText(sourcePath);
 
         Assert.DoesNotContain("Tag=\"provider:opencode-go\"", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SettingsPagesConstrainContentToTheVisibleWidth()
+    {
+        string sourcePath = Path.Combine(
+            AppContext.BaseDirectory,
+            "SourceUnderTest",
+            "SettingsWindow.xaml");
+        XDocument xaml = XDocument.Load(sourcePath);
+        XNamespace presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+        XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
+        string[] pageNames =
+        [
+            "GeneralPanel",
+            "AppearancePanel",
+            "NotificationsPanel",
+            "ProviderPanel",
+            "DebugPanel",
+            "AboutPanel",
+        ];
+
+        foreach (string pageName in pageNames)
+        {
+            XElement page = Assert.Single(
+                xaml.Descendants(presentation + "ScrollViewer"),
+                element => string.Equals(
+                    (string?)element.Attribute(x + "Name"),
+                    pageName,
+                    StringComparison.Ordinal));
+            Assert.Equal("Disabled", (string?)page.Attribute("HorizontalScrollMode"));
+            Assert.Equal("Disabled", (string?)page.Attribute("HorizontalScrollBarVisibility"));
+        }
     }
 
     [Fact]

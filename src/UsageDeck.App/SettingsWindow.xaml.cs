@@ -70,6 +70,8 @@ public sealed partial class SettingsWindow : Window, IDisposable
 #endif
         this.SettingsNavigation.SelectedItem = this.SettingsNavigation.MenuItems[0];
         this.VersionText.Text = $"Version {App.VersionNumber}";
+        this.ReleaseNotesTitleText.Text = $"Release notes for version {App.VersionNumber}";
+        this.AboutReleaseNotesView.Present(app.ReleaseNotes, isCompact: false);
         this.LoadSettings(app.CurrentSettings);
         this.RefreshUpdatePresentation();
     }
@@ -186,6 +188,22 @@ public sealed partial class SettingsWindow : Window, IDisposable
         this.RefreshZaiPresentation(settings);
         this.RefreshTheClawBayPresentation(settings);
         this.RefreshSelectedProviderStatus(settings);
+    }
+
+    internal void SelectPage(string tag)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(tag);
+        NavigationViewItem? item = this.SettingsNavigation.MenuItems
+            .OfType<NavigationViewItem>()
+            .Concat(this.SettingsNavigation.FooterMenuItems.OfType<NavigationViewItem>())
+            .FirstOrDefault(candidate => string.Equals(
+                candidate.Tag?.ToString(),
+                tag,
+                StringComparison.Ordinal));
+        if (item is not null)
+        {
+            this.SettingsNavigation.SelectedItem = item;
+        }
     }
 
     internal void RefreshProviderVersions()

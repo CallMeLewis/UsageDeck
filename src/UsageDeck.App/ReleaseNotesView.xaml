@@ -1,0 +1,6 @@
+<UserControl
+    x:Class="UsageDeck.App.ReleaseNotesView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <StackPanel x:Name="ContentPanel" Spacing="10" />
+</UserControl>

@@ -47,6 +47,13 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
+    <Content
+      Include="..\..\.github\release-notes\v$(Version).md"
+      Condition="Exists('..\..\.github\release-notes\v$(Version).md')">
+      <Link>ReleaseNotes\v$(Version).md</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>

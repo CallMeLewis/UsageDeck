@@ -83,6 +83,9 @@ public partial class App : Application, IDisposable
         this.UpdateService = new AppUpdateService(
             BuildInformation.UpdateRepository,
             settings.Settings.UpdateChannel);
+        this.ReleaseNotes = ReleaseNotesReader.Load(
+            AppContext.BaseDirectory,
+            VersionNumber);
         ProcessSessionFactory processSessionFactory = new();
         PtySessionFactory ptySessionFactory = new();
         CliVersionReader cliVersionReader = new(processSessionFactory);
@@ -162,6 +165,8 @@ public partial class App : Application, IDisposable
     public ProviderStatusCoordinator StatusCoordinator { get; }
 
     internal AppUpdateService UpdateService { get; private set; }
+
+    internal ReleaseNotesLoadResult ReleaseNotes { get; }
 
     public static string VersionNumber { get; } = BuildInformation.Version;
 
@@ -272,9 +277,14 @@ public partial class App : Application, IDisposable
         this.RequestUsageProviderRefresh(ProviderId.TheClawBay);
     }
 
-    public void ShowSettingsWindow()
+    public void ShowSettingsWindow(string? pageTag = null)
     {
         this._settingsWindow ??= new SettingsWindow();
+        if (pageTag is not null)
+        {
+            this._settingsWindow.SelectPage(pageTag);
+        }
+
         this._settingsWindow.RefreshProviderVersions();
         this._settingsWindow.AppWindow.Show();
         this._settingsWindow.Activate();
