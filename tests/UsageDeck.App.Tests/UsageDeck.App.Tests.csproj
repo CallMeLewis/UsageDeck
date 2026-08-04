@@ -29,6 +29,9 @@
     <Content Include="..\..\src\UsageDeck.App\MainPage.xaml.cs"
              Link="SourceUnderTest\MainPage.xaml.cs"
              CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\src\UsageDeck.App\SettingsWindow.xaml"
+             Link="SourceUnderTest\SettingsWindow.xaml"
+             CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

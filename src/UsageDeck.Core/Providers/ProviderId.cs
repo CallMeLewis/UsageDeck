@@ -16,6 +16,10 @@ public readonly record struct ProviderId
     public static IReadOnlyList<ProviderId> Supported { get; } =
         [Codex, Claude, Antigravity, Copilot, Kiro, Amp, OpenCodeGo, Zai, TheClawBay];
 
+    // OpenCode Go remains implemented but is unavailable until it has a safe, authoritative usage source.
+    public static IReadOnlyList<ProviderId> Available { get; } =
+        Supported.Where(provider => provider != OpenCodeGo).ToArray();
+
     public ProviderId(string value)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(value);

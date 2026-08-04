@@ -25,4 +25,16 @@ public sealed class MainPageLayoutTests
             source[methodStart..methodEnd],
             StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void SettingsNavigationOmitsUnavailableOpenCodeGo()
+    {
+        string sourcePath = Path.Combine(
+            AppContext.BaseDirectory,
+            "SourceUnderTest",
+            "SettingsWindow.xaml");
+        string source = File.ReadAllText(sourcePath);
+
+        Assert.DoesNotContain("Tag=\"provider:opencode-go\"", source, StringComparison.Ordinal);
+    }
 }

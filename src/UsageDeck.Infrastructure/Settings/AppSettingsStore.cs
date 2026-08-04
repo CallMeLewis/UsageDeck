@@ -215,15 +215,16 @@ public sealed class AppSettingsStore
                 .Distinct()
                 .ToArray();
             ProviderId[] enabled = savedEnabled
-                .Where(IsSupportedProvider)
+                .Where(IsAvailableProvider)
                 .ToArray();
             if (enabled.Length == 0)
             {
+                string? providerWarning = savedEnabled.Any(provider => !IsSupportedProvider(provider))
+                    ? "Saved provider settings were unsupported, so defaults were restored."
+                    : null;
                 return new AppSettingsLoadResult(
                     this._defaultSettings,
-                    CombineWarnings(
-                        migrationWarning,
-                        "Saved provider settings were unsupported, so defaults were restored."));
+                    CombineWarnings(migrationWarning, providerWarning));
             }
 
             string? savedDefaultProvider = string.IsNullOrWhiteSpace(document.DefaultProvider)
@@ -315,9 +316,9 @@ public sealed class AppSettingsStore
                 document,
                 limitThresholds);
 
-            string? warning = savedEnabled.Length == enabled.Length
-                ? null
-                : "Unsupported saved providers were removed.";
+            string? warning = savedEnabled.Any(provider => !IsSupportedProvider(provider))
+                ? "Unsupported saved providers were removed."
+                : null;
             return new AppSettingsLoadResult(
                 new AppSettings(
                     enabled,
@@ -360,9 +361,9 @@ public sealed class AppSettingsStore
             throw new ArgumentException("At least one provider must remain enabled.", nameof(settings));
         }
 
-        if (settings.EnabledProviders.Any(provider => !IsSupportedProvider(provider)))
+        if (settings.EnabledProviders.Any(provider => !IsAvailableProvider(provider)))
         {
-            throw new ArgumentException("Settings contain an unsupported provider.", nameof(settings));
+            throw new ArgumentException("Settings contain an unavailable provider.", nameof(settings));
         }
 
         if (settings.DefaultProvider == ProviderId.All && !settings.IsAllTabEnabled)
@@ -515,6 +516,9 @@ public sealed class AppSettingsStore
     }
 
     private static bool IsSupportedRefreshInterval(int? value) => value is 1 or 5 or 15 or 30;
+
+    private static bool IsAvailableProvider(ProviderId providerId) =>
+        ProviderId.Available.Contains(providerId);
 
     private static bool IsSupportedProvider(ProviderId providerId) =>
         ProviderId.Supported.Contains(providerId);

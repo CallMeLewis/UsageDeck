@@ -37,6 +37,19 @@ public sealed class PresentationModelsTests
     }
 
     [Fact]
+    public void FirstRunSettingsIgnoreUnavailableOpenCodeGo()
+    {
+        AppSettings result = FirstRunSettings.Create(
+            AppSettings.Default,
+            [ProviderId.OpenCodeGo, ProviderId.Codex],
+            AppThemePreference.System,
+            notificationsEnabled: true);
+
+        Assert.Equal([ProviderId.Codex], result.EnabledProviders);
+        Assert.Equal(ProviderId.Codex, result.DefaultProvider);
+    }
+
+    [Fact]
     public void FirstRunSettingsUseDetectedTheClawBayEnvironmentKey()
     {
         AppSettings result = FirstRunSettings.Create(

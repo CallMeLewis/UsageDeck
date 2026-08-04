@@ -122,7 +122,7 @@ internal static class FirstRunSettings
         }
 
         HashSet<ProviderId> selected = selectedProviders.ToHashSet();
-        ProviderId[] enabled = ProviderId.Supported.Where(selected.Contains).ToArray();
+        ProviderId[] enabled = ProviderId.Available.Where(selected.Contains).ToArray();
         if (enabled.Length == 0)
         {
             throw new ArgumentException("Select at least one provider.", nameof(selectedProviders));

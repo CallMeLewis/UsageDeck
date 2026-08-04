@@ -120,16 +120,6 @@
                     </NavigationViewItem.Content>
                 </NavigationViewItem>
                 <NavigationViewItem
-                    AutomationProperties.Name="OpenCode Go provider settings"
-                    Tag="provider:opencode-go">
-                    <NavigationViewItem.Content>
-                        <StackPanel Orientation="Horizontal" Spacing="10">
-                            <local:ProviderLogo Width="18" Height="18" ProviderKey="opencode-go" />
-                            <TextBlock VerticalAlignment="Center" Text="OpenCode Go" />
-                        </StackPanel>
-                    </NavigationViewItem.Content>
-                </NavigationViewItem>
-                <NavigationViewItem
                     AutomationProperties.Name="Z.AI provider settings"
                     Tag="provider:zai">
                     <NavigationViewItem.Content>

@@ -21,7 +21,7 @@ public sealed class ProviderDiscoveryServiceTests
 
         IReadOnlyList<ProviderDiscoveryResult> results = service.Discover();
 
-        Assert.Equal(ProviderId.Supported, results.Select(result => result.ProviderId));
+        Assert.Equal(ProviderId.Available, results.Select(result => result.ProviderId));
         Assert.Equal(
             ProviderDiscoveryState.Detected,
             results.Single(result => result.ProviderId == ProviderId.Codex).State);
@@ -107,20 +107,25 @@ public sealed class ProviderDiscoveryServiceTests
     }
 
     [Fact]
-    public void DiscoverReportsOpenCodeLocalHistoryAsDetected()
+    public void DiscoverOmitsUnavailableOpenCodeWithoutProbingForIt()
     {
+        bool openCodeDataProbed = false;
         ProviderDiscoveryService service = new(
             new FakeExecutableLocator(new Dictionary<string, string>()),
-            () => @"C:\Users\Test\opencode.db");
+            () =>
+            {
+                openCodeDataProbed = true;
+                return @"C:\Users\Test\opencode.db";
+            });
 
-        ProviderDiscoveryResult result = service.Discover()
-            .Single(value => value.ProviderId == ProviderId.OpenCodeGo);
+        IReadOnlyList<ProviderDiscoveryResult> results = service.Discover();
 
-        Assert.Equal(ProviderDiscoveryState.Detected, result.State);
+        Assert.DoesNotContain(results, result => result.ProviderId == ProviderId.OpenCodeGo);
+        Assert.False(openCodeDataProbed);
     }
 
     [Fact]
-    public void DiscoverKeepsApiProvidersAvailableForManualSetup()
+    public void DiscoverKeepsZaiAvailableForManualSetup()
     {
         ProviderDiscoveryService service = new(
             new FakeExecutableLocator(new Dictionary<string, string>()),
@@ -128,9 +133,6 @@ public sealed class ProviderDiscoveryServiceTests
 
         IReadOnlyList<ProviderDiscoveryResult> results = service.Discover();
 
-        Assert.Equal(
-            ProviderDiscoveryState.RequiresSetup,
-            results.Single(result => result.ProviderId == ProviderId.OpenCodeGo).State);
         Assert.Equal(
             ProviderDiscoveryState.RequiresSetup,
             results.Single(result => result.ProviderId == ProviderId.Zai).State);

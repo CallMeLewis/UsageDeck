@@ -336,6 +336,43 @@ public sealed class AppSettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public void LoadQuietlyDisablesOpenCodeGoAndRepairsSelection()
+    {
+        Directory.CreateDirectory(this._directory);
+        string path = Path.Combine(this._directory, "settings.json");
+        File.WriteAllText(path, """
+            {
+              "enabledProviders": ["opencode-go", "codex"],
+              "defaultProvider": "opencode-go"
+            }
+            """);
+
+        AppSettingsLoadResult result = new AppSettingsStore(path).Load();
+
+        Assert.Equal([ProviderId.Codex], result.Settings.EnabledProviders);
+        Assert.Equal(ProviderId.Codex, result.Settings.DefaultProvider);
+        Assert.Null(result.SafeWarning);
+    }
+
+    [Fact]
+    public void LoadOnlyOpenCodeGoQuietlyRestoresAvailableDefaults()
+    {
+        Directory.CreateDirectory(this._directory);
+        string path = Path.Combine(this._directory, "settings.json");
+        File.WriteAllText(path, """
+            {
+              "enabledProviders": ["opencode-go"],
+              "defaultProvider": "opencode-go"
+            }
+            """);
+
+        AppSettingsLoadResult result = new AppSettingsStore(path).Load();
+
+        Assert.Equal(AppSettings.Default, result.Settings);
+        Assert.Null(result.SafeWarning);
+    }
+
+    [Fact]
     public async Task SaveRejectsDisabledDefaultProvider()
     {
         AppSettingsStore store = new(Path.Combine(this._directory, "settings.json"));
@@ -404,6 +441,15 @@ public sealed class AppSettingsStoreTests : IDisposable
         AppSettingsStore store = new(Path.Combine(this._directory, "settings.json"));
         ProviderId unsupported = new("future-provider");
         AppSettings invalid = new([unsupported], unsupported);
+
+        await Assert.ThrowsAsync<ArgumentException>(() => store.SaveAsync(invalid));
+    }
+
+    [Fact]
+    public async Task SaveRejectsUnavailableOpenCodeGoProvider()
+    {
+        AppSettingsStore store = new(Path.Combine(this._directory, "settings.json"));
+        AppSettings invalid = new([ProviderId.OpenCodeGo], ProviderId.OpenCodeGo);
 
         await Assert.ThrowsAsync<ArgumentException>(() => store.SaveAsync(invalid));
     }

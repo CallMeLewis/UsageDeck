@@ -22,7 +22,7 @@ internal static class SettingsMutations
             enabledProviders.Remove(providerId);
         }
 
-        ProviderId[] enabled = ProviderId.Supported.Where(enabledProviders.Contains).ToArray();
+        ProviderId[] enabled = ProviderId.Available.Where(enabledProviders.Contains).ToArray();
         if (enabled.Length == 0)
         {
             return settings;

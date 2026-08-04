@@ -655,7 +655,7 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
 
         foreach (ProviderId id in settings.EnabledProviders)
         {
-            if (ProviderId.Supported.Contains(id))
+            if (ProviderId.Available.Contains(id))
             {
                 ProviderTabViewModel provider = existingProviders.GetValueOrDefault(id)
                     ?? new ProviderTabViewModel(id, id.DisplayName);

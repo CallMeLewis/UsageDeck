@@ -27,7 +27,7 @@ public sealed partial class SettingsWindow : Window, IDisposable
     private bool _isDisposed;
     private bool _isExiting;
     private bool _isUpdateOperationInProgress;
-    private readonly Dictionary<ProviderId, string> _providerVersions = ProviderId.Supported
+    private readonly Dictionary<ProviderId, string> _providerVersions = ProviderId.Available
         .ToDictionary(provider => provider, _ => "Checking CLI version…");
     private Task? _providerVersionsTask;
     private ProviderId? _selectedProvider;
@@ -195,7 +195,7 @@ public sealed partial class SettingsWindow : Window, IDisposable
             return;
         }
 
-        foreach (ProviderId provider in ProviderId.Supported)
+        foreach (ProviderId provider in ProviderId.Available)
         {
             this._providerVersions[provider] = "Checking CLI version…";
         }
@@ -210,7 +210,7 @@ public sealed partial class SettingsWindow : Window, IDisposable
         try
         {
             await Task.WhenAll(
-                ProviderId.Supported.Select(provider => this.UpdateProviderVersionAsync(app, provider)));
+                ProviderId.Available.Select(provider => this.UpdateProviderVersionAsync(app, provider)));
         }
         catch (OperationCanceledException)
         {

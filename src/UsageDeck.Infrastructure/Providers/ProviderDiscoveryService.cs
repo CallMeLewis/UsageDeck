@@ -111,31 +111,34 @@ public sealed class ProviderDiscoveryService
                     ProviderDiscoveryState.RequiresSetup,
                     "Run theclawbay setup or add an API key in Settings after setup.");
 
-        cancellationToken.ThrowIfCancellationRequested();
-        bool openCodeDetected = this._executableLocator.FindExecutable("opencode") is not null;
-        cancellationToken.ThrowIfCancellationRequested();
-        if (!openCodeDetected)
+        if (ProviderId.Available.Contains(ProviderId.OpenCodeGo))
         {
-            openCodeDetected = this._openCodeDataPathReader() is not null;
             cancellationToken.ThrowIfCancellationRequested();
-        }
+            bool openCodeDetected = this._executableLocator.FindExecutable("opencode") is not null;
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!openCodeDetected)
+            {
+                openCodeDetected = this._openCodeDataPathReader() is not null;
+                cancellationToken.ThrowIfCancellationRequested();
+            }
 
-        results[ProviderId.OpenCodeGo] = openCodeDetected
-            ? new ProviderDiscoveryResult(
-                ProviderId.OpenCodeGo,
-                ProviderDiscoveryState.Detected,
-                "OpenCode Go or its local usage history was found.")
-            : new ProviderDiscoveryResult(
-                ProviderId.OpenCodeGo,
-                ProviderDiscoveryState.RequiresSetup,
-                "Use OpenCode Go once or add a Console service-account key in Settings.");
+            results[ProviderId.OpenCodeGo] = openCodeDetected
+                ? new ProviderDiscoveryResult(
+                    ProviderId.OpenCodeGo,
+                    ProviderDiscoveryState.Detected,
+                    "OpenCode Go or its local usage history was found.")
+                : new ProviderDiscoveryResult(
+                    ProviderId.OpenCodeGo,
+                    ProviderDiscoveryState.RequiresSetup,
+                    "Use OpenCode Go once or add a Console service-account key in Settings.");
+        }
         results[ProviderId.Zai] = new ProviderDiscoveryResult(
             ProviderId.Zai,
             ProviderDiscoveryState.RequiresSetup,
             "Add a Z.AI API key in Settings after setup.");
 
         cancellationToken.ThrowIfCancellationRequested();
-        return ProviderId.Supported.Select(providerId => results[providerId]).ToArray();
+        return ProviderId.Available.Select(providerId => results[providerId]).ToArray();
     }
 
     private ProviderDiscoveryResult DiscoverCli(

@@ -54,6 +54,16 @@ public sealed class UsageModelsTests
     }
 
     [Fact]
+    public void AvailableProvidersTemporarilyExcludeOpenCodeGo()
+    {
+        Assert.Contains(ProviderId.OpenCodeGo, ProviderId.Supported);
+        Assert.DoesNotContain(ProviderId.OpenCodeGo, ProviderId.Available);
+        Assert.Equal(
+            ["OpenAI Codex", "Claude", "Antigravity", "GitHub Copilot", "Kiro", "Amp", "Z.AI", "TheClawBay"],
+            ProviderId.Available.Select(provider => provider.DisplayName));
+    }
+
+    [Fact]
     public void ResetCreditsRejectNegativeAvailability()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => new RateLimitResetCredits(-1));
