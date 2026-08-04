@@ -20,6 +20,8 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
@@ -37,13 +39,17 @@ jobs:
       - name: Verify release version
         shell: pwsh
         run: |
-          [xml] $props = Get-Content -LiteralPath Directory.Build.props -Raw
-          $version = [string] $props.Project.PropertyGroup.Version
-          $expectedTag = "v$version"
-          if ($env:GITHUB_REF_NAME -ne $expectedTag) {
-            throw "Tag '$env:GITHUB_REF_NAME' does not match Directory.Build.props version '$version'. Expected '$expectedTag'."
+          & git fetch --no-tags origin '+refs/heads/main:refs/remotes/origin/main'
+          if ($LASTEXITCODE -ne 0) {
+            throw "Could not fetch origin/main; git exited with code $LASTEXITCODE."
           }
 
+          .\tools\Test-ReleasePreconditions.ps1 `
+            -Tag $env:GITHUB_REF_NAME `
+            -MainRef origin/main
+
+          [xml] $props = Get-Content -LiteralPath Directory.Build.props -Raw
+          $version = [string] $props.Project.PropertyGroup.Version
           $isPrerelease = $version.Contains('-')
           "RELEASE_IS_PRERELEASE=$($isPrerelease.ToString().ToLowerInvariant())" |
             Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
@@ -67,19 +73,16 @@ jobs:
 
           $releaseNotesPath = ".github\release-notes\$env:GITHUB_REF_NAME.md"
           $releaseTitle = "UsageDeck $($env:GITHUB_REF_NAME.TrimStart('v'))"
-          $hasReleaseNotes = Test-Path -LiteralPath $releaseNotesPath -PathType Leaf
           $isPrerelease = $env:RELEASE_IS_PRERELEASE -eq 'true'
 
-          if ($hasReleaseNotes -and $isPrerelease) {
+          if (-not (Test-Path -LiteralPath $releaseNotesPath -PathType Leaf)) {
+            throw "Required release notes were not found at '$releaseNotesPath'."
+          }
+
+          if ($isPrerelease) {
             gh release create $env:GITHUB_REF_NAME --verify-tag --prerelease `
               --notes-file $releaseNotesPath --title $releaseTitle @assets
-          } elseif ($hasReleaseNotes) {
-            gh release create $env:GITHUB_REF_NAME --verify-tag `
-              --notes-file $releaseNotesPath --title $releaseTitle @assets
-          } elseif ($isPrerelease) {
-            gh release create $env:GITHUB_REF_NAME --verify-tag --prerelease `
-              --generate-notes --title $releaseTitle @assets
           } else {
             gh release create $env:GITHUB_REF_NAME --verify-tag `
-              --generate-notes --title $releaseTitle @assets
+              --notes-file $releaseNotesPath --title $releaseTitle @assets
           }

@@ -209,6 +209,54 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw "Velopack packaging failed with exit code $LASTEXITCODE."
     }
+
+    Write-Host 'Generating the SHA-256 release manifest...'
+    $checksumManifestPath = Join-Path $releasesDirectory 'SHA256SUMS.txt'
+    $releaseAssets = @(
+        Get-ChildItem -LiteralPath $releasesDirectory -File |
+            Where-Object Name -CNE 'SHA256SUMS.txt' |
+            Sort-Object Name
+    )
+    if ($releaseAssets.Count -eq 0) {
+        throw "No release assets were found under '$releasesDirectory'."
+    }
+
+    $checksumLines = @(
+        $releaseAssets | ForEach-Object {
+            $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash *$($_.Name)"
+        }
+    )
+    $utf8WithoutBom = [Text.UTF8Encoding]::new($false)
+    [IO.File]::WriteAllText(
+        $checksumManifestPath,
+        ($checksumLines -join "`n") + "`n",
+        $utf8WithoutBom)
+
+    $writtenChecksumLines = @(Get-Content -LiteralPath $checksumManifestPath)
+    if ($writtenChecksumLines.Count -ne $checksumLines.Count) {
+        throw 'The SHA-256 release manifest has an unexpected number of entries.'
+    }
+
+    for ($index = 0; $index -lt $writtenChecksumLines.Count; $index++) {
+        $line = $writtenChecksumLines[$index]
+        if ($line -cne $checksumLines[$index]) {
+            throw "The SHA-256 release manifest contains an unexpected entry at line $($index + 1)."
+        }
+        if ($line -notmatch '^(?<hash>[0-9a-f]{64}) \*(?<name>.+)$') {
+            throw "The SHA-256 release manifest contains an invalid entry at line $($index + 1)."
+        }
+
+        $assetPath = Join-Path $releasesDirectory $Matches.name
+        if (-not (Test-Path -LiteralPath $assetPath -PathType Leaf)) {
+            throw "The SHA-256 release manifest references missing asset '$($Matches.name)'."
+        }
+
+        $actualHash = (Get-FileHash -LiteralPath $assetPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($actualHash -cne $Matches.hash) {
+            throw "The SHA-256 release manifest does not match asset '$($Matches.name)'."
+        }
+    }
 }
 finally {
     Pop-Location
@@ -216,3 +264,4 @@ finally {
 
 Write-Host "Packaged UsageDeck $version"
 Write-Host "Velopack releases: $releasesDirectory"
+Write-Host "SHA-256 manifest: $checksumManifestPath"
