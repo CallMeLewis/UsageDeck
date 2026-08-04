@@ -92,6 +92,36 @@ public sealed class ProviderRefreshCoordinatorTests
     }
 
     [Fact]
+    public async Task FastProviderWarningDoesNotFaultOtherConcurrentRefreshes()
+    {
+        FakeProvider[] providers =
+        [
+            new(
+                _ => throw new ProviderException(
+                    ProviderErrorCategory.AuthenticationRequired,
+                    "Codex needs you to sign in.")),
+            new(
+                _ => Task.FromResult(FreshSnapshot(ProviderId.Claude)),
+                providerId: ProviderId.Claude),
+            new(
+                _ => Task.FromResult(FreshSnapshot(ProviderId.Amp)),
+                providerId: ProviderId.Amp),
+        ];
+        ProviderRefreshCoordinator coordinator = new(providers, maximumConcurrency: 2);
+
+        ProviderSnapshot[] snapshots = await Task.WhenAll(providers.Select(provider =>
+            coordinator.RefreshAsync(provider.Id)));
+
+        Assert.Equal(3, snapshots.Length);
+        ProviderSnapshot warning = Assert.Single(snapshots, snapshot => snapshot.ProviderId == ProviderId.Codex);
+        Assert.Equal(UsageDataState.AuthenticationRequired, warning.State);
+        Assert.Equal(ProviderErrorCategory.AuthenticationRequired, warning.ErrorCategory);
+        Assert.All(
+            snapshots.Where(snapshot => snapshot.ProviderId != ProviderId.Codex),
+            snapshot => Assert.Equal(UsageDataState.Fresh, snapshot.State));
+    }
+
+    [Fact]
     public async Task RefreshAfterCurrentRunsOnceMoreAndCoalescesCallers()
     {
         int fetchCount = 0;

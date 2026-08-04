@@ -145,13 +145,10 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
         this._allProvidersTab.IsLoading = true;
         try
         {
-            Dictionary<ProviderId, ProviderTabViewModel> providersById = providersToRefresh
-                .ToDictionary(provider => provider.Id);
-            await ProviderRefreshBatch.RunAsync(
-                providersById.Keys,
-                maximumConcurrency: 2,
-                (providerId, _) => this.RefreshProviderAsync(providersById[providerId]),
-                CancellationToken.None);
+            Task[] refreshes = providersToRefresh
+                .Select(this.RefreshProviderAsync)
+                .ToArray();
+            await Task.WhenAll(refreshes);
         }
         finally
         {
