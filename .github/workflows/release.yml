@@ -51,6 +51,8 @@ jobs:
           [xml] $props = Get-Content -LiteralPath Directory.Build.props -Raw
           $version = [string] $props.Project.PropertyGroup.Version
           $isPrerelease = $version.Contains('-')
+          "RELEASE_VERSION=$version" |
+            Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "RELEASE_IS_PRERELEASE=$($isPrerelease.ToString().ToLowerInvariant())" |
             Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
@@ -66,10 +68,23 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $releaseDirectory = 'artifacts\velopack\releases'
-          $assets = @(Get-ChildItem -LiteralPath $releaseDirectory -File | ForEach-Object FullName)
-          if ($assets.Count -eq 0) {
-            throw "No release assets were produced in '$releaseDirectory'."
-          }
+          $assetNames = @(
+            "UsageDeck-$env:RELEASE_VERSION-full.nupkg"
+            'UsageDeck-win-Portable.zip'
+            'UsageDeck-win-Setup.exe'
+            'releases.win.json'
+            'SHA256SUMS.txt'
+          )
+          $assets = @(
+            foreach ($assetName in $assetNames) {
+              $assetPath = Join-Path $releaseDirectory $assetName
+              if (-not (Test-Path -LiteralPath $assetPath -PathType Leaf)) {
+                throw "Required release asset '$assetName' was not produced in '$releaseDirectory'."
+              }
+
+              (Get-Item -LiteralPath $assetPath).FullName
+            }
+          )
 
           $releaseNotesPath = ".github\release-notes\$env:GITHUB_REF_NAME.md"
           $releaseTitle = "UsageDeck $($env:GITHUB_REF_NAME.TrimStart('v'))"

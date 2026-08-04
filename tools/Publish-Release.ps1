@@ -212,17 +212,25 @@ try {
 
     Write-Host 'Generating the SHA-256 release manifest...'
     $checksumManifestPath = Join-Path $releasesDirectory 'SHA256SUMS.txt'
-    $releaseAssets = @(
-        Get-ChildItem -LiteralPath $releasesDirectory -File |
-            Where-Object Name -CNE 'SHA256SUMS.txt' |
-            Sort-Object Name
+    $releaseAssetNames = @(
+        "UsageDeck-$version-full.nupkg",
+        'UsageDeck-win-Portable.zip',
+        'UsageDeck-win-Setup.exe',
+        'releases.win.json'
     )
-    if ($releaseAssets.Count -eq 0) {
-        throw "No release assets were found under '$releasesDirectory'."
-    }
+    $releaseAssets = @(
+        foreach ($assetName in $releaseAssetNames) {
+            $assetPath = Join-Path $releasesDirectory $assetName
+            if (-not (Test-Path -LiteralPath $assetPath -PathType Leaf)) {
+                throw "Required release asset '$assetName' was not produced in '$releasesDirectory'."
+            }
+
+            Get-Item -LiteralPath $assetPath
+        }
+    )
 
     $checksumLines = @(
-        $releaseAssets | ForEach-Object {
+        $releaseAssets | Sort-Object Name | ForEach-Object {
             $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
             "$hash *$($_.Name)"
         }
