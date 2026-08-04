@@ -1131,30 +1131,28 @@ public sealed partial class SettingsWindow : Window, IDisposable
 
         App app = (App)Application.Current;
         AppUpdateService updater = app.UpdateService;
-        if (updater.IsUpdateDownloaded)
-        {
-            try
-            {
-                app.RestartForUpdate();
-            }
-            catch (Exception exception) when (AppUpdateService.IsExpectedFailure(exception))
-            {
-                this.ShowMessage(
-                    "The update could not be started. UsageDeck is still running on the current version.",
-                    InfoBarSeverity.Error);
-            }
-
-            return;
-        }
-
+        bool wasDownloaded = updater.IsUpdateDownloaded;
         this._isUpdateOperationInProgress = true;
         this.UpdateActionButton.IsEnabled = false;
-        this.UpdateProgressBar.Visibility = Visibility.Visible;
         try
         {
+            if (wasDownloaded)
+            {
+                if (await UpdateInstallationDialog.ShowAsync(
+                    this.RootLayout.XamlRoot,
+                    updater.AvailableUpdate?.Version))
+                {
+                    this.SetUpdateActionPresentation("Restarting…", "\uE777", isBusy: true);
+                    app.RestartForUpdate();
+                }
+
+                return;
+            }
+
+            this.UpdateProgressBar.Visibility = Visibility.Visible;
             if (updater.AvailableUpdate is null)
             {
-                this.UpdateActionButton.Content = "Checking…";
+                this.SetUpdateActionPresentation("Checking…", "\uE72C", isBusy: true);
                 this.UpdateStatusText.Text = "Checking for updates…";
                 this.UpdateProgressBar.IsIndeterminate = true;
                 await updater.CheckForUpdatesAsync(this._lifetimeCancellation.Token);
@@ -1162,8 +1160,8 @@ public sealed partial class SettingsWindow : Window, IDisposable
             }
             else
             {
-                this.UpdateActionButton.Content = "Downloading…";
-                this.UpdateStatusText.Text = $"Downloading version {updater.AvailableUpdate.Version}…";
+                this.SetUpdateActionPresentation("Downloading…", "\uE896", isBusy: true);
+                this.UpdateStatusText.Text = $"Downloading version {updater.AvailableUpdate!.Version}…";
                 this.UpdateProgressBar.IsIndeterminate = false;
                 this.UpdateProgressBar.Value = 0;
                 Progress<int> progress = new(value => this.UpdateProgressBar.Value = value);
@@ -1172,17 +1170,28 @@ public sealed partial class SettingsWindow : Window, IDisposable
             }
 
             app.NotifyUpdateStateChanged();
+            return;
         }
         catch (OperationCanceledException) when (this._lifetimeCancellation.IsCancellationRequested)
         {
         }
         catch (Exception exception) when (AppUpdateService.IsExpectedFailure(exception))
         {
-            this.ShowMessage(
-                updater.AvailableUpdate is null
-                    ? "UsageDeck could not check for updates. Check your connection and try again."
-                    : "The update could not be downloaded. UsageDeck is still running on the current version.",
-                InfoBarSeverity.Error);
+            string errorMessage;
+            if (wasDownloaded)
+            {
+                errorMessage = "The update could not be started. UsageDeck is still running on the current version.";
+            }
+            else if (updater.AvailableUpdate is null)
+            {
+                errorMessage = "UsageDeck could not check for updates. Check your connection and try again.";
+            }
+            else
+            {
+                errorMessage = "The update could not be downloaded. UsageDeck is still running on the current version.";
+            }
+
+            this.ShowMessage(errorMessage, InfoBarSeverity.Error);
         }
         finally
         {
@@ -1263,7 +1272,7 @@ public sealed partial class SettingsWindow : Window, IDisposable
         if (!updater.IsConfigured)
         {
             this.UpdateStatusText.Text = "Updates are not configured for this build.";
-            this.UpdateActionButton.Content = "Check for updates";
+            this.SetUpdateActionPresentation("Check for updates", "\uE72C");
             this.SetUpdateActionHelpText(
                 "Set a GitHub release repository when packaging to enable automatic updates.");
             return;
@@ -1272,7 +1281,7 @@ public sealed partial class SettingsWindow : Window, IDisposable
         if (!updater.CanCheckForUpdates)
         {
             this.UpdateStatusText.Text = "Update checks are available in release builds.";
-            this.UpdateActionButton.Content = "Check for updates";
+            this.SetUpdateActionPresentation("Check for updates", "\uE72C");
             this.SetUpdateActionHelpText("Update checks are available in Velopack release builds.");
             return;
         }
@@ -1280,7 +1289,7 @@ public sealed partial class SettingsWindow : Window, IDisposable
         if (updater.IsUpdateDownloaded && updater.AvailableUpdate is AppUpdateAvailability downloaded)
         {
             this.UpdateStatusText.Text = $"Version {downloaded.Version} is ready to install.";
-            this.UpdateActionButton.Content = "Restart to update";
+            this.SetUpdateActionPresentation("Install update", "\uE777");
             this.SetUpdateActionHelpText($"Version {downloaded.Version} is ready to install.");
             return;
         }
@@ -1288,7 +1297,7 @@ public sealed partial class SettingsWindow : Window, IDisposable
         if (updater.AvailableUpdate is AppUpdateAvailability available)
         {
             this.UpdateStatusText.Text = $"Version {available.Version} is available.";
-            this.UpdateActionButton.Content = "Download update";
+            this.SetUpdateActionPresentation("Download update", "\uE896");
             this.SetUpdateActionHelpText($"Version {available.Version} is available.");
             return;
         }
@@ -1296,10 +1305,20 @@ public sealed partial class SettingsWindow : Window, IDisposable
         this.UpdateStatusText.Text = updater.HasCheckedForUpdates
             ? $"Version {App.VersionNumber} is up to date."
             : $"Current version: {App.VersionNumber}";
-        this.UpdateActionButton.Content = "Check for updates";
+        this.SetUpdateActionPresentation("Check for updates", "\uE72C");
         this.SetUpdateActionHelpText(updater.HasCheckedForUpdates
             ? "UsageDeck is up to date. Check again for updates."
             : "Check GitHub Releases for a newer version.");
+    }
+
+    private void SetUpdateActionPresentation(string text, string glyph, bool isBusy = false)
+    {
+        this.UpdateActionButtonText.Text = text;
+        this.UpdateActionButtonGlyph.Glyph = glyph;
+        this.UpdateActionButtonGlyph.Visibility = isBusy ? Visibility.Collapsed : Visibility.Visible;
+        this.UpdateActionButtonProgressRing.IsActive = isBusy;
+        this.UpdateActionButtonProgressRing.Visibility = isBusy ? Visibility.Visible : Visibility.Collapsed;
+        AutomationProperties.SetName(this.UpdateActionButton, text);
     }
 
     private void SetUpdateActionHelpText(string helpText)

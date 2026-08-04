@@ -632,14 +632,29 @@
                         Text="{Binding AppVersionText}" />
                     <Button
                         x:Name="UpdateActionButton"
-                        MinHeight="32"
-                        Padding="12,4"
                         AutomationProperties.LiveSetting="Polite"
                         Click="UpdateActionButton_Click"
-                        Content="Update available"
-                        CornerRadius="8"
-                        Style="{StaticResource AccentButtonStyle}"
-                        Visibility="Collapsed" />
+                        Style="{StaticResource UpdateActionButtonStyle}"
+                        Visibility="Collapsed">
+                        <StackPanel Orientation="Horizontal" Spacing="7">
+                            <FontIcon
+                                x:Name="UpdateActionButtonGlyph"
+                                FontSize="14"
+                                Glyph="&#xE896;"
+                                IsTextScaleFactorEnabled="False" />
+                            <ProgressRing
+                                x:Name="UpdateActionButtonProgressRing"
+                                Width="14"
+                                Height="14"
+                                Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                IsActive="False"
+                                Visibility="Collapsed" />
+                            <TextBlock
+                                x:Name="UpdateActionButtonText"
+                                VerticalAlignment="Center"
+                                Text="Download update" />
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
                 <Button
                     Grid.Column="1"

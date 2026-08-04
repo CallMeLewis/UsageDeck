@@ -449,38 +449,30 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
             return;
         }
 
-        bool isDownloaded = updater.IsUpdateDownloaded;
-        ContentDialog confirmation = new()
-        {
-            XamlRoot = this.XamlRoot,
-            Title = isDownloaded ? "Restart to update UsageDeck?" : "Update UsageDeck?",
-            Content = isDownloaded
-                ? $"Version {available.Version} is ready. UsageDeck needs to close and restart to finish installing it."
-                : $"Version {available.Version} is available. UsageDeck will download it, close, and restart to finish updating.",
-            PrimaryButtonText = isDownloaded ? "Restart now" : "Update",
-            CloseButtonText = "Not now",
-            DefaultButton = ContentDialogButton.Primary,
-        };
-
-        if (await confirmation.ShowAsync() != ContentDialogResult.Primary)
-        {
-            return;
-        }
-
+        bool wasDownloaded = updater.IsUpdateDownloaded;
         this._isUpdateOperationInProgress = true;
         this.UpdateActionButton.IsEnabled = false;
         try
         {
-            if (!isDownloaded)
+            if (!wasDownloaded)
             {
-                this.UpdateActionButton.Content = "Downloading… 0%";
+                this.SetUpdateActionPresentation("Downloading… 0%", "\uE896", isBusy: true);
                 Progress<int> progress = new(value =>
-                    this.UpdateActionButton.Content = $"Downloading… {value}%");
+                    this.SetUpdateActionPresentation(
+                        $"Downloading… {value}%",
+                        "\uE896",
+                        isBusy: true));
                 await updater.DownloadUpdateAsync(progress, CancellationToken.None);
                 app.NotifyUpdateStateChanged();
+                return;
             }
 
-            this.UpdateActionButton.Content = "Restarting…";
+            if (!await UpdateInstallationDialog.ShowAsync(this.XamlRoot, available.Version))
+            {
+                return;
+            }
+
+            this.SetUpdateActionPresentation("Restarting…", "\uE777", isBusy: true);
             app.RestartForUpdate();
         }
         catch (Exception exception) when (AppUpdateService.IsExpectedFailure(exception))
@@ -490,7 +482,9 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
             {
                 XamlRoot = this.XamlRoot,
                 Title = "UsageDeck couldn’t update",
-                Content = "The update could not be installed. UsageDeck is still running on the current version.",
+                Content = wasDownloaded
+                    ? "The update could not be started. UsageDeck is still running on the current version."
+                    : "The update could not be downloaded. UsageDeck is still running on the current version.",
                 CloseButtonText = "OK",
                 DefaultButton = ContentDialogButton.Close,
             };
@@ -611,10 +605,20 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
         this.UpdateActionButton.IsEnabled = !this._isUpdateOperationInProgress;
         if (!this._isUpdateOperationInProgress)
         {
-            this.UpdateActionButton.Content = updater.IsUpdateDownloaded
-                ? "Restart to update"
-                : "Update available";
+            this.SetUpdateActionPresentation(
+                updater.IsUpdateDownloaded ? "Install update" : "Download update",
+                updater.IsUpdateDownloaded ? "\uE777" : "\uE896");
         }
+    }
+
+    private void SetUpdateActionPresentation(string text, string glyph, bool isBusy = false)
+    {
+        this.UpdateActionButtonText.Text = text;
+        this.UpdateActionButtonGlyph.Glyph = glyph;
+        this.UpdateActionButtonGlyph.Visibility = isBusy ? Visibility.Collapsed : Visibility.Visible;
+        this.UpdateActionButtonProgressRing.IsActive = isBusy;
+        this.UpdateActionButtonProgressRing.Visibility = isBusy ? Visibility.Visible : Visibility.Collapsed;
+        AutomationProperties.SetName(this.UpdateActionButton, text);
     }
 
     private void RefreshVisualStates()

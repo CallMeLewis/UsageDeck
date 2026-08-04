@@ -1512,10 +1512,29 @@
                                         <Button
                                             x:Name="UpdateActionButton"
                                             Grid.Column="1"
-                                            Width="160"
+                                            MinWidth="160"
                                             VerticalAlignment="Center"
                                             Click="UpdateActionButton_Click"
-                                            Content="Check for updates" />
+                                            Style="{StaticResource UpdateActionButtonStyle}">
+                                            <StackPanel Orientation="Horizontal" Spacing="7">
+                                                <FontIcon
+                                                    x:Name="UpdateActionButtonGlyph"
+                                                    FontSize="14"
+                                                    Glyph="&#xE72C;"
+                                                    IsTextScaleFactorEnabled="False" />
+                                                <ProgressRing
+                                                    x:Name="UpdateActionButtonProgressRing"
+                                                    Width="14"
+                                                    Height="14"
+                                                    Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                                    IsActive="False"
+                                                    Visibility="Collapsed" />
+                                                <TextBlock
+                                                    x:Name="UpdateActionButtonText"
+                                                    VerticalAlignment="Center"
+                                                    Text="Check for updates" />
+                                            </StackPanel>
+                                        </Button>
                                     </Grid>
                                 </StackPanel>
                             </Border>
