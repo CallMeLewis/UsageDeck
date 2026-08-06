@@ -511,6 +511,55 @@ public sealed class AppSettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task SaveAndLoadRoundTripsStartAtSignInPreference()
+    {
+        AppSettingsStore store = new(Path.Combine(this._directory, "settings.json"));
+        AppSettings expected = AppSettings.Default with { StartAtSignIn = true };
+
+        await store.SaveAsync(expected);
+        AppSettingsLoadResult actual = store.Load();
+
+        Assert.True(actual.Settings.StartAtSignIn);
+        string savedJson = await File.ReadAllTextAsync(Path.Combine(this._directory, "settings.json"));
+        Assert.Contains("\"startAtSignIn\": true", savedJson, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LoadSettingsWithoutStartAtSignInDefaultsToOff()
+    {
+        Directory.CreateDirectory(this._directory);
+        string path = Path.Combine(this._directory, "settings.json");
+        File.WriteAllText(path, """
+            {
+              "enabledProviders": ["codex"],
+              "defaultProvider": "codex"
+            }
+            """);
+
+        AppSettings settings = new AppSettingsStore(path).Load().Settings;
+
+        Assert.False(settings.StartAtSignIn);
+    }
+
+    [Fact]
+    public async Task SaveAndLoadRoundTripsNotificationPauseDeadline()
+    {
+        AppSettingsStore store = new(Path.Combine(this._directory, "settings.json"));
+        DateTimeOffset deadline = new(2026, 8, 7, 9, 0, 0, TimeSpan.Zero);
+        AppSettings expected = AppSettings.Default with { NotificationsPausedUntilUtc = deadline };
+
+        await store.SaveAsync(expected);
+        AppSettingsLoadResult actual = store.Load();
+
+        Assert.Equal(deadline, actual.Settings.NotificationsPausedUntilUtc);
+        string savedJson = await File.ReadAllTextAsync(Path.Combine(this._directory, "settings.json"));
+        Assert.Contains(
+            "\"notificationsPausedUntilUtc\": \"2026-08-07T09:00:00+00:00\"",
+            savedJson,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task SaveAndLoadRoundTripsCodexSparkCardPreference()
     {
         AppSettingsStore store = new(Path.Combine(this._directory, "settings.json"));

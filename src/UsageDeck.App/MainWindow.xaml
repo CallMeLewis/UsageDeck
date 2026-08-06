@@ -55,9 +55,32 @@
             ToolTipText="UsageDeck usage"
             Visibility="Collapsed">
             <tb:TaskbarIcon.ContextFlyout>
-                <MenuFlyout>
+                <MenuFlyout Opening="TrayContextMenu_Opening">
                     <MenuFlyoutItem Command="{x:Bind ShowWindowCommand}" Text="Show usage" />
                     <MenuFlyoutItem Command="{x:Bind RefreshCommand}" Text="Refresh" />
+                    <MenuFlyoutSubItem x:Name="NotificationActionsMenuItem" Text="Pause notifications">
+                        <MenuFlyoutItem
+                            Command="{x:Bind PauseNotificationsForThirtyMinutesCommand}"
+                            Text="For 30 minutes" />
+                        <MenuFlyoutItem
+                            Command="{x:Bind PauseNotificationsForOneHourCommand}"
+                            Text="For 1 hour" />
+                        <MenuFlyoutItem
+                            Command="{x:Bind PauseNotificationsForTwoHoursCommand}"
+                            Text="For 2 hours" />
+                        <MenuFlyoutItem
+                            Command="{x:Bind PauseNotificationsForFourHoursCommand}"
+                            Text="For 4 hours" />
+                        <MenuFlyoutItem
+                            Command="{x:Bind PauseNotificationsUntilTomorrowCommand}"
+                            Text="Until tomorrow morning" />
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem
+                            x:Name="ResumeNotificationsMenuItem"
+                            Command="{x:Bind ResumeNotificationsCommand}"
+                            IsEnabled="False"
+                            Text="Resume notifications" />
+                    </MenuFlyoutSubItem>
                     <MenuFlyoutItem Command="{x:Bind SettingsCommand}" Text="Settings" />
                     <MenuFlyoutSeparator />
                     <MenuFlyoutItem Command="{x:Bind ExitCommand}" Text="Exit" />

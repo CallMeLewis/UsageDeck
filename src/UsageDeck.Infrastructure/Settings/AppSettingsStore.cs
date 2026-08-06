@@ -100,7 +100,9 @@ public sealed record AppSettings(
     bool AreNotificationsEnabled = true,
     IReadOnlyList<ProviderNotificationSettings>? ProviderNotifications = null,
     TheClawBayUsageSource TheClawBayUsageSource = TheClawBayUsageSource.Automatic,
-    ApiKeyStorageMode TheClawBayApiKeyStorage = ApiKeyStorageMode.WindowsCredentialManager)
+    ApiKeyStorageMode TheClawBayApiKeyStorage = ApiKeyStorageMode.WindowsCredentialManager,
+    bool StartAtSignIn = false,
+    DateTimeOffset? NotificationsPausedUntilUtc = null)
 {
     public static AppSettings Default { get; } = new(
         [ProviderId.Codex, ProviderId.Claude],
@@ -340,7 +342,9 @@ public sealed class AppSettingsStore
                     document.AreNotificationsEnabled ?? true,
                     providerNotifications,
                     TheClawBayUsageSource: theClawBayUsageSource,
-                    TheClawBayApiKeyStorage: theClawBayApiKeyStorage),
+                    TheClawBayApiKeyStorage: theClawBayApiKeyStorage,
+                    StartAtSignIn: document.StartAtSignIn ?? false,
+                    NotificationsPausedUntilUtc: document.NotificationsPausedUntilUtc),
                 CombineWarnings(migrationWarning, warning));
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
@@ -436,7 +440,9 @@ public sealed class AppSettingsStore
                     value.NotifyConnectionChanges))
                 .ToArray(),
             settings.TheClawBayUsageSource.ToString(),
-            settings.TheClawBayApiKeyStorage.ToString());
+            settings.TheClawBayApiKeyStorage.ToString(),
+            settings.StartAtSignIn,
+            settings.NotificationsPausedUntilUtc);
 
         try
         {
@@ -602,6 +608,8 @@ public sealed class AppSettingsStore
         ProviderNotificationDocument[]? ProviderNotifications = null,
         string? TheClawBayUsageSource = null,
         string? TheClawBayApiKeyStorage = null,
+        bool? StartAtSignIn = null,
+        DateTimeOffset? NotificationsPausedUntilUtc = null,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         string? LimitNotificationThresholds = null,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

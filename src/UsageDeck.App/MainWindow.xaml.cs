@@ -36,12 +36,24 @@ public sealed partial class MainWindow : Window
         this.ToggleWindowCommand = new RelayCommand(this.ToggleWindow);
         this.ShowWindowCommand = new RelayCommand(this.ShowWindow);
         this.RefreshCommand = new AsyncRelayCommand(this.RefreshAllAsync);
+        this.PauseNotificationsForThirtyMinutesCommand = new AsyncRelayCommand(
+            () => PauseNotificationsForAsync(TimeSpan.FromMinutes(30)));
+        this.PauseNotificationsForOneHourCommand = new AsyncRelayCommand(
+            () => PauseNotificationsForAsync(TimeSpan.FromHours(1)));
+        this.PauseNotificationsForTwoHoursCommand = new AsyncRelayCommand(
+            () => PauseNotificationsForAsync(TimeSpan.FromHours(2)));
+        this.PauseNotificationsForFourHoursCommand = new AsyncRelayCommand(
+            () => PauseNotificationsForAsync(TimeSpan.FromHours(4)));
+        this.PauseNotificationsUntilTomorrowCommand = new AsyncRelayCommand(
+            this.PauseNotificationsUntilTomorrowAsync);
+        this.ResumeNotificationsCommand = new AsyncRelayCommand(this.ResumeNotificationsAsync);
         this.SettingsCommand = new RelayCommand(this.ShowSettings);
         this.ExitCommand = new RelayCommand(this.ExitApplication);
         this.InitializeComponent();
         App app = (App)Application.Current;
         this.InitialiseThemeSettings(app);
         App.ApplyWindowAppearance(this, this.RootLayout, this.SolidBackground, app.CurrentSettings);
+        this.RefreshNotificationPausePresentation(app.CurrentSettings);
         app.SettingsChanged += this.App_SettingsChanged;
 
         this.ExtendsContentIntoTitleBar = true;
@@ -71,6 +83,18 @@ public sealed partial class MainWindow : Window
     public ICommand ShowWindowCommand { get; }
 
     public ICommand RefreshCommand { get; }
+
+    public ICommand PauseNotificationsForThirtyMinutesCommand { get; }
+
+    public ICommand PauseNotificationsForOneHourCommand { get; }
+
+    public ICommand PauseNotificationsForTwoHoursCommand { get; }
+
+    public ICommand PauseNotificationsForFourHoursCommand { get; }
+
+    public ICommand PauseNotificationsUntilTomorrowCommand { get; }
+
+    public ICommand ResumeNotificationsCommand { get; }
 
     public ICommand SettingsCommand { get; }
 
@@ -224,6 +248,58 @@ public sealed partial class MainWindow : Window
         return Task.CompletedTask;
     }
 
+    private static Task PauseNotificationsForAsync(TimeSpan duration) =>
+        ChangeNotificationPauseAsync(
+            app => app.PauseNotificationsUntilAsync(DateTimeOffset.UtcNow.Add(duration)),
+            "Notifications weren’t paused");
+
+    private Task PauseNotificationsUntilTomorrowAsync() =>
+        ChangeNotificationPauseAsync(
+            app => app.PauseNotificationsUntilAsync(NotificationPause.GetTomorrowMorningUtc(
+                DateTimeOffset.UtcNow,
+                TimeZoneInfo.Local)),
+            "Notifications weren’t paused");
+
+    private Task ResumeNotificationsAsync() =>
+        ChangeNotificationPauseAsync(
+            app => app.ResumeNotificationsAsync(),
+            "Notifications weren’t resumed");
+
+    private static async Task ChangeNotificationPauseAsync(
+        Func<App, Task> update,
+        string failureTitle)
+    {
+        App app = (App)Application.Current;
+        try
+        {
+            await update(app);
+        }
+        catch (Exception exception) when (exception is
+            ArgumentException
+            or IOException
+            or InvalidOperationException
+            or UnauthorizedAccessException)
+        {
+            app.ReportTrayActionFailure(
+                failureTitle,
+                "UsageDeck could not save the change. Please try again.");
+        }
+    }
+
+    private void TrayContextMenu_Opening(object sender, object e) =>
+        this.RefreshNotificationPausePresentation(((App)Application.Current).CurrentSettings);
+
+    private void RefreshNotificationPausePresentation(AppSettings settings)
+    {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        bool isPaused = NotificationPause.IsActive(settings.NotificationsPausedUntilUtc, now);
+        this.NotificationActionsMenuItem.Text = isPaused
+            ? "Notifications paused"
+            : "Pause notifications";
+        this.NotificationActionsMenuItem.IsEnabled = settings.AreNotificationsEnabled || isPaused;
+        this.ResumeNotificationsMenuItem.IsEnabled = isPaused;
+    }
+
     private void ExitApplication()
     {
         App app = (App)Application.Current;
@@ -256,8 +332,11 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void App_SettingsChanged(AppSettings settings) =>
+    private void App_SettingsChanged(AppSettings settings)
+    {
         this.RefreshAppearance(settings);
+        this.RefreshNotificationPausePresentation(settings);
+    }
 
     private void RootLayout_ActualThemeChanged(FrameworkElement sender, object args) =>
         App.ApplyCaptionButtonColours(this, this.RootLayout);

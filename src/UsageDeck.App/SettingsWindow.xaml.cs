@@ -22,6 +22,7 @@ public sealed partial class SettingsWindow : Window, IDisposable
     private static readonly TimeSpan SettingsMessageDisplayDuration = TimeSpan.FromSeconds(6);
 
     private readonly CancellationTokenSource _lifetimeCancellation = new();
+    private readonly DispatcherQueueTimer _notificationPauseExpiryTimer;
     private readonly DispatcherQueueTimer _settingsMessageDismissTimer;
     private bool _isApplyingSettings;
     private bool _isDisposed;
@@ -36,6 +37,9 @@ public sealed partial class SettingsWindow : Window, IDisposable
     public SettingsWindow()
     {
         this.InitializeComponent();
+        this._notificationPauseExpiryTimer = this.DispatcherQueue.CreateTimer();
+        this._notificationPauseExpiryTimer.IsRepeating = false;
+        this._notificationPauseExpiryTimer.Tick += this.NotificationPauseExpiryTimer_Tick;
         this._settingsMessageDismissTimer = this.DispatcherQueue.CreateTimer();
         this._settingsMessageDismissTimer.Interval = SettingsMessageDisplayDuration;
         this._settingsMessageDismissTimer.IsRepeating = false;
@@ -83,9 +87,11 @@ public sealed partial class SettingsWindow : Window, IDisposable
         {
             this.AllTabToggle.IsOn = settings.IsAllTabEnabled;
             this.StatusMonitoringToggle.IsOn = settings.IsStatusMonitoringEnabled;
+            this.StartAtSignInToggle.IsOn = settings.StartAtSignIn;
             this.CodexSparkCardToggle.IsOn = settings.ShowCodexSparkCard;
             this.AutomaticUpdatesToggle.IsOn = settings.CheckForUpdatesAutomatically;
             this.NotificationsEnabledToggle.IsOn = settings.AreNotificationsEnabled;
+            this.RefreshNotificationPausePresentation(settings);
             this.ProviderNotificationOptionsPanel.IsEnabled = settings.AreNotificationsEnabled;
             this.RefreshSelectedProviderNotificationPresentation(settings);
             this.UpdateChannelComboBox.SelectedItem = this.UpdateChannelComboBox.Items
@@ -369,8 +375,77 @@ public sealed partial class SettingsWindow : Window, IDisposable
 
         bool enabled = this.NotificationsEnabledToggle.IsOn;
         this.ProviderNotificationOptionsPanel.IsEnabled = enabled;
-        await this.SaveSettingsAsync(settings => settings with { AreNotificationsEnabled = enabled });
+        await this.SaveSettingsAsync(settings => settings with
+        {
+            AreNotificationsEnabled = enabled,
+            NotificationsPausedUntilUtc = enabled ? settings.NotificationsPausedUntilUtc : null,
+        });
     }
+
+    private async void ResumePausedNotificationsButton_Click(object sender, RoutedEventArgs e) =>
+        await this.SaveSettingsAsync(settings => settings with { NotificationsPausedUntilUtc = null });
+
+    private async void PauseNotificationsForThirtyMinutesMenuItem_Click(object sender, RoutedEventArgs e) =>
+        await this.PauseNotificationsForAsync(TimeSpan.FromMinutes(30));
+
+    private async void PauseNotificationsForOneHourMenuItem_Click(object sender, RoutedEventArgs e) =>
+        await this.PauseNotificationsForAsync(TimeSpan.FromHours(1));
+
+    private async void PauseNotificationsForTwoHoursMenuItem_Click(object sender, RoutedEventArgs e) =>
+        await this.PauseNotificationsForAsync(TimeSpan.FromHours(2));
+
+    private async void PauseNotificationsForFourHoursMenuItem_Click(object sender, RoutedEventArgs e) =>
+        await this.PauseNotificationsForAsync(TimeSpan.FromHours(4));
+
+    private Task<bool> PauseNotificationsForAsync(TimeSpan duration) =>
+        this.SaveSettingsAsync(settings => settings with
+        {
+            NotificationsPausedUntilUtc = DateTimeOffset.UtcNow.Add(duration),
+        });
+
+    private async void PauseNotificationsUntilTomorrowMenuItem_Click(object sender, RoutedEventArgs e) =>
+        await this.SaveSettingsAsync(settings => settings with
+        {
+            NotificationsPausedUntilUtc = NotificationPause.GetTomorrowMorningUtc(
+                DateTimeOffset.UtcNow,
+                TimeZoneInfo.Local),
+        });
+
+    private void RefreshNotificationPausePresentation(AppSettings settings)
+    {
+        this._notificationPauseExpiryTimer.Stop();
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        if (!NotificationPause.IsActive(settings.NotificationsPausedUntilUtc, now)
+            || settings.NotificationsPausedUntilUtc is not DateTimeOffset pausedUntilUtc)
+        {
+            this.NotificationPauseDescription.Text =
+                "Temporarily stop alerts while UsageDeck continues refreshing in the background.";
+            this.PauseNotificationsSettingsButton.IsEnabled = settings.AreNotificationsEnabled;
+            this.PauseNotificationsSettingsButton.Visibility = Visibility.Visible;
+            this.ResumePausedNotificationsButton.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        this.NotificationPauseDescription.Text = NotificationPause.FormatStatus(
+            pausedUntilUtc,
+            now,
+            TimeZoneInfo.Local)
+            + ". UsageDeck will keep refreshing in the background.";
+        this.PauseNotificationsSettingsButton.Visibility = Visibility.Collapsed;
+        this.ResumePausedNotificationsButton.Visibility = Visibility.Visible;
+        TimeSpan remaining = pausedUntilUtc - DateTimeOffset.UtcNow;
+        if (remaining <= TimeSpan.Zero)
+        {
+            this.RefreshNotificationPausePresentation(settings);
+            return;
+        }
+
+        this._notificationPauseExpiryTimer.Interval = remaining;
+        this._notificationPauseExpiryTimer.Start();
+    }
+
+    private void NotificationPauseExpiryTimer_Tick(DispatcherQueueTimer sender, object args) =>
+        this.RefreshNotificationPausePresentation(((App)Application.Current).CurrentSettings);
 
     private async void LimitThresholdCheckBox_Changed(object sender, RoutedEventArgs e)
     {
@@ -610,6 +685,36 @@ public sealed partial class SettingsWindow : Window, IDisposable
         {
             IsStatusMonitoringEnabled = this.StatusMonitoringToggle.IsOn,
         });
+    }
+
+    private async void StartAtSignInToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (this._isApplyingSettings)
+        {
+            return;
+        }
+
+        this.StartAtSignInToggle.IsEnabled = false;
+        try
+        {
+            await ((App)Application.Current).SetStartAtSignInAsync(this.StartAtSignInToggle.IsOn);
+            this.SettingsInfoBar.IsOpen = false;
+        }
+        catch (Exception exception) when (exception is
+            IOException
+            or UnauthorizedAccessException
+            or InvalidOperationException
+            or ArgumentException)
+        {
+            this.ShowMessage(
+                "UsageDeck could not change this Windows start-up setting. Please try again.",
+                InfoBarSeverity.Error);
+            this.LoadSettings(((App)Application.Current).CurrentSettings);
+        }
+        finally
+        {
+            this.StartAtSignInToggle.IsEnabled = true;
+        }
     }
 
     private async void CodexSparkCardToggle_Toggled(object sender, RoutedEventArgs e)
@@ -1382,6 +1487,8 @@ public sealed partial class SettingsWindow : Window, IDisposable
 
         this.Activated -= this.SettingsWindow_Activated;
         this.SettingsInfoBar.Closed -= this.SettingsInfoBar_Closed;
+        this._notificationPauseExpiryTimer.Tick -= this.NotificationPauseExpiryTimer_Tick;
+        this._notificationPauseExpiryTimer.Stop();
         this._settingsMessageDismissTimer.Tick -= this.SettingsMessageDismissTimer_Tick;
         this._settingsMessageDismissTimer.Stop();
 

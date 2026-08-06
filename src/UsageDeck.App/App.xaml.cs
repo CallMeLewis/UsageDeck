@@ -220,6 +220,68 @@ public partial class App : Application, IDisposable
         CancellationToken cancellationToken = default) =>
         this._settingsManager.UpdateAsync(update, cancellationToken);
 
+    internal Task PauseNotificationsUntilAsync(
+        DateTimeOffset pausedUntilUtc,
+        CancellationToken cancellationToken = default)
+    {
+        DateTimeOffset deadlineUtc = pausedUntilUtc.ToUniversalTime();
+        if (deadlineUtc <= DateTimeOffset.UtcNow)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(pausedUntilUtc),
+                "The notification pause deadline must be in the future.");
+        }
+
+        return this.UpdateSettingsAsync(
+            settings => settings with { NotificationsPausedUntilUtc = deadlineUtc },
+            cancellationToken);
+    }
+
+    internal Task ResumeNotificationsAsync(CancellationToken cancellationToken = default) =>
+        this.UpdateSettingsAsync(
+            settings => settings with { NotificationsPausedUntilUtc = null },
+            cancellationToken);
+
+    internal void ReportTrayActionFailure(string title, string message) =>
+        _ = this._notificationService.Show(new NotificationMessage(
+            title,
+            message,
+            this.CurrentSettings.DefaultProvider));
+
+    internal async Task SetStartAtSignInAsync(
+        bool enabled,
+        CancellationToken cancellationToken = default)
+    {
+        bool previouslyEnabled = this.CurrentSettings.StartAtSignIn;
+        if (enabled == previouslyEnabled)
+        {
+            return;
+        }
+
+        WindowsStartupRegistration.SetEnabled(enabled);
+        try
+        {
+            await this.UpdateSettingsAsync(
+                settings => settings with { StartAtSignIn = enabled },
+                cancellationToken);
+        }
+        catch (Exception saveException)
+        {
+            try
+            {
+                WindowsStartupRegistration.SetEnabled(previouslyEnabled);
+            }
+            catch (InvalidOperationException rollbackException)
+            {
+                throw new InvalidOperationException(
+                    "Windows changed the start-up registration, but UsageDeck could not save the matching setting.",
+                    new AggregateException(saveException, rollbackException));
+            }
+
+            throw;
+        }
+    }
+
     internal async Task CompleteFirstRunAsync(
         AppSettings settings,
         CancellationToken cancellationToken = default)
@@ -335,10 +397,10 @@ public partial class App : Application, IDisposable
 
     protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {
+        AppActivationArguments activation = AppInstance.GetCurrent().GetActivatedEventArgs();
         AppInstance mainInstance = AppInstance.FindOrRegisterForKey(ApplicationIdentity.MainInstanceKey);
         if (!mainInstance.IsCurrent)
         {
-            AppActivationArguments activation = AppInstance.GetCurrent().GetActivatedEventArgs();
             try
             {
                 await mainInstance.RedirectActivationToAsync(activation);
@@ -353,7 +415,14 @@ public partial class App : Application, IDisposable
 
         this._mainInstance = mainInstance;
         this._mainInstance.Activated += this.MainInstance_Activated;
-        this.ShowPrimaryWindow();
+        if (activation.Kind == ExtendedActivationKind.StartupTask && !this._requiresFirstRun)
+        {
+            this.StartNormalSession(showWindow: false);
+        }
+        else
+        {
+            this.ShowPrimaryWindow();
+        }
     }
 
     internal async Task RefreshProviderStatusesAsync(CancellationToken cancellationToken = default)
@@ -411,7 +480,20 @@ public partial class App : Application, IDisposable
     }
 
     private void MainInstance_Activated(object? sender, AppActivationArguments args) =>
-        _ = this._dispatcherQueue.TryEnqueue(() => this.ShowPrimaryWindow());
+        _ = this._dispatcherQueue.TryEnqueue(() =>
+        {
+            if (args.Kind == ExtendedActivationKind.StartupTask)
+            {
+                if (!this._normalSessionStarted && !this._requiresFirstRun)
+                {
+                    this.StartNormalSession(showWindow: false);
+                }
+
+                return;
+            }
+
+            this.ShowPrimaryWindow();
+        });
 
     private void NotificationService_Activated(ProviderId? providerId) =>
         _ = this._dispatcherQueue.TryEnqueue(() => this.ShowPrimaryWindow(providerId));
@@ -450,7 +532,8 @@ public partial class App : Application, IDisposable
             .ToArray();
         _ = this._dispatcherQueue.TryEnqueue(() =>
         {
-            if (!this.CurrentSettings.AreNotificationsEnabled)
+            AppSettings settings = this.CurrentSettings;
+            if (!NotificationPause.AllowsDelivery(settings, DateTimeOffset.UtcNow))
             {
                 return;
             }
@@ -673,11 +756,11 @@ public partial class App : Application, IDisposable
         this._window.Activate();
     }
 
-    private void StartNormalSession(ProviderId? providerId = null)
+    private void StartNormalSession(ProviderId? providerId = null, bool showWindow = true)
     {
         bool isStarting = !this._normalSessionStarted;
         this._normalSessionStarted = true;
-        this.ShowMainWindow(providerId);
+        this.PrepareMainWindow(providerId, showWindow);
         if (!isStarting)
         {
             return;
@@ -688,13 +771,16 @@ public partial class App : Application, IDisposable
         this.ConfigureAutomaticUpdateChecks(this.CurrentSettings, checkImmediately: true);
     }
 
-    private void ShowMainWindow(ProviderId? providerId = null)
+    private void PrepareMainWindow(ProviderId? providerId, bool showWindow)
     {
         this._window ??= new MainWindow(isFirstRun: false);
         this._window.ShowMainPage(providerId);
 
-        this._window.AppWindow.Show();
-        this._window.Activate();
+        if (showWindow)
+        {
+            this._window.AppWindow.Show();
+            this._window.Activate();
+        }
     }
 
     public void Shutdown()
