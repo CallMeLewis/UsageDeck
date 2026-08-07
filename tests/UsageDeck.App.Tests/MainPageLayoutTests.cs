@@ -25,6 +25,32 @@ public sealed class MainPageLayoutTests
     }
 
     [Fact]
+    public void TrayCommandsAreInitialisedBeforeTheWindowIsActivated()
+    {
+        string sourcePath = Path.Combine(
+            AppContext.BaseDirectory,
+            "SourceUnderTest",
+            "MainWindow.xaml.cs");
+        string source = File.ReadAllText(sourcePath);
+
+        int initialiseComponent = source.IndexOf(
+            "this.InitializeComponent();",
+            StringComparison.Ordinal);
+        int updateBindings = source.IndexOf(
+            "this.Bindings.Update();",
+            initialiseComponent,
+            StringComparison.Ordinal);
+        int readApplication = source.IndexOf(
+            "App app = (App)Application.Current;",
+            initialiseComponent,
+            StringComparison.Ordinal);
+
+        Assert.True(initialiseComponent >= 0);
+        Assert.True(updateBindings > initialiseComponent);
+        Assert.True(readApplication > updateBindings);
+    }
+
+    [Fact]
     public void MultiProviderRefreshKeepsUiWorkOutOfTheBackgroundBatch()
     {
         string source = ReadMainPageSource();

@@ -50,6 +50,7 @@ public sealed partial class MainWindow : Window
         this.SettingsCommand = new RelayCommand(this.ShowSettings);
         this.ExitCommand = new RelayCommand(this.ExitApplication);
         this.InitializeComponent();
+        this.Bindings.Update();
         App app = (App)Application.Current;
         this.InitialiseThemeSettings(app);
         App.ApplyWindowAppearance(this, this.RootLayout, this.SolidBackground, app.CurrentSettings);
