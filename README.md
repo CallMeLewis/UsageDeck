@@ -29,7 +29,7 @@ UsageDeck brings usage from several coding assistants into one compact WinUI 3 w
 | Provider | Source |
 | --- | --- |
 | Codex | Installed Codex CLI app server |
-| Claude Code | Authenticated `/usage` view through an isolated terminal session |
+| Claude Code | Anthropic usage API using Claude CLI credentials, with an authenticated `/usage` terminal fallback |
 | Antigravity | Backend quota through the signed-in `agy` CLI |
 | GitHub Copilot | Authenticated GitHub CLI (`gh`) |
 | Kiro | `kiro-cli` |
@@ -45,7 +45,7 @@ UsageDeck requires **Windows 11 24H2 or later on x64**.
 2. Download the Windows Setup executable, or choose the portable ZIP if you do not want an installed copy.
 3. Start UsageDeck. First-run setup checks this PC for supported providers and lets you choose providers, theme, and notifications before the first refresh.
 
-The release includes the .NET runtime and the Microsoft-signed Windows App SDK packages required by UsageDeck, so users do not need to install .NET separately. The lightweight launcher registers those packages for the current Windows user before starting the app. If the Windows interface cannot start, UsageDeck displays the error and saves a privacy-safe report under `%LocalAppData%\UsageDeckData\diagnostics`. Current development builds are unsigned, so Windows may show an unknown-publisher or SmartScreen warning.
+The release includes the .NET runtime and the Microsoft-signed Windows App SDK packages required by UsageDeck, so users do not need to install .NET separately. The lightweight launcher registers those packages for the current Windows user before starting the app. If the Windows interface cannot start, UsageDeck displays the error and saves a privacy-safe report under `%LOCALAPPDATA%\UsageDeckData\diagnostics`. Current builds are unsigned, so Windows may show an unknown-publisher or SmartScreen warning. Each release also includes `SHA256SUMS.txt` for verifying the downloaded installer or portable ZIP.
 
 The portable ZIP does not install UsageDeck itself, but its first launch registers the same shared Microsoft runtime packages for the current Windows user.
 
@@ -57,7 +57,8 @@ For TheClawBay, open **Settings → Providers → TheClawBay** and choose **Auto
 
 Most usage collection happens locally through provider-owned tools. UsageDeck does not log tokens, cookies, raw provider responses, or captured terminal output.
 
-- Codex, Claude, Antigravity, Copilot, Kiro, and Amp keep authentication under their own tools.
+- Codex, Antigravity, Copilot, Kiro, and Amp keep authentication under their own tools.
+- Claude first sends the access token stored by Claude Code only to Anthropic's fixed usage endpoint. If that is unavailable, UsageDeck opens the authenticated `/usage` view in an isolated terminal session. UsageDeck never writes to Claude Code's credential store.
 - Z.AI sends its key only to the fixed endpoint for the selected region and never writes it to the settings file.
 - A UsageDeck-managed TheClawBay key is sent only to `https://theclawbay.com/api/codex-auth/v1/quota`. CLI mode leaves sign-in under the CLI's ownership, the public status request is unauthenticated, and raw responses are not logged.
 - Service-status checks use public official endpoints and do not send provider credentials. Providers without a verified public source are labelled unavailable rather than inferred to be operational.
@@ -69,22 +70,23 @@ Install the .NET 10 SDK, then run:
 ```powershell
 dotnet restore src/UsageDeck.App/UsageDeck.App.csproj -r win-x64
 dotnet build src/UsageDeck.App/UsageDeck.App.csproj -c Debug --no-restore
-dotnet test UsageDeck.slnx -c Debug -p:SkipReleaseArtifacts=true
+dotnet test UsageDeck.slnx -c Debug -p:SkipReleaseArtifacts=true -p:WindowsAppSdkBootstrapInitialize=false --blame-hang-timeout 2m --nologo
 & src/UsageDeck.App/bin/Debug/net10.0-windows10.0.26100.0/win-x64/UsageDeck.App.exe
 ```
 
-Visual Studio users can open `UsageDeck.slnx` and select the shared **UsageDeck** launch profile. The package ID and credential identity remain unchanged so existing installations keep their update path and saved credentials. On the first launch of this build, UsageDeck copies legacy settings from `%LOCALAPPDATA%\UsageDeck\settings.json` to the protected `UsageDeckData` location and retains the original as a recovery copy.
+Visual Studio users can open `UsageDeck.slnx` and select the shared **UsageDeck** launch profile. The package ID and credential identity remain unchanged so existing installations keep their update path and saved credentials. On the first launch after upgrading from a build that used `%LOCALAPPDATA%\UsageDeck\settings.json`, UsageDeck copies those settings to the protected `UsageDeckData` location and retains the original as a recovery copy.
 
 ## Releases
 
-`Directory.Build.props` contains the release version. After a version change reaches `main` and CI passes, push the matching tag:
+`Directory.Build.props` contains the release version. Before tagging a release, add its user-facing notes at `.github/release-notes/v<version>.md`, commit the notes with the version change, ensure that commit has reached `main`, and wait for CI to pass. Then push the exact matching tag:
 
 ```powershell
-git tag -a v0.1.1 -m "UsageDeck 0.1.1"
-git push origin v0.1.1
+$version = ([xml](Get-Content -Raw Directory.Build.props)).Project.PropertyGroup.Version
+git tag -a "v$version" -m "UsageDeck $version"
+git push origin "v$version"
 ```
 
-The Release workflow verifies the version and successful CI run, builds the Velopack packages, and publishes the installer, portable ZIP, update package, and release feed automatically.
+The Release workflow verifies that the tag matches the version, the release notes exist, and the tagged commit is reachable from `main`. It then runs the Release tests, builds the Velopack packages, and publishes the installer, portable ZIP, update package, release feed, and SHA-256 manifest automatically.
 
 Beta releases use a SemVer pre-release suffix. For example, set the version to `0.4.0-beta.1`, then push the matching `v0.4.0-beta.1` tag. The workflow marks suffixed versions as GitHub pre-releases automatically. A fresh pre-release installation starts on the Beta update channel; a previously saved channel remains unchanged. Stable clients ignore pre-releases, while clients on the Beta channel consider both stable and pre-release builds.
 
