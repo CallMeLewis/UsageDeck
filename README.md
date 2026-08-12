@@ -74,24 +74,4 @@ dotnet test UsageDeck.slnx -c Debug -p:SkipReleaseArtifacts=true -p:WindowsAppSd
 & src/UsageDeck.App/bin/Debug/net10.0-windows10.0.26100.0/win-x64/UsageDeck.App.exe
 ```
 
-Visual Studio users can open `UsageDeck.slnx` and select the shared **UsageDeck** launch profile. The package ID and credential identity remain unchanged so existing installations keep their update path and saved credentials. On the first launch after upgrading from a build that used `%LOCALAPPDATA%\UsageDeck\settings.json`, UsageDeck copies those settings to the protected `UsageDeckData` location and retains the original as a recovery copy.
-
-## Releases
-
-`Directory.Build.props` contains the release version. Before tagging a release, add its user-facing notes at `.github/release-notes/v<version>.md`, commit the notes with the version change, ensure that commit has reached `main`, and wait for CI to pass. Then push the exact matching tag:
-
-```powershell
-$version = ([xml](Get-Content -Raw Directory.Build.props)).Project.PropertyGroup.Version
-git tag -a "v$version" -m "UsageDeck $version"
-git push origin "v$version"
-```
-
-The Release workflow verifies that the tag matches the version, the release notes exist, and the tagged commit is reachable from `main`. It then runs the Release tests, builds the Velopack packages, and publishes the installer, portable ZIP, update package, release feed, and SHA-256 manifest automatically.
-
-Beta releases use a SemVer pre-release suffix. For example, set the version to `0.4.0-beta.1`, then push the matching `v0.4.0-beta.1` tag. The workflow marks suffixed versions as GitHub pre-releases automatically. A fresh pre-release installation starts on the Beta update channel; a previously saved channel remains unchanged. Stable clients ignore pre-releases, while clients on the Beta channel consider both stable and pre-release builds.
-
-For local packaging:
-
-```powershell
-.\tools\Publish-Release.ps1 -RepositoryUrl https://github.com/CallMeLewis/UsageDeck
-```
+Visual Studio users can open `UsageDeck.slnx` and select the shared **UsageDeck** launch profile.
