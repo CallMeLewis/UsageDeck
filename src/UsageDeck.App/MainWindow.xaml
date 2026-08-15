@@ -52,6 +52,7 @@
             IconSource="Assets/AppIcon.ico"
             LeftClickCommand="{x:Bind ToggleWindowCommand}"
             MenuActivation="RightClick"
+            NoLeftClickDelay="True"
             ToolTipText="UsageDeck usage"
             Visibility="Collapsed">
             <tb:TaskbarIcon.ContextFlyout>

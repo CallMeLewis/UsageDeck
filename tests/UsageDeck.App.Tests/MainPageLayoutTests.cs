@@ -51,6 +51,21 @@ public sealed class MainPageLayoutTests
     }
 
     [Fact]
+    public void TrayLeftClickExecutesWithoutRequiringWindowActivationForItsDelay()
+    {
+        string sourcePath = Path.Combine(
+            AppContext.BaseDirectory,
+            "SourceUnderTest",
+            "MainWindow.xaml");
+        XDocument xaml = XDocument.Load(sourcePath);
+        XNamespace taskbar = "using:H.NotifyIcon";
+
+        XElement trayIcon = Assert.Single(xaml.Descendants(taskbar + "TaskbarIcon"));
+        Assert.Equal("{x:Bind ToggleWindowCommand}", (string?)trayIcon.Attribute("LeftClickCommand"));
+        Assert.Equal("True", (string?)trayIcon.Attribute("NoLeftClickDelay"));
+    }
+
+    [Fact]
     public void MultiProviderRefreshKeepsUiWorkOutOfTheBackgroundBatch()
     {
         string source = ReadMainPageSource();
