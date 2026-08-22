@@ -238,19 +238,46 @@ public sealed class ProcessSessionFactory : IProcessSessionFactory, IBoundedProc
             }
 
             this._disposed = true;
-            this._process.StandardInput.Close();
-
-            if (!this._process.HasExited)
+            try
             {
-                this._process.Kill(entireProcessTree: true);
+                try
+                {
+                    this._process.StandardInput.Close();
+                }
+                catch (Exception exception) when (
+                    exception is InvalidOperationException or IOException or ObjectDisposedException)
+                {
+                }
+
+                TryKill(this._process);
+                await WaitForExitAfterFailureAsync(this._process).ConfigureAwait(false);
             }
+            finally
+            {
+                try
+                {
+                    await this._stderrCancellation.CancelAsync().ConfigureAwait(false);
+                }
+                catch (ObjectDisposedException)
+                {
+                }
 
-            await this._process.WaitForExitAsync().ConfigureAwait(false);
-            await this._stderrCancellation.CancelAsync().ConfigureAwait(false);
-            await this._stderrDrain.ConfigureAwait(false);
+                await ObserveFailureWithinCleanupTimeoutAsync(this._stderrDrain).ConfigureAwait(false);
+                this._stderrCancellation.Dispose();
+                this._process.Dispose();
+            }
+        }
 
-            this._stderrCancellation.Dispose();
-            this._process.Dispose();
+        private static async Task ObserveFailureWithinCleanupTimeoutAsync(Task task)
+        {
+            Task observation = ObserveFailureAsync(task);
+            try
+            {
+                await observation.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+            }
+            catch (TimeoutException)
+            {
+            }
         }
 
         private static async Task DrainStandardErrorAsync(StreamReader reader, CancellationToken cancellationToken)

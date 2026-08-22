@@ -37,7 +37,7 @@ public partial class App : Application, IDisposable
     private readonly WindowsNotificationService _notificationService;
     private readonly SemaphoreSlim _providerStatusRefreshLock = new(1, 1);
     private readonly DispatcherTimer _providerStatusTimer = new() { Interval = TimeSpan.FromMinutes(5) };
-    private readonly ProviderRefreshQueue _usageRefreshQueue;
+    private readonly UsageRefreshScheduler _usageRefreshScheduler;
     private readonly DispatcherTimer _usageRefreshTimer = new() { Interval = TimeSpan.FromMinutes(5) };
     private readonly DispatcherTimer _updateCheckTimer = new() { Interval = AutomaticUpdateCheckInterval };
     private readonly TheClawBayApiKeyResolver _theClawBayApiKeys;
@@ -50,6 +50,7 @@ public partial class App : Application, IDisposable
     private bool _requiresFirstRun;
     private AppInstance? _mainInstance;
     private ProviderId[] _monitoredStatusProviders = [];
+    private ProviderId _selectedUsageProvider;
     private AppSettings _usageRefreshSettings;
     private SettingsWindow? _settingsWindow;
     private MainWindow? _window;
@@ -66,6 +67,11 @@ public partial class App : Application, IDisposable
             : AppUpdateChannel.Stable;
         AppSettingsStore settingsStore = new(defaultUpdateChannel: defaultUpdateChannel);
         AppSettingsLoadResult settings = settingsStore.Load();
+        this.InitialSettingsWarning = settings.SafeWarning is null
+            ? null
+            : settings.RecoveryPath is null
+                ? settings.SafeWarning
+                : $"{settings.SafeWarning} A recovery copy is available at {settings.RecoveryPath}.";
         this._requiresFirstRun = settings.IsFirstRun;
         this._settingsManager = new AppSettingsManager(settingsStore, settings.Settings);
         this._settingsManager.Changed += this.SettingsManager_Changed;
@@ -138,13 +144,13 @@ public partial class App : Application, IDisposable
         ];
 
         this.RefreshCoordinator = new ProviderRefreshCoordinator(providers, this._shutdown.Token);
-        this._usageRefreshQueue = new ProviderRefreshQueue(
-            maximumConcurrency: 2,
+        this._usageRefreshScheduler = new UsageRefreshScheduler(
             async (providerId, cancellationToken) =>
             {
-                await this.RefreshCoordinator.RefreshAfterCurrentAsync(providerId, cancellationToken);
+                await this.RefreshCoordinator.RefreshAsync(providerId, cancellationToken);
             },
             this._shutdown.Token);
+        this._selectedUsageProvider = settings.Settings.DefaultProvider;
         this._usageRefreshSettings = settings.Settings;
         this.StatusCoordinator = new ProviderStatusCoordinator(
             ProviderStatusSources.Create(this._httpClient),
@@ -167,6 +173,8 @@ public partial class App : Application, IDisposable
     internal AppUpdateService UpdateService { get; private set; }
 
     internal ReleaseNotesLoadResult ReleaseNotes { get; }
+
+    internal string? InitialSettingsWarning { get; }
 
     public static string VersionNumber { get; } = BuildInformation.Version;
 
@@ -219,6 +227,23 @@ public partial class App : Application, IDisposable
         Func<AppSettings, AppSettings> update,
         CancellationToken cancellationToken = default) =>
         this._settingsManager.UpdateAsync(update, cancellationToken);
+
+    internal Task RefreshUsageProvidersAsync(
+        IEnumerable<ProviderId> providerIds,
+        CancellationToken cancellationToken = default) =>
+        this._usageRefreshScheduler.RefreshNowAsync(providerIds, cancellationToken);
+
+    internal void SetSelectedUsageProvider(ProviderId providerId)
+    {
+        AppSettings settings = this.CurrentSettings;
+        bool isAvailableSelection = providerId == ProviderId.All
+            ? settings.IsAllTabEnabled
+            : settings.EnabledProviders.Contains(providerId);
+        if (isAvailableSelection)
+        {
+            this._selectedUsageProvider = providerId;
+        }
+    }
 
     internal Task PauseNotificationsUntilAsync(
         DateTimeOffset pausedUntilUtc,
@@ -512,15 +537,24 @@ public partial class App : Application, IDisposable
         ProviderServiceStatusSnapshot snapshot)
     {
         AppSettings settings = this.CurrentSettings;
+        if (!settings.IsStatusMonitoringEnabled)
+        {
+            return;
+        }
+
         IReadOnlyList<UsageNotificationEvent> notifications = this._notificationEvaluator.EvaluateStatus(
             snapshot,
             CreateNotificationOptions(settings, snapshot.ProviderId));
-        this.ShowNotifications(notifications, settings.UsageValueDisplay);
+        this.ShowNotifications(
+            notifications,
+            settings.UsageValueDisplay,
+            requireStatusMonitoring: true);
     }
 
     private void ShowNotifications(
         IReadOnlyList<UsageNotificationEvent> notifications,
-        UsageValueDisplayMode displayMode)
+        UsageValueDisplayMode displayMode,
+        bool requireStatusMonitoring = false)
     {
         if (notifications.Count == 0)
         {
@@ -533,7 +567,8 @@ public partial class App : Application, IDisposable
         _ = this._dispatcherQueue.TryEnqueue(() =>
         {
             AppSettings settings = this.CurrentSettings;
-            if (!NotificationPause.AllowsDelivery(settings, DateTimeOffset.UtcNow))
+            if ((requireStatusMonitoring && !settings.IsStatusMonitoringEnabled)
+                || !NotificationPause.AllowsDelivery(settings, DateTimeOffset.UtcNow))
             {
                 return;
             }
@@ -646,6 +681,7 @@ public partial class App : Application, IDisposable
         if (!settings.IsStatusMonitoringEnabled)
         {
             this._providerStatusTimer.Stop();
+            this._notificationEvaluator.ResetStatus();
             this.NotifyProviderStatusStateChanged();
             return;
         }
@@ -665,8 +701,8 @@ public partial class App : Application, IDisposable
     private async void ProviderStatusTimer_Tick(object? sender, object e) =>
         await this.RefreshProviderStatusesInBackgroundAsync();
 
-    private void UsageRefreshTimer_Tick(object? sender, object e) =>
-        this._usageRefreshQueue.Request(this.CurrentSettings.EnabledProviders);
+    private async void UsageRefreshTimer_Tick(object? sender, object e) =>
+        await this.RefreshUsageAutomaticallyInBackgroundAsync();
 
     private async void UpdateCheckTimer_Tick(object? sender, object e) =>
         await this.CheckForAppUpdateInBackgroundAsync();
@@ -682,28 +718,65 @@ public partial class App : Application, IDisposable
         }
     }
 
+    private async Task RefreshUsageAutomaticallyInBackgroundAsync()
+    {
+        try
+        {
+            await this._usageRefreshScheduler.RefreshAutomaticallyAsync(
+                UsageRefreshScope.AutomaticProviders(this.CurrentSettings, this._selectedUsageProvider),
+                this._shutdown.Token);
+        }
+        catch (OperationCanceledException) when (this._shutdown.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            System.Diagnostics.Debug.WriteLine(
+                $"Automatic provider refresh stopped unexpectedly: {exception.GetType().Name}.");
+        }
+    }
+
+    private async Task RefreshUsageNowInBackgroundAsync(IEnumerable<ProviderId> providerIds)
+    {
+        try
+        {
+            await this._usageRefreshScheduler.RefreshNowAsync(providerIds, this._shutdown.Token);
+        }
+        catch (OperationCanceledException) when (this._shutdown.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            System.Diagnostics.Debug.WriteLine(
+                $"Requested provider refresh stopped unexpectedly: {exception.GetType().Name}.");
+        }
+    }
+
     private void ConfigureUsageRefreshing(AppSettings settings, bool forceRefresh = false)
     {
         IReadOnlyCollection<ProviderId> affectedProviders = forceRefresh
-            ? settings.EnabledProviders.ToArray()
-            : UsageRefreshChangeDetector.AffectedProviders(this._usageRefreshSettings, settings);
+            ? UsageRefreshScope.AutomaticProviders(settings, this._selectedUsageProvider)
+            : UsageRefreshChangeDetector.AffectedProviders(
+                this._usageRefreshSettings,
+                settings,
+                this._selectedUsageProvider);
         this._usageRefreshSettings = settings;
         this._usageRefreshTimer.Interval = TimeSpan.FromMinutes(settings.RefreshIntervalMinutes);
 
         if (!this._usageRefreshTimer.IsEnabled)
         {
             this._usageRefreshTimer.Start();
-            affectedProviders = settings.EnabledProviders.ToArray();
+            affectedProviders = UsageRefreshScope.AutomaticProviders(settings, this._selectedUsageProvider);
         }
 
-        this._usageRefreshQueue.Request(affectedProviders);
+        _ = this.RefreshUsageNowInBackgroundAsync(affectedProviders);
     }
 
     private void RequestUsageProviderRefresh(ProviderId providerId)
     {
         if (this._normalSessionStarted && this.CurrentSettings.EnabledProviders.Contains(providerId))
         {
-            this._usageRefreshQueue.Request([providerId]);
+            _ = this.RefreshUsageNowInBackgroundAsync([providerId]);
         }
     }
 

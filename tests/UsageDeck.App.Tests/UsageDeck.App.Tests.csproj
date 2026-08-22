@@ -35,6 +35,9 @@
     <Content Include="..\..\src\UsageDeck.App\MainPage.xaml.cs"
              Link="SourceUnderTest\MainPage.xaml.cs"
              CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\src\UsageDeck.App\MainPage.xaml"
+             Link="SourceUnderTest\MainPage.xaml"
+             CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\src\UsageDeck.App\SettingsWindow.xaml.cs"
              Link="SourceUnderTest\SettingsWindow.xaml.cs"
              CopyToOutputDirectory="PreserveNewest" />

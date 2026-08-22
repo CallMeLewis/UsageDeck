@@ -73,6 +73,29 @@ public sealed class ClaudeUsageProviderTests
     }
 
     [Fact]
+    public async Task FetchStopsReadingAnOversizedApiResponseAndFallsBackToTheCli()
+    {
+        TrackingContent content = new(new byte[2_097_152]);
+        FakePtySessionFactory sessions = new(new FakePtySession("""
+            Current session
+            25% used
+            Resets 4pm
+            """));
+        ClaudeUsageProvider provider = new(
+            sessions,
+            new StubExecutableLocator("C:\\tools\\claude.exe"),
+            new ImmediateTimeProvider(TestNow),
+            httpClient: new HttpClient(new StubContentHttpHandler(content)),
+            credentialsReader: new StubCredentialsReader(
+                new ClaudeCredentials("token-value", TestNow.AddHours(8))));
+
+        ProviderSnapshot snapshot = await provider.FetchAsync(CancellationToken.None);
+
+        Assert.Equal("Claude CLI", snapshot.SourceDescription);
+        Assert.InRange(content.BytesRead, 1, 1_056_768);
+    }
+
+    [Fact]
     public async Task FetchSkipsTheApiWhenTheStoredTokenHasExpired()
     {
         FakePtySessionFactory sessions = new(new FakePtySession("""
@@ -224,6 +247,87 @@ public sealed class ClaudeUsageProviderTests
                 Content = new StringContent(body),
             });
         }
+    }
+
+    private sealed class StubContentHttpHandler(HttpContent content) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content });
+    }
+
+    private sealed class TrackingContent(byte[] payload) : HttpContent
+    {
+        private TrackingStream? _stream;
+        private int _bytesSerialised;
+
+        public int BytesRead => Math.Max(this._stream?.BytesRead ?? 0, this._bytesSerialised);
+
+        protected override async Task SerializeToStreamAsync(Stream stream, TransportContext? context)
+        {
+            await stream.WriteAsync(payload);
+            this._bytesSerialised = payload.Length;
+        }
+
+        protected override bool TryComputeLength(out long length)
+        {
+            length = 0;
+            return false;
+        }
+
+        protected override Task<Stream> CreateContentReadStreamAsync()
+        {
+            this._stream = new TrackingStream(payload);
+            return Task.FromResult<Stream>(this._stream);
+        }
+    }
+
+    private sealed class TrackingStream(byte[] payload) : Stream
+    {
+        private readonly MemoryStream _inner = new(payload, writable: false);
+
+        public int BytesRead { get; private set; }
+
+        public override bool CanRead => true;
+
+        public override bool CanSeek => false;
+
+        public override bool CanWrite => false;
+
+        public override long Length => throw new NotSupportedException();
+
+        public override long Position
+        {
+            get => this._inner.Position;
+            set => throw new NotSupportedException();
+        }
+
+        public override void Flush()
+        {
+        }
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            int read = this._inner.Read(buffer, offset, count);
+            this.BytesRead += read;
+            return read;
+        }
+
+        public override async ValueTask<int> ReadAsync(
+            Memory<byte> buffer,
+            CancellationToken cancellationToken = default)
+        {
+            int read = await this._inner.ReadAsync(buffer, cancellationToken);
+            this.BytesRead += read;
+            return read;
+        }
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 
     private sealed class FakePtySessionFactory(IPtySession session) : IPtySessionFactory

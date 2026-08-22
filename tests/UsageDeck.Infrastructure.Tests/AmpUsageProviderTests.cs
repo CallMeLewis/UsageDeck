@@ -1,3 +1,4 @@
+using System.Text;
 using UsageDeck.Core.Providers;
 using UsageDeck.Infrastructure.Processes;
 using UsageDeck.Infrastructure.Providers.Amp;
@@ -11,7 +12,7 @@ public sealed class AmpUsageProviderTests
     [Fact]
     public async Task FetchRunsReadOnlyUsageCommand()
     {
-        FakeProcessSessionFactory processes = new("Amp Free: 75% remaining today (resets daily)");
+        FakeProcessRunner processes = new("Amp Free: 75% remaining today (resets daily)");
         AmpUsageProvider provider = new(
             processes,
             new StubExecutableLocator("C:\\tools\\amp.exe"),
@@ -36,7 +37,7 @@ public sealed class AmpUsageProviderTests
         await File.WriteAllBytesAsync(executable, []);
         try
         {
-            FakeProcessSessionFactory processes = new("Amp Free: 75% remaining today (resets daily)");
+            FakeProcessRunner processes = new("Amp Free: 75% remaining today (resets daily)");
             AmpUsageProvider provider = new(
                 processes,
                 new StubExecutableLocator(null),
@@ -58,7 +59,7 @@ public sealed class AmpUsageProviderTests
     {
         string profile = Path.Combine(Path.GetTempPath(), $"UsageDeck-Amp-{Guid.NewGuid():N}");
         AmpUsageProvider provider = new(
-            new FakeProcessSessionFactory("unused"),
+            new FakeProcessRunner("unused"),
             new StubExecutableLocator(null),
             userProfile: profile);
 
@@ -72,7 +73,7 @@ public sealed class AmpUsageProviderTests
     public async Task FetchPreservesCallerCancellation()
     {
         AmpUsageProvider provider = new(
-            new FakeProcessSessionFactory("unused"),
+            new FakeProcessRunner("unused"),
             new StubExecutableLocator("C:\\tools\\amp.exe"));
         using CancellationTokenSource cancellation = new();
         await cancellation.CancelAsync();
@@ -81,37 +82,54 @@ public sealed class AmpUsageProviderTests
             provider.FetchAsync(cancellation.Token));
     }
 
+    [Fact]
+    public async Task FetchReportsANonZeroExitWithoutUsageAsUnavailable()
+    {
+        AmpUsageProvider provider = new(
+            new FakeProcessRunner(string.Empty, exitCode: 1),
+            new StubExecutableLocator("C:\\tools\\amp.exe"));
+
+        ProviderException exception = await Assert.ThrowsAsync<ProviderException>(() =>
+            provider.FetchAsync(CancellationToken.None));
+
+        Assert.Equal(ProviderErrorCategory.Unavailable, exception.Category);
+    }
+
+    [Fact]
+    public async Task FetchPreservesAuthenticationGuidanceFromANonZeroExit()
+    {
+        AmpUsageProvider provider = new(
+            new FakeProcessRunner("You are not logged in.", exitCode: 1),
+            new StubExecutableLocator("C:\\tools\\amp.exe"));
+
+        ProviderException exception = await Assert.ThrowsAsync<ProviderException>(() =>
+            provider.FetchAsync(CancellationToken.None));
+
+        Assert.Equal(ProviderErrorCategory.AuthenticationRequired, exception.Category);
+    }
+
     private sealed class StubExecutableLocator(string? path) : IExecutableLocator
     {
         public string? FindExecutable(string executableName) => path;
     }
 
-    private sealed class FakeProcessSessionFactory(string response) : IProcessSessionFactory
+    private sealed class FakeProcessRunner(string response, int exitCode = 0) : IBoundedProcessRunner
     {
         public ProcessStartSpec? StartSpec { get; private set; }
 
-        public IProcessSession Start(ProcessStartSpec spec)
-        {
-            this.StartSpec = spec;
-            return new FakeProcessSession(response);
-        }
-    }
-
-    private sealed class FakeProcessSession(string response) : IProcessSession
-    {
-        private string? _response = response;
-
-        public Task WriteLineAsync(string line, CancellationToken cancellationToken) => Task.CompletedTask;
-
-        public Task<string?> ReadLineAsync(CancellationToken cancellationToken)
+        public Task<ProcessRunResult> RunAsync(
+            ProcessStartSpec spec,
+            int maximumStandardOutputBytes,
+            int maximumStandardErrorBytes,
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            string? result = this._response;
-            this._response = null;
-            return Task.FromResult(result);
+            this.StartSpec = spec;
+            return Task.FromResult(new ProcessRunResult(
+                Encoding.UTF8.GetBytes(response),
+                exitCode,
+                string.Empty));
         }
-
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
     private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider

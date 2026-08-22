@@ -131,7 +131,8 @@ public sealed record AppSettings(
 public sealed record AppSettingsLoadResult(
     AppSettings Settings,
     string? SafeWarning = null,
-    bool IsFirstRun = false);
+    bool IsFirstRun = false,
+    string? RecoveryPath = null);
 
 public sealed class AppSettingsStore
 {
@@ -208,7 +209,8 @@ public sealed class AppSettingsStore
                     this._defaultSettings,
                     CombineWarnings(
                         migrationWarning,
-                        "Saved provider settings were invalid, so defaults were restored."));
+                        "Saved provider settings were invalid, so defaults were restored."),
+                    RecoveryPath: TryCreateRecoveryCopy(loadPath));
             }
 
             ProviderId[] savedEnabled = document.EnabledProviders
@@ -226,7 +228,10 @@ public sealed class AppSettingsStore
                     : null;
                 return new AppSettingsLoadResult(
                     this._defaultSettings,
-                    CombineWarnings(migrationWarning, providerWarning));
+                    CombineWarnings(migrationWarning, providerWarning),
+                    RecoveryPath: providerWarning is null
+                        ? null
+                        : TryCreateRecoveryCopy(loadPath));
             }
 
             string? savedDefaultProvider = string.IsNullOrWhiteSpace(document.DefaultProvider)
@@ -353,7 +358,8 @@ public sealed class AppSettingsStore
                 this._defaultSettings,
                 CombineWarnings(
                     migrationWarning,
-                    "Saved settings could not be read, so defaults were restored."));
+                    "Saved settings could not be read, so defaults were restored."),
+                RecoveryPath: TryCreateRecoveryCopy(loadPath));
         }
     }
 
@@ -479,6 +485,35 @@ public sealed class AppSettingsStore
         return string.IsNullOrWhiteSpace(second)
             ? first
             : first + " " + second;
+    }
+
+    private static string? TryCreateRecoveryCopy(string sourcePath)
+    {
+        if (!File.Exists(sourcePath))
+        {
+            return null;
+        }
+
+        try
+        {
+            string recoveryPath = sourcePath + ".recovery";
+            if (File.Exists(recoveryPath))
+            {
+                return recoveryPath;
+            }
+
+            File.Copy(sourcePath, recoveryPath, overwrite: false);
+            return recoveryPath;
+        }
+        catch (Exception exception) when (exception is
+            ArgumentException
+            or IOException
+            or NotSupportedException
+            or SecurityException
+            or UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     private void MigrateLegacySettings(string legacyPath)

@@ -45,7 +45,7 @@ public sealed class NotificationEvaluator
             }
             else
             {
-                this.SeedConnectionFailure(current);
+                this.SeedConnectionFailure(current, options, notifications);
             }
 
             this._usageSnapshots[current.ProviderId] = current;
@@ -115,6 +115,15 @@ public sealed class NotificationEvaluator
             {
                 this._notifiedThresholds.Remove(key);
             }
+        }
+    }
+
+    public void ResetStatus()
+    {
+        lock (this._gate)
+        {
+            this._statusSnapshots.Clear();
+            this._notifiedStatusIncidents.Clear();
         }
     }
 
@@ -324,14 +333,24 @@ public sealed class NotificationEvaluator
         }
     }
 
-    private void SeedConnectionFailure(ProviderSnapshot current)
+    private void SeedConnectionFailure(
+        ProviderSnapshot current,
+        NotificationEvaluationOptions options,
+        List<UsageNotificationEvent> notifications)
     {
         if (current.ErrorCategory == ProviderErrorCategory.AuthenticationRequired)
         {
             this._consecutiveFailures[current.ProviderId] = 0;
             this._activeConnectionAlerts[current.ProviderId] = new ConnectionAlertState(
                 ConnectionAlert.AuthenticationRequired,
-                WasNotified: false);
+                options.NotifyProviderConnectionChanges);
+            if (options.NotifyProviderConnectionChanges)
+            {
+                notifications.Add(new ProviderAuthenticationRequiredNotification(
+                    current.ProviderId,
+                    current.DisplayName));
+            }
+
             return;
         }
 

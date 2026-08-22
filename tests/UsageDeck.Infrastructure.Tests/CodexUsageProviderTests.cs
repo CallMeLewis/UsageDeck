@@ -97,6 +97,18 @@ public sealed class CodexUsageProviderTests
     }
 
     [Fact]
+    public void NativeProcessSpecUsesSupportedApprovalPolicy()
+    {
+        CodexProcessSpecFactory factory = new(new StubExecutableLocator("C:\\Tools\\codex.exe"));
+
+        ProcessStartSpec spec = factory.Create(ProviderHost.Native);
+
+        Assert.Equal(
+            ["-s", "read-only", "-a", "never", "app-server"],
+            spec.Arguments);
+    }
+
+    [Fact]
     public void WslProcessSpecUsesFixedArgumentsWithoutAShell()
     {
         CodexProcessSpecFactory factory = new(new StubExecutableLocator(null));
@@ -105,7 +117,7 @@ public sealed class CodexUsageProviderTests
 
         Assert.EndsWith("wsl.exe", spec.ExecutablePath, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(
-            ["--distribution", "Ubuntu Dev", "--exec", "codex", "-s", "read-only", "-a", "untrusted", "app-server"],
+            ["--distribution", "Ubuntu Dev", "--exec", "codex", "-s", "read-only", "-a", "never", "app-server"],
             spec.Arguments);
     }
 

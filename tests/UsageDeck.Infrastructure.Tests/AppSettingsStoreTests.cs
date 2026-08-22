@@ -237,6 +237,23 @@ public sealed class AppSettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public void LoadInvalidJsonPreservesARecoveryCopy()
+    {
+        Directory.CreateDirectory(this._directory);
+        string path = Path.Combine(this._directory, "settings.json");
+        File.WriteAllText(path, "not-json");
+
+        AppSettingsStore store = new(path);
+        AppSettingsLoadResult result = store.Load();
+        AppSettingsLoadResult repeated = store.Load();
+
+        Assert.NotNull(result.RecoveryPath);
+        Assert.Equal("not-json", File.ReadAllText(result.RecoveryPath));
+        Assert.Equal(result.RecoveryPath, repeated.RecoveryPath);
+        Assert.Single(Directory.GetFiles(this._directory, "settings.json.recovery*"));
+    }
+
+    [Fact]
     public void LoadWithoutSavedSettingsUsesConfiguredUpdateChannel()
     {
         string path = Path.Combine(this._directory, "settings.json");

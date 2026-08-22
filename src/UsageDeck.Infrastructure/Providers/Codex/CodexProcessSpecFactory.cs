@@ -5,7 +5,7 @@ namespace UsageDeck.Infrastructure.Providers.Codex;
 
 public sealed class CodexProcessSpecFactory(IExecutableLocator executableLocator)
 {
-    private static readonly string[] CodexArguments = ["-s", "read-only", "-a", "untrusted", "app-server"];
+    private static readonly string[] CodexArguments = ["-s", "read-only", "-a", "never", "app-server"];
 
     public ProcessStartSpec Create(ProviderHost host) => this.Create(host, CodexArguments);
 

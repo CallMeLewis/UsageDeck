@@ -1,3 +1,4 @@
+using System.Text;
 using UsageDeck.Core.Providers;
 using UsageDeck.Infrastructure.Processes;
 using UsageDeck.Infrastructure.Providers.Copilot;
@@ -12,7 +13,7 @@ public sealed class CopilotUsageProviderTests
         const string response = """
             {"copilot_plan":"individual","quota_snapshots":{"chat":{"has_quota":true,"percent_remaining":75,"unlimited":false}}}
             """;
-        FakeProcessSessionFactory sessions = new(response);
+        FakeProcessRunner sessions = new(response);
         CopilotUsageProvider provider = new(
             sessions,
             new StubExecutableLocator("C:\\tools\\gh.exe"),
@@ -33,7 +34,7 @@ public sealed class CopilotUsageProviderTests
     [Fact]
     public async Task FetchPreservesCallerCancellation()
     {
-        FakeProcessSessionFactory sessions = new("unused");
+        FakeProcessRunner sessions = new("unused");
         CopilotUsageProvider provider = new(
             sessions,
             new StubExecutableLocator("C:\\tools\\gh.exe"));
@@ -44,38 +45,54 @@ public sealed class CopilotUsageProviderTests
             provider.FetchAsync(cancellation.Token));
     }
 
+    [Fact]
+    public async Task FetchReportsANonZeroExitWithoutUsageAsUnavailable()
+    {
+        CopilotUsageProvider provider = new(
+            new FakeProcessRunner(string.Empty, exitCode: 1),
+            new StubExecutableLocator("C:\\tools\\gh.exe"));
+
+        ProviderException exception = await Assert.ThrowsAsync<ProviderException>(() =>
+            provider.FetchAsync(CancellationToken.None));
+
+        Assert.Equal(ProviderErrorCategory.Unavailable, exception.Category);
+    }
+
+    [Fact]
+    public async Task FetchPreservesAuthenticationGuidanceFromANonZeroExit()
+    {
+        CopilotUsageProvider provider = new(
+            new FakeProcessRunner("{\"message\":\"authentication required\"}", exitCode: 1),
+            new StubExecutableLocator("C:\\tools\\gh.exe"));
+
+        ProviderException exception = await Assert.ThrowsAsync<ProviderException>(() =>
+            provider.FetchAsync(CancellationToken.None));
+
+        Assert.Equal(ProviderErrorCategory.AuthenticationRequired, exception.Category);
+    }
+
     private sealed class StubExecutableLocator(string path) : IExecutableLocator
     {
         public string? FindExecutable(string executableName) => path;
     }
 
-    private sealed class FakeProcessSessionFactory(string response) : IProcessSessionFactory
+    private sealed class FakeProcessRunner(string response, int exitCode = 0) : IBoundedProcessRunner
     {
         public ProcessStartSpec? StartSpec { get; private set; }
 
-        public IProcessSession Start(ProcessStartSpec spec)
-        {
-            this.StartSpec = spec;
-            return new FakeProcessSession(response);
-        }
-    }
-
-    private sealed class FakeProcessSession(string response) : IProcessSession
-    {
-        private string? _response = response;
-
-        public Task WriteLineAsync(string line, CancellationToken cancellationToken) =>
-            Task.CompletedTask;
-
-        public Task<string?> ReadLineAsync(CancellationToken cancellationToken)
+        public Task<ProcessRunResult> RunAsync(
+            ProcessStartSpec spec,
+            int maximumStandardOutputBytes,
+            int maximumStandardErrorBytes,
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            string? result = this._response;
-            this._response = null;
-            return Task.FromResult(result);
+            this.StartSpec = spec;
+            return Task.FromResult(new ProcessRunResult(
+                Encoding.UTF8.GetBytes(response),
+                exitCode,
+                string.Empty));
         }
-
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
     private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider

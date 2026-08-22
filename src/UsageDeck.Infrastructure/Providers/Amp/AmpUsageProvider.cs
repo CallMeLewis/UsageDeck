@@ -5,13 +5,14 @@ using UsageDeck.Infrastructure.Processes;
 namespace UsageDeck.Infrastructure.Providers.Amp;
 
 public sealed class AmpUsageProvider(
-    IProcessSessionFactory processSessionFactory,
+    IBoundedProcessRunner processRunner,
     IExecutableLocator executableLocator,
     TimeProvider? timeProvider = null,
     string? userProfile = null,
     ICliVersionReader? cliVersionReader = null) : IUsageProvider, ICliVersionProvider
 {
     private const int MaximumResponseLength = 262_144;
+    private const int MaximumStandardErrorLength = 16_384;
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
     private readonly string _userProfile = userProfile
         ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
@@ -57,28 +58,44 @@ public sealed class AmpUsageProvider(
 
         try
         {
-            await using IProcessSession session = processSessionFactory.Start(spec);
-            StringBuilder response = new(capacity: 4096);
-            while (await session.ReadLineAsync(timeout.Token).ConfigureAwait(false) is string line)
+            ProcessRunResult result = await processRunner.RunAsync(
+                spec,
+                MaximumResponseLength,
+                MaximumStandardErrorLength,
+                timeout.Token).ConfigureAwait(false);
+            string response = Encoding.UTF8.GetString(result.StandardOutput);
+
+            if (result.ExitCode != 0)
             {
-                if (response.Length + line.Length + Environment.NewLine.Length > MaximumResponseLength)
+                if (!string.IsNullOrWhiteSpace(response))
                 {
-                    throw new ProviderException(
-                        ProviderErrorCategory.InvalidResponse,
-                        "Amp returned a usage response that was too large to process safely.");
+                    try
+                    {
+                        _ = AmpUsageParser.Parse(response, this._timeProvider.GetUtcNow());
+                    }
+                    catch (ProviderException exception)
+                        when (exception.Category == ProviderErrorCategory.AuthenticationRequired)
+                    {
+                        throw;
+                    }
+                    catch (Exception exception) when (exception is ProviderException or ArgumentException)
+                    {
+                    }
                 }
 
-                response.AppendLine(line);
+                throw new ProviderException(
+                    ProviderErrorCategory.Unavailable,
+                    "Amp usage could not be read.");
             }
 
-            if (response.Length == 0)
+            if (string.IsNullOrWhiteSpace(response))
             {
                 throw new ProviderException(
                     ProviderErrorCategory.AuthenticationRequired,
                     "Amp needs you to sign in. Run `amp login`, then refresh.");
             }
 
-            return AmpUsageParser.Parse(response.ToString(), this._timeProvider.GetUtcNow());
+            return AmpUsageParser.Parse(response, this._timeProvider.GetUtcNow());
         }
         catch (ProviderException)
         {
@@ -93,6 +110,13 @@ public sealed class AmpUsageProvider(
             throw new ProviderException(
                 ProviderErrorCategory.Transient,
                 "Amp did not return usage details in time.",
+                exception);
+        }
+        catch (ProcessOutputLimitExceededException exception)
+        {
+            throw new ProviderException(
+                ProviderErrorCategory.InvalidResponse,
+                "Amp returned a usage response that was too large to process safely.",
                 exception);
         }
         catch (Exception exception)

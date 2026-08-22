@@ -6,6 +6,23 @@ namespace UsageDeck.App.Tests;
 public sealed class UsageRefreshChangeDetectorTests
 {
     [Fact]
+    public void RefreshIntervalChangeAffectsOnlySelectedAutomaticScope()
+    {
+        AppSettings previous = AppSettings.Default with
+        {
+            EnabledProviders = [ProviderId.Codex, ProviderId.Claude, ProviderId.Amp],
+        };
+        AppSettings current = previous with { RefreshIntervalMinutes = 15 };
+
+        IReadOnlyCollection<ProviderId> affected = UsageRefreshChangeDetector.AffectedProviders(
+            previous,
+            current,
+            ProviderId.Claude);
+
+        Assert.Equal([ProviderId.Claude], affected);
+    }
+
+    [Fact]
     public void ProviderAcquisitionSettingsRefreshOnlyTheirProvider()
     {
         AppSettings previous = AppSettings.Default with

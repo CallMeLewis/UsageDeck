@@ -5,6 +5,55 @@ namespace UsageDeck.App.Tests;
 public sealed class MainPageLayoutTests
 {
     [Fact]
+    public void ProviderTabsUseTheListViewVirtualisingPanel()
+    {
+        string sourcePath = Path.Combine(
+            AppContext.BaseDirectory,
+            "SourceUnderTest",
+            "MainPage.xaml");
+        XDocument xaml = XDocument.Load(sourcePath);
+        XNamespace presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+        XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
+
+        XElement tabs = Assert.Single(
+            xaml.Descendants(presentation + "ListView"),
+            element => string.Equals(
+                (string?)element.Attribute(x + "Name"),
+                "ProviderTabs",
+                StringComparison.Ordinal));
+        XElement itemsPanel = Assert.Single(
+            tabs.Elements(presentation + "ListView.ItemsPanel")
+                .Elements(presentation + "ItemsPanelTemplate"));
+
+        XElement panel = Assert.Single(itemsPanel.Elements());
+        Assert.Equal(presentation + "ItemsStackPanel", panel.Name);
+        Assert.Equal("Horizontal", (string?)panel.Attribute("Orientation"));
+    }
+
+    [Fact]
+    public void MainPageHasAClosableSettingsRecoveryWarning()
+    {
+        string sourcePath = Path.Combine(
+            AppContext.BaseDirectory,
+            "SourceUnderTest",
+            "MainPage.xaml");
+        XDocument xaml = XDocument.Load(sourcePath);
+        XNamespace presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+        XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
+
+        XElement warning = Assert.Single(
+            xaml.Descendants(presentation + "InfoBar"),
+            element => string.Equals(
+                (string?)element.Attribute(x + "Name"),
+                "SettingsRecoveryInfoBar",
+                StringComparison.Ordinal));
+
+        Assert.Equal("True", (string?)warning.Attribute("IsClosable"));
+        Assert.Equal("Settings were restored", (string?)warning.Attribute("Title"));
+        Assert.Contains("InitialSettingsWarning", ReadMainPageSource(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void InitialContentTransitionDoesNotForceSynchronousLayout()
     {
         string source = ReadMainPageSource();
@@ -66,7 +115,7 @@ public sealed class MainPageLayoutTests
     }
 
     [Fact]
-    public void MultiProviderRefreshKeepsUiWorkOutOfTheBackgroundBatch()
+    public void MultiProviderRefreshUsesPerProviderAsyncOperations()
     {
         string source = ReadMainPageSource();
         int methodStart = source.IndexOf(
@@ -82,10 +131,6 @@ public sealed class MainPageLayoutTests
         string method = source[methodStart..methodEnd];
         Assert.Contains(
             ".Select(this.RefreshProviderAsync)",
-            method,
-            StringComparison.Ordinal);
-        Assert.DoesNotContain(
-            "ProviderRefreshBatch.RunAsync",
             method,
             StringComparison.Ordinal);
     }

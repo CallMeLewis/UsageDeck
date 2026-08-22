@@ -46,6 +46,8 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
         this._resetTimeDisplay = app.CurrentSettings.ResetTimeDisplay;
         this._usageValueDisplay = app.CurrentSettings.UsageValueDisplay;
         this._refreshInterval = TimeSpan.FromMinutes(app.CurrentSettings.RefreshIntervalMinutes);
+        this.SettingsRecoveryInfoBar.Message = app.InitialSettingsWarning ?? string.Empty;
+        this.SettingsRecoveryInfoBar.IsOpen = app.InitialSettingsWarning is not null;
         this.ApplyPresentationCadence(app.CurrentSettings.RefreshIntervalMinutes);
         app.SettingsChanged += this.App_SettingsChanged;
         app.AccessibilityChanged += this.App_AccessibilityChanged;
@@ -120,6 +122,11 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
             this._selectedProvider?.IsSelected = false;
             this._selectedProvider = value;
             this._selectedProvider.IsSelected = true;
+            if (Application.Current is App app)
+            {
+                app.SetSelectedUsageProvider(value.Id);
+            }
+
             this.OnPropertyChanged();
         }
     }
@@ -162,7 +169,9 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
     private async Task RefreshProviderAsync(ProviderTabViewModel provider)
     {
         provider.IsLoading = true;
-        ProviderSnapshot snapshot = await this._refreshCoordinator.RefreshAsync(provider.Id);
+        await ((App)Application.Current).RefreshUsageProvidersAsync([provider.Id]);
+        ProviderSnapshot snapshot = this._refreshCoordinator.GetSnapshot(provider.Id)
+            ?? throw new InvalidOperationException($"{provider.DisplayName} did not publish a usage snapshot.");
         this.ApplyProviderSnapshot(snapshot);
     }
 

@@ -5,12 +5,13 @@ using UsageDeck.Infrastructure.Processes;
 namespace UsageDeck.Infrastructure.Providers.Copilot;
 
 public sealed class CopilotUsageProvider(
-    IProcessSessionFactory processSessionFactory,
+    IBoundedProcessRunner processRunner,
     IExecutableLocator executableLocator,
     TimeProvider? timeProvider = null,
     ICliVersionReader? cliVersionReader = null) : IUsageProvider, ICliVersionProvider
 {
     private const int MaximumResponseLength = 1_048_576;
+    private const int MaximumStandardErrorLength = 16_384;
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
 
     public ProviderId Id => ProviderId.Copilot;
@@ -63,28 +64,44 @@ public sealed class CopilotUsageProvider(
 
         try
         {
-            await using IProcessSession session = processSessionFactory.Start(spec);
-            StringBuilder response = new();
-            while (await session.ReadLineAsync(timeout.Token).ConfigureAwait(false) is string line)
+            ProcessRunResult result = await processRunner.RunAsync(
+                spec,
+                MaximumResponseLength,
+                MaximumStandardErrorLength,
+                timeout.Token).ConfigureAwait(false);
+            string response = Encoding.UTF8.GetString(result.StandardOutput);
+
+            if (result.ExitCode != 0)
             {
-                if (response.Length + line.Length + 1 > MaximumResponseLength)
+                if (!string.IsNullOrWhiteSpace(response))
                 {
-                    throw new ProviderException(
-                        ProviderErrorCategory.InvalidResponse,
-                        "GitHub returned a Copilot usage response that was too large to process safely.");
+                    try
+                    {
+                        _ = CopilotUsageParser.Parse(response, this._timeProvider.GetUtcNow());
+                    }
+                    catch (ProviderException exception)
+                        when (exception.Category == ProviderErrorCategory.AuthenticationRequired)
+                    {
+                        throw;
+                    }
+                    catch (Exception exception) when (exception is ProviderException or ArgumentException)
+                    {
+                    }
                 }
 
-                response.AppendLine(line);
+                throw new ProviderException(
+                    ProviderErrorCategory.Unavailable,
+                    "GitHub Copilot usage could not be read.");
             }
 
-            if (response.Length == 0)
+            if (string.IsNullOrWhiteSpace(response))
             {
                 throw new ProviderException(
                     ProviderErrorCategory.AuthenticationRequired,
                     "GitHub needs you to sign in. Run `gh auth login`, then refresh.");
             }
 
-            return CopilotUsageParser.Parse(response.ToString(), this._timeProvider.GetUtcNow());
+            return CopilotUsageParser.Parse(response, this._timeProvider.GetUtcNow());
         }
         catch (ProviderException)
         {
@@ -99,6 +116,13 @@ public sealed class CopilotUsageProvider(
             throw new ProviderException(
                 ProviderErrorCategory.Transient,
                 "GitHub did not return Copilot usage in time.",
+                exception);
+        }
+        catch (ProcessOutputLimitExceededException exception)
+        {
+            throw new ProviderException(
+                ProviderErrorCategory.InvalidResponse,
+                "GitHub returned a Copilot usage response that was too large to process safely.",
                 exception);
         }
         catch (Exception exception)

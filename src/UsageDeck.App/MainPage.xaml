@@ -50,7 +50,7 @@
             ScrollViewer.VerticalScrollMode="Disabled">
             <ListView.ItemsPanel>
                 <ItemsPanelTemplate>
-                    <StackPanel Orientation="Horizontal" />
+                    <ItemsStackPanel Orientation="Horizontal" />
                 </ItemsPanelTemplate>
             </ListView.ItemsPanel>
             <ListView.ItemContainerStyle>
@@ -302,6 +302,13 @@
                             Visibility="{Binding SelectedProvider.HasPlan, Converter={StaticResource BooleanToVisibilityConverter}}" />
                     </Grid>
                 </Border>
+
+                <InfoBar
+                    x:Name="SettingsRecoveryInfoBar"
+                    AutomationProperties.LiveSetting="Polite"
+                    IsClosable="True"
+                    Severity="Warning"
+                    Title="Settings were restored" />
 
                 <InfoBar
                     MinHeight="0"

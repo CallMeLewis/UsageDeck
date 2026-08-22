@@ -209,7 +209,7 @@ public sealed class NotificationEvaluatorTests
     }
 
     [Fact]
-    public void InitialAuthenticationFailureRemainsAQuietBaseline()
+    public void InitialAuthenticationFailureAndRecoveryEachNotifyOnce()
     {
         NotificationEvaluator evaluator = new();
         NotificationEvaluationOptions options = new();
@@ -217,16 +217,18 @@ public sealed class NotificationEvaluatorTests
             state: UsageDataState.AuthenticationRequired,
             errorCategory: ProviderErrorCategory.AuthenticationRequired);
 
-        Assert.Empty(evaluator.EvaluateUsage(failure, options));
+        Assert.IsType<ProviderAuthenticationRequiredNotification>(
+            Assert.Single(evaluator.EvaluateUsage(failure, options)));
         Assert.Empty(evaluator.EvaluateUsage(
             failure.WithFailure(
                 UsageDataState.AuthenticationRequired,
                 "Sign-in is still required.",
                 ProviderErrorCategory.AuthenticationRequired),
             options));
-        Assert.Empty(evaluator.EvaluateUsage(
-            Snapshot(capturedAt: Now.AddMinutes(5)),
-            options));
+        Assert.IsType<ProviderConnectionRecoveredNotification>(Assert.Single(
+            evaluator.EvaluateUsage(
+                Snapshot(capturedAt: Now.AddMinutes(5)),
+                options)));
     }
 
     [Fact]
@@ -267,6 +269,20 @@ public sealed class NotificationEvaluatorTests
         Assert.Empty(evaluator.EvaluateStatus(Status(ProviderServiceHealth.ProblemsReported), options));
         Assert.IsType<ProviderIncidentResolvedNotification>(Assert.Single(
             evaluator.EvaluateStatus(Status(ProviderServiceHealth.Operational), options)));
+    }
+
+    [Fact]
+    public void ResetStatusClearsIncidentHistoryBeforeMonitoringRestarts()
+    {
+        NotificationEvaluator evaluator = new();
+        NotificationEvaluationOptions options = new();
+        evaluator.EvaluateStatus(Status(ProviderServiceHealth.Operational), options);
+        Assert.Single(evaluator.EvaluateStatus(Status(ProviderServiceHealth.ProblemsReported), options));
+
+        evaluator.ResetStatus();
+
+        Assert.Empty(evaluator.EvaluateStatus(Status(ProviderServiceHealth.ProblemsReported), options));
+        Assert.Empty(evaluator.EvaluateStatus(Status(ProviderServiceHealth.Operational), options));
     }
 
     private static ProviderSnapshot Snapshot(

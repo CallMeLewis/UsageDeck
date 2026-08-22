@@ -122,38 +122,6 @@ public sealed class ProviderRefreshCoordinatorTests
     }
 
     [Fact]
-    public async Task RefreshAfterCurrentRunsOnceMoreAndCoalescesCallers()
-    {
-        int fetchCount = 0;
-        TaskCompletionSource releaseFirst = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        TaskCompletionSource secondStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        FakeProvider provider = new(async cancellationToken =>
-        {
-            if (Interlocked.Increment(ref fetchCount) == 1)
-            {
-                await releaseFirst.Task.WaitAsync(cancellationToken);
-            }
-            else
-            {
-                secondStarted.SetResult();
-            }
-
-            return FreshSnapshot();
-        });
-        ProviderRefreshCoordinator coordinator = new([provider]);
-
-        Task<ProviderSnapshot> current = coordinator.RefreshAsync(ProviderId.Codex);
-        Task<ProviderSnapshot> queuedFirst = coordinator.RefreshAfterCurrentAsync(ProviderId.Codex);
-        Task<ProviderSnapshot> queuedSecond = coordinator.RefreshAfterCurrentAsync(ProviderId.Codex);
-        releaseFirst.SetResult();
-
-        await secondStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
-        await Task.WhenAll(current, queuedFirst, queuedSecond);
-
-        Assert.Equal(2, provider.FetchCount);
-    }
-
-    [Fact]
     public async Task CancelledWaitDoesNotPreventTheNextRefresh()
     {
         TaskCompletionSource release = new(TaskCreationOptions.RunContinuationsAsynchronously);

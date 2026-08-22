@@ -58,6 +58,21 @@ public sealed class ProcessSessionFactoryTests
     }
 
     [Fact]
+    public async Task ProcessSessionDisposesAfterTheProcessHasAlreadyExited()
+    {
+        string commandInterpreter = Environment.GetEnvironmentVariable("ComSpec") ?? "cmd.exe";
+        IProcessSession session = new ProcessSessionFactory().Start(new ProcessStartSpec(
+            commandInterpreter,
+            ["/d", "/c", "exit", "0"],
+            Environment.CurrentDirectory));
+
+        using CancellationTokenSource timeout = new(TimeSpan.FromSeconds(5));
+        Assert.Null(await session.ReadLineAsync(timeout.Token));
+
+        await session.DisposeAsync();
+    }
+
+    [Fact]
     public async Task BoundedRunnerStopsAStreamingProcessWhenStandardOutputExceedsTheLimit()
     {
         string directory = Path.Combine(Path.GetTempPath(), "UsageDeck.Tests", Guid.NewGuid().ToString("N"));

@@ -18,6 +18,7 @@ public sealed class ClaudeUsageProvider(
     private static readonly TimeSpan SettleBudget = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan SettlePollInterval = TimeSpan.FromMilliseconds(250);
     private static readonly TimeSpan QuietPeriod = TimeSpan.FromSeconds(1.5);
+    private const int MaximumApiResponseBytes = 1_048_576;
 
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
     private readonly IClaudeCredentialsReader _credentialsReader = credentialsReader ?? new ClaudeCredentialsReader();
@@ -82,7 +83,8 @@ public sealed class ClaudeUsageProvider(
                 return null;
             }
 
-            string json = await response.Content.ReadAsStringAsync(timeout.Token).ConfigureAwait(false);
+            byte[] body = await ReadBoundedApiResponseAsync(response.Content, timeout.Token).ConfigureAwait(false);
+            string json = Encoding.UTF8.GetString(body);
             IReadOnlyList<UsageWindow> windows = ClaudeApiUsageParser.Parse(json);
             return new ProviderSnapshot(
                 this.Id,
@@ -102,6 +104,40 @@ public sealed class ClaudeUsageProvider(
             return null;
         }
     }
+
+    private static async Task<byte[]> ReadBoundedApiResponseAsync(
+        HttpContent content,
+        CancellationToken cancellationToken)
+    {
+        long? length = content.Headers.ContentLength;
+        if (length > MaximumApiResponseBytes)
+        {
+            throw ApiResponseTooLarge();
+        }
+
+        await using Stream stream = await content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        using MemoryStream body = new(length is > 0 ? checked((int)length.Value) : 4096);
+        byte[] buffer = new byte[8192];
+        while (true)
+        {
+            int read = await stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+            if (read == 0)
+            {
+                return body.ToArray();
+            }
+
+            if (body.Length + read > MaximumApiResponseBytes)
+            {
+                throw ApiResponseTooLarge();
+            }
+
+            body.Write(buffer, 0, read);
+        }
+    }
+
+    private static ProviderException ApiResponseTooLarge() => new(
+        ProviderErrorCategory.InvalidResponse,
+        "Claude returned a usage response that was too large to process safely.");
 
     private async Task<ProviderSnapshot> FetchFromCliAsync(CancellationToken cancellationToken)
     {

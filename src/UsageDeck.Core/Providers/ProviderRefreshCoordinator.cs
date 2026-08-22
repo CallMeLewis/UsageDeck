@@ -12,7 +12,6 @@ public sealed class ProviderRefreshCoordinator
     private readonly IReadOnlyDictionary<ProviderId, IUsageProvider> _providers;
     private readonly ConcurrentDictionary<ProviderId, ProviderSnapshot> _snapshots = new();
     private readonly ConcurrentDictionary<ProviderId, Lazy<Task<ProviderSnapshot>>> _inFlight = new();
-    private readonly ConcurrentDictionary<ProviderId, Lazy<Task<ProviderSnapshot>>> _queuedRefreshes = new();
     private readonly SemaphoreSlim _refreshConcurrency;
     private readonly CancellationToken _shutdownToken;
 
@@ -74,23 +73,6 @@ public sealed class ProviderRefreshCoordinator
         return await refreshTask.WaitAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task<ProviderSnapshot> RefreshAfterCurrentAsync(
-        ProviderId providerId,
-        CancellationToken cancellationToken = default)
-    {
-        if (!this._providers.ContainsKey(providerId))
-        {
-            throw new KeyNotFoundException($"Provider '{providerId}' is not registered.");
-        }
-
-        Lazy<Task<ProviderSnapshot>> queuedRefresh = this._queuedRefreshes.GetOrAdd(
-            providerId,
-            _ => new Lazy<Task<ProviderSnapshot>>(
-                () => this.RefreshAfterCurrentAndRemoveAsync(providerId),
-                LazyThreadSafetyMode.ExecutionAndPublication));
-        return await queuedRefresh.Value.WaitAsync(cancellationToken).ConfigureAwait(false);
-    }
-
     public async Task<IReadOnlyList<ProviderSnapshot>> RefreshAllAsync(CancellationToken cancellationToken = default)
     {
         Task<ProviderSnapshot>[] tasks = this._providers.Keys
@@ -117,25 +99,6 @@ public sealed class ProviderRefreshCoordinator
         finally
         {
             this._inFlight.TryRemove(provider.Id, out _);
-        }
-    }
-
-    private async Task<ProviderSnapshot> RefreshAfterCurrentAndRemoveAsync(ProviderId providerId)
-    {
-        try
-        {
-            if (this._inFlight.TryGetValue(
-                    providerId,
-                    out Lazy<Task<ProviderSnapshot>>? currentRefresh))
-            {
-                await currentRefresh.Value.ConfigureAwait(false);
-            }
-
-            return await this.RefreshAsync(providerId).ConfigureAwait(false);
-        }
-        finally
-        {
-            this._queuedRefreshes.TryRemove(providerId, out _);
         }
     }
 
