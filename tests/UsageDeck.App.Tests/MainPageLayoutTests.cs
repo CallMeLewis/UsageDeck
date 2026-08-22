@@ -54,6 +54,28 @@ public sealed class MainPageLayoutTests
     }
 
     [Fact]
+    public void ClosedInfoBarsCollapseTheirLayoutSpace()
+    {
+        string sourcePath = Path.Combine(
+            AppContext.BaseDirectory,
+            "SourceUnderTest",
+            "MainPage.xaml");
+        XDocument xaml = XDocument.Load(sourcePath);
+        XNamespace presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+        const string collapsedWhenClosedBinding =
+            "{Binding IsOpen, RelativeSource={RelativeSource Self}, Converter={StaticResource BooleanToVisibilityConverter}}";
+
+        XElement[] infoBars = xaml.Descendants(presentation + "InfoBar").ToArray();
+
+        Assert.NotEmpty(infoBars);
+        Assert.All(
+            infoBars,
+            infoBar => Assert.Equal(
+                collapsedWhenClosedBinding,
+                (string?)infoBar.Attribute("Visibility")));
+    }
+
+    [Fact]
     public void InitialContentTransitionDoesNotForceSynchronousLayout()
     {
         string source = ReadMainPageSource();

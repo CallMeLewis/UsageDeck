@@ -308,7 +308,8 @@
                     AutomationProperties.LiveSetting="Polite"
                     IsClosable="True"
                     Severity="Warning"
-                    Title="Settings were restored" />
+                    Title="Settings were restored"
+                    Visibility="{Binding IsOpen, RelativeSource={RelativeSource Self}, Converter={StaticResource BooleanToVisibilityConverter}}" />
 
                 <InfoBar
                     MinHeight="0"
@@ -317,7 +318,8 @@
                     IsClosable="False"
                     IsOpen="{Binding SelectedProvider.HasServiceProblem}"
                     Severity="Warning"
-                    Title="Service issues reported">
+                    Title="Service issues reported"
+                    Visibility="{Binding IsOpen, RelativeSource={RelativeSource Self}, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <InfoBar.ActionButton>
                         <HyperlinkButton
                             MinHeight="28"
@@ -334,7 +336,8 @@
                     IsClosable="False"
                     IsOpen="{Binding SelectedProvider.HasStatusMessage}"
                     Message="{Binding SelectedProvider.StatusMessage}"
-                    Severity="Warning">
+                    Severity="Warning"
+                    Visibility="{Binding IsOpen, RelativeSource={RelativeSource Self}, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <InfoBar.ActionButton>
                         <Button
                             AutomationProperties.Name="Try loading this provider again"
