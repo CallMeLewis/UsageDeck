@@ -7,13 +7,28 @@ using UsageDeck.Core.Providers;
 
 namespace UsageDeck.Infrastructure.Providers.Status;
 
-public sealed class TheClawBayStatusProvider(HttpClient httpClient) : IProviderStatusProvider
+public sealed class TheClawBayStatusProvider : IProviderStatusProvider
 {
     private const int MaximumResponseBytes = 1_048_576;
     private static readonly Uri StatusSnapshotUri = new("https://theclawbay.com/api/public/status-snapshot");
     private static readonly Uri StatusUri = new("https://theclawbay.com/status");
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(10);
-    private readonly HttpClient _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+    private readonly HttpClient _httpClient;
+    private readonly TimeSpan _requestTimeout;
+
+    public TheClawBayStatusProvider(HttpClient httpClient)
+        : this(httpClient, RequestTimeout)
+    {
+    }
+
+    internal TheClawBayStatusProvider(HttpClient httpClient, TimeSpan requestTimeout)
+    {
+        ArgumentNullException.ThrowIfNull(httpClient);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(requestTimeout, TimeSpan.Zero);
+
+        this._httpClient = httpClient;
+        this._requestTimeout = requestTimeout;
+    }
 
     public ProviderId Id => ProviderId.TheClawBay;
 
@@ -22,7 +37,7 @@ public sealed class TheClawBayStatusProvider(HttpClient httpClient) : IProviderS
     public async Task<ProviderServiceStatusSnapshot> FetchStatusAsync(CancellationToken cancellationToken)
     {
         using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(RequestTimeout);
+        timeout.CancelAfter(this._requestTimeout);
         try
         {
             using HttpResponseMessage response = await this._httpClient.GetAsync(

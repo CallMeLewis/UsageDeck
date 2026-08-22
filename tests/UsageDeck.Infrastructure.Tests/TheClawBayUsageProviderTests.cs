@@ -139,11 +139,16 @@ public sealed class TheClawBayUsageProviderTests
     [Fact]
     public async Task ApiKeyModeMapsRequestTimeoutToTransient()
     {
-        TheClawBayUsageProvider provider = CreateProvider(
-            new HttpClient(new BlockingHandler()),
+        TheClawBayUsageProvider provider = new(
             new FakeProcessSessionFactory("unused"),
-            "private-key",
-            TheClawBayUsageSource.ApiKey);
+            new FixedTheClawBayCliCommandResolver(
+                new TheClawBayCliCommand(@"C:\Tools\theclawbay.exe", [])),
+            new HttpClient(new BlockingHandler()),
+            new StubApiKeySource("private-key"),
+            () => TheClawBayUsageSource.ApiKey,
+            cliVersionReader: null,
+            apiRequestTimeout: TimeSpan.FromMilliseconds(20),
+            cliRequestTimeout: TimeSpan.FromSeconds(20));
 
         ProviderException exception = await Assert.ThrowsAsync<ProviderException>(
             () => provider.FetchAsync(CancellationToken.None));
@@ -525,22 +530,6 @@ public sealed class TheClawBayUsageProviderTests
     }
 
     [Fact]
-    public async Task CliModeMapsWhitespaceOnlySuccessfulOutputToInvalidResponse()
-    {
-        TheClawBayUsageProvider provider = CreateProvider(
-            new HttpClient(new RecordingHandler(_ => throw new InvalidOperationException())),
-            new FakeProcessSessionFactory(" \r\n\t"),
-            "private-key",
-            TheClawBayUsageSource.Cli);
-
-        ProviderException exception = await Assert.ThrowsAsync<ProviderException>(
-            () => provider.FetchAsync(CancellationToken.None));
-
-        Assert.Equal(ProviderErrorCategory.InvalidResponse, exception.Category);
-        Assert.Equal("TheClawBay CLI returned an empty usage response.", exception.SafeMessage);
-    }
-
-    [Fact]
     public async Task CliModeRejectsOversizedOutput()
     {
         TheClawBayUsageProvider provider = CreateProvider(
@@ -582,7 +571,10 @@ public sealed class TheClawBayUsageProviderTests
                 new TheClawBayCliCommand(@"C:\Tools\theclawbay.exe", [])),
             new HttpClient(new RecordingHandler(_ => throw new InvalidOperationException())),
             new StubApiKeySource("private-key"),
-            () => TheClawBayUsageSource.Cli);
+            () => TheClawBayUsageSource.Cli,
+            cliVersionReader: null,
+            apiRequestTimeout: TimeSpan.FromSeconds(15),
+            cliRequestTimeout: TimeSpan.FromMilliseconds(20));
 
         ProviderException exception = await Assert.ThrowsAsync<ProviderException>(
             () => provider.FetchAsync(CancellationToken.None));

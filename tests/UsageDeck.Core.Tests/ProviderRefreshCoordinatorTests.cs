@@ -5,27 +5,6 @@ namespace UsageDeck.Core.Tests;
 public sealed class ProviderRefreshCoordinatorTests
 {
     [Fact]
-    public async Task ConcurrentRefreshesShareOneProviderFetch()
-    {
-        TaskCompletionSource release = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        FakeProvider provider = new(async cancellationToken =>
-        {
-            await release.Task.WaitAsync(cancellationToken);
-            return FreshSnapshot();
-        });
-        ProviderRefreshCoordinator coordinator = new([provider]);
-
-        Task<ProviderSnapshot> first = coordinator.RefreshAsync(ProviderId.Codex);
-        Task<ProviderSnapshot> second = coordinator.RefreshAsync(ProviderId.Codex);
-        release.SetResult();
-
-        ProviderSnapshot[] snapshots = await Task.WhenAll(first, second);
-
-        Assert.Equal(1, provider.FetchCount);
-        Assert.Same(snapshots[0], snapshots[1]);
-    }
-
-    [Fact]
     public async Task SimultaneousRefreshesStartOnlyOneProviderFetch()
     {
         TaskCompletionSource release = new(TaskCreationOptions.RunContinuationsAsynchronously);

@@ -96,20 +96,94 @@ public sealed class AppSettingsStoreTests : IDisposable
     }
 
     [Fact]
-    public async Task SaveAndLoadRoundTripsTheClawBaySourceSettings()
+    public async Task SaveAndLoadRoundTripsAllPersistedSettings()
     {
+        DateTimeOffset pauseDeadline = new(2026, 8, 7, 9, 0, 0, TimeSpan.Zero);
         AppSettingsStore store = new(Path.Combine(this._directory, "settings.json"));
-        AppSettings expected = AppSettings.Default with
-        {
-            TheClawBayUsageSource = TheClawBayUsageSource.ApiKey,
-            TheClawBayApiKeyStorage = ApiKeyStorageMode.SessionOnly,
-        };
+        AppSettings expected = (AppSettings.Default with
+            {
+                EnabledProviders = [ProviderId.Claude, ProviderId.Amp, ProviderId.Zai, ProviderId.TheClawBay],
+                DefaultProvider = ProviderId.Amp,
+                Theme = AppThemePreference.Dark,
+                RefreshIntervalMinutes = 15,
+                UseTranslucentBackground = true,
+                IsAllTabEnabled = false,
+                ZaiApiKeyStorage = ApiKeyStorageMode.SessionOnly,
+                ZaiRegion = ZaiApiRegion.BigModelChina,
+                IsStatusMonitoringEnabled = false,
+                ShowCodexSparkCard = false,
+                ResetTimeDisplay = ResetTimeDisplayMode.ExactDateTime,
+                UsageValueDisplay = UsageValueDisplayMode.Remaining,
+                OpenCodeGoApiKeyStorage = ApiKeyStorageMode.SessionOnly,
+                OpenCodeGoUsageRange = OpenCodeGoUsageRange.SevenDays,
+                CheckForUpdatesAutomatically = false,
+                UpdateChannel = AppUpdateChannel.Beta,
+                AreNotificationsEnabled = false,
+                TheClawBayUsageSource = TheClawBayUsageSource.ApiKey,
+                TheClawBayApiKeyStorage = ApiKeyStorageMode.SessionOnly,
+                StartAtSignIn = true,
+                NotificationsPausedUntilUtc = pauseDeadline,
+            })
+            .WithProviderNotifications(new ProviderNotificationSettings(
+                ProviderId.Codex,
+                LimitNotificationThresholds.Remaining10,
+                NotifyLimitResets: false,
+                NotifyResetCredits: false,
+                NotifyStatusChanges: false,
+                NotifyConnectionChanges: false));
 
         await store.SaveAsync(expected);
         AppSettingsLoadResult actual = store.Load();
 
+        Assert.Null(actual.SafeWarning);
+        Assert.False(actual.IsFirstRun);
+        Assert.Equal(expected.EnabledProviders, actual.Settings.EnabledProviders);
+        Assert.Equal(expected.DefaultProvider, actual.Settings.DefaultProvider);
+        Assert.Equal(expected.Theme, actual.Settings.Theme);
+        Assert.Equal(expected.RefreshIntervalMinutes, actual.Settings.RefreshIntervalMinutes);
+        Assert.Equal(expected.UseTranslucentBackground, actual.Settings.UseTranslucentBackground);
+        Assert.Equal(expected.IsAllTabEnabled, actual.Settings.IsAllTabEnabled);
+        Assert.Equal(expected.ZaiApiKeyStorage, actual.Settings.ZaiApiKeyStorage);
+        Assert.Equal(expected.ZaiRegion, actual.Settings.ZaiRegion);
+        Assert.Equal(expected.IsStatusMonitoringEnabled, actual.Settings.IsStatusMonitoringEnabled);
+        Assert.Equal(expected.ShowCodexSparkCard, actual.Settings.ShowCodexSparkCard);
+        Assert.Equal(expected.ResetTimeDisplay, actual.Settings.ResetTimeDisplay);
+        Assert.Equal(expected.UsageValueDisplay, actual.Settings.UsageValueDisplay);
+        Assert.Equal(expected.OpenCodeGoApiKeyStorage, actual.Settings.OpenCodeGoApiKeyStorage);
+        Assert.Equal(expected.OpenCodeGoUsageRange, actual.Settings.OpenCodeGoUsageRange);
+        Assert.Equal(expected.CheckForUpdatesAutomatically, actual.Settings.CheckForUpdatesAutomatically);
+        Assert.Equal(expected.UpdateChannel, actual.Settings.UpdateChannel);
+        Assert.Equal(expected.AreNotificationsEnabled, actual.Settings.AreNotificationsEnabled);
         Assert.Equal(TheClawBayUsageSource.ApiKey, actual.Settings.TheClawBayUsageSource);
         Assert.Equal(ApiKeyStorageMode.SessionOnly, actual.Settings.TheClawBayApiKeyStorage);
+        Assert.Equal(expected.StartAtSignIn, actual.Settings.StartAtSignIn);
+        Assert.Equal(pauseDeadline, actual.Settings.NotificationsPausedUntilUtc);
+        Assert.Equal(
+            expected.ProviderNotifications!.ToArray(),
+            actual.Settings.ProviderNotifications!.ToArray());
+
+        string savedJson = await File.ReadAllTextAsync(Path.Combine(this._directory, "settings.json"));
+        Assert.Contains("\"defaultProvider\": \"amp\"", savedJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"selectedProvider\"", savedJson, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task SaveNeverPersistsCredentialFields()
+    {
+        string path = Path.Combine(this._directory, "settings.json");
+        AppSettingsStore store = new(path);
+
+        await store.SaveAsync(AppSettings.Default with
+        {
+            ZaiApiKeyStorage = ApiKeyStorageMode.SessionOnly,
+            OpenCodeGoApiKeyStorage = ApiKeyStorageMode.SessionOnly,
+            TheClawBayApiKeyStorage = ApiKeyStorageMode.SessionOnly,
+        });
+
+        string savedJson = await File.ReadAllTextAsync(path);
+        Assert.DoesNotContain("\"zaiApiKey\":", savedJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("\"openCodeGoApiKey\":", savedJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("\"theClawBayApiKey\":", savedJson, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -131,7 +205,7 @@ public sealed class AppSettingsStoreTests : IDisposable
     }
 
     [Fact]
-    public void LoadInvalidTheClawBayPreferencesFallsBackSafely()
+    public void LoadInvalidPreferencesFallBackIndividually()
     {
         Directory.CreateDirectory(this._directory);
         string path = Path.Combine(this._directory, "settings.json");
@@ -139,15 +213,40 @@ public sealed class AppSettingsStoreTests : IDisposable
             {
               "enabledProviders": ["codex"],
               "defaultProvider": "codex",
+              "theme": "Dark",
+              "zaiApiKeyStorage": "PlainText",
+              "zaiRegion": "UntrustedEndpoint",
+              "resetTimeDisplay": "ProviderDefault",
+              "usageValueDisplay": "Both",
+              "openCodeGoApiKeyStorage": "PlainText",
+              "openCodeGoUsageRange": "NinetyDays",
+              "updateChannel": "Nightly",
               "theClawBayUsageSource": "BrowserCookie",
-              "theClawBayApiKeyStorage": "PlainText"
+              "theClawBayApiKeyStorage": "PlainText",
+              "providerNotifications": [
+                {
+                  "provider": "codex",
+                  "limitNotificationThresholds": "Remaining20, FutureThreshold"
+                }
+              ]
             }
             """);
 
         AppSettings settings = new AppSettingsStore(path).Load().Settings;
 
+        Assert.Equal(AppThemePreference.Dark, settings.Theme);
+        Assert.Equal(ApiKeyStorageMode.WindowsCredentialManager, settings.ZaiApiKeyStorage);
+        Assert.Equal(ZaiApiRegion.Global, settings.ZaiRegion);
+        Assert.Equal(ResetTimeDisplayMode.Countdown, settings.ResetTimeDisplay);
+        Assert.Equal(UsageValueDisplayMode.Used, settings.UsageValueDisplay);
+        Assert.Equal(ApiKeyStorageMode.WindowsCredentialManager, settings.OpenCodeGoApiKeyStorage);
+        Assert.Equal(OpenCodeGoUsageRange.ThirtyDays, settings.OpenCodeGoUsageRange);
+        Assert.Equal(AppUpdateChannel.Stable, settings.UpdateChannel);
         Assert.Equal(TheClawBayUsageSource.Automatic, settings.TheClawBayUsageSource);
         Assert.Equal(ApiKeyStorageMode.WindowsCredentialManager, settings.TheClawBayApiKeyStorage);
+        Assert.Equal(
+            AppSettings.Default.GetProviderNotifications(ProviderId.Codex).LimitThresholds,
+            settings.GetProviderNotifications(ProviderId.Codex).LimitThresholds);
     }
 
     [Fact]
@@ -172,54 +271,6 @@ public sealed class AppSettingsStoreTests : IDisposable
         };
 
         await Assert.ThrowsAsync<ArgumentException>(() => store.SaveAsync(invalid));
-    }
-
-    [Fact]
-    public async Task SaveAndLoadRoundTripsEnabledProviders()
-    {
-        AppSettingsStore store = new(Path.Combine(this._directory, "settings.json"));
-        AppSettings expected = new(
-            [ProviderId.Claude, ProviderId.Antigravity, ProviderId.Copilot, ProviderId.Kiro, ProviderId.Amp],
-            ProviderId.Antigravity,
-            AppThemePreference.Dark,
-            15,
-            true,
-            false);
-
-        await store.SaveAsync(expected, CancellationToken.None);
-        AppSettingsLoadResult actual = store.Load();
-
-        Assert.Null(actual.SafeWarning);
-        Assert.False(actual.IsFirstRun);
-        Assert.Equal(expected.DefaultProvider, actual.Settings.DefaultProvider);
-        Assert.Equal(expected.EnabledProviders, actual.Settings.EnabledProviders);
-        Assert.Equal(expected.Theme, actual.Settings.Theme);
-        Assert.Equal(expected.RefreshIntervalMinutes, actual.Settings.RefreshIntervalMinutes);
-        Assert.Equal(expected.UseTranslucentBackground, actual.Settings.UseTranslucentBackground);
-        Assert.False(actual.Settings.IsAllTabEnabled);
-        Assert.Equal(ApiKeyStorageMode.WindowsCredentialManager, actual.Settings.ZaiApiKeyStorage);
-        Assert.Equal(ZaiApiRegion.Global, actual.Settings.ZaiRegion);
-        Assert.True(actual.Settings.IsStatusMonitoringEnabled);
-        Assert.True(actual.Settings.ShowCodexSparkCard);
-        Assert.Equal(ResetTimeDisplayMode.Countdown, actual.Settings.ResetTimeDisplay);
-        Assert.Equal(UsageValueDisplayMode.Used, actual.Settings.UsageValueDisplay);
-        Assert.Equal(ApiKeyStorageMode.WindowsCredentialManager, actual.Settings.OpenCodeGoApiKeyStorage);
-        Assert.Equal(OpenCodeGoUsageRange.ThirtyDays, actual.Settings.OpenCodeGoUsageRange);
-        Assert.True(actual.Settings.CheckForUpdatesAutomatically);
-        Assert.Equal(AppUpdateChannel.Stable, actual.Settings.UpdateChannel);
-        Assert.True(actual.Settings.AreNotificationsEnabled);
-        ProviderNotificationSettings notifications = actual.Settings.GetProviderNotifications(ProviderId.Codex);
-        Assert.Equal(
-            AppSettings.Default.GetProviderNotifications(ProviderId.Codex).LimitThresholds,
-            notifications.LimitThresholds);
-        Assert.True(notifications.NotifyLimitResets);
-        Assert.True(notifications.NotifyResetCredits);
-        Assert.True(notifications.NotifyStatusChanges);
-        Assert.True(notifications.NotifyConnectionChanges);
-
-        string savedJson = await File.ReadAllTextAsync(Path.Combine(this._directory, "settings.json"));
-        Assert.Contains("\"defaultProvider\": \"antigravity\"", savedJson, StringComparison.Ordinal);
-        Assert.DoesNotContain("\"selectedProvider\"", savedJson, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -472,76 +523,6 @@ public sealed class AppSettingsStoreTests : IDisposable
     }
 
     [Fact]
-    public async Task SaveAndLoadRoundTripsNonSecretZaiPreferences()
-    {
-        AppSettingsStore store = new(Path.Combine(this._directory, "settings.json"));
-        AppSettings expected = AppSettings.Default with
-        {
-            ZaiApiKeyStorage = ApiKeyStorageMode.SessionOnly,
-            ZaiRegion = ZaiApiRegion.BigModelChina,
-        };
-
-        await store.SaveAsync(expected);
-        AppSettingsLoadResult actual = store.Load();
-
-        Assert.Equal(ApiKeyStorageMode.SessionOnly, actual.Settings.ZaiApiKeyStorage);
-        Assert.Equal(ZaiApiRegion.BigModelChina, actual.Settings.ZaiRegion);
-        string savedJson = await File.ReadAllTextAsync(Path.Combine(this._directory, "settings.json"));
-        Assert.Contains("\"zaiApiKeyStorage\": \"SessionOnly\"", savedJson, StringComparison.Ordinal);
-        Assert.Contains("\"zaiRegion\": \"BigModelChina\"", savedJson, StringComparison.Ordinal);
-        Assert.DoesNotContain("\"zaiApiKey\":", savedJson, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public async Task SaveAndLoadRoundTripsNonSecretOpenCodePreferences()
-    {
-        AppSettingsStore store = new(Path.Combine(this._directory, "settings.json"));
-        AppSettings expected = AppSettings.Default with
-        {
-            OpenCodeGoApiKeyStorage = ApiKeyStorageMode.SessionOnly,
-            OpenCodeGoUsageRange = OpenCodeGoUsageRange.SevenDays,
-        };
-
-        await store.SaveAsync(expected);
-        AppSettingsLoadResult actual = store.Load();
-
-        Assert.Equal(ApiKeyStorageMode.SessionOnly, actual.Settings.OpenCodeGoApiKeyStorage);
-        Assert.Equal(OpenCodeGoUsageRange.SevenDays, actual.Settings.OpenCodeGoUsageRange);
-        string savedJson = await File.ReadAllTextAsync(Path.Combine(this._directory, "settings.json"));
-        Assert.Contains("\"openCodeGoApiKeyStorage\": \"SessionOnly\"", savedJson, StringComparison.Ordinal);
-        Assert.Contains("\"openCodeGoUsageRange\": \"SevenDays\"", savedJson, StringComparison.Ordinal);
-        Assert.DoesNotContain("\"openCodeGoApiKey\":", savedJson, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public async Task SaveAndLoadRoundTripsStatusMonitoringPreference()
-    {
-        AppSettingsStore store = new(Path.Combine(this._directory, "settings.json"));
-        AppSettings expected = AppSettings.Default with { IsStatusMonitoringEnabled = false };
-
-        await store.SaveAsync(expected);
-        AppSettingsLoadResult actual = store.Load();
-
-        Assert.False(actual.Settings.IsStatusMonitoringEnabled);
-        string savedJson = await File.ReadAllTextAsync(Path.Combine(this._directory, "settings.json"));
-        Assert.Contains("\"isStatusMonitoringEnabled\": false", savedJson, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task SaveAndLoadRoundTripsStartAtSignInPreference()
-    {
-        AppSettingsStore store = new(Path.Combine(this._directory, "settings.json"));
-        AppSettings expected = AppSettings.Default with { StartAtSignIn = true };
-
-        await store.SaveAsync(expected);
-        AppSettingsLoadResult actual = store.Load();
-
-        Assert.True(actual.Settings.StartAtSignIn);
-        string savedJson = await File.ReadAllTextAsync(Path.Combine(this._directory, "settings.json"));
-        Assert.Contains("\"startAtSignIn\": true", savedJson, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void LoadSettingsWithoutStartAtSignInDefaultsToOff()
     {
         Directory.CreateDirectory(this._directory);
@@ -556,179 +537,6 @@ public sealed class AppSettingsStoreTests : IDisposable
         AppSettings settings = new AppSettingsStore(path).Load().Settings;
 
         Assert.False(settings.StartAtSignIn);
-    }
-
-    [Fact]
-    public async Task SaveAndLoadRoundTripsNotificationPauseDeadline()
-    {
-        AppSettingsStore store = new(Path.Combine(this._directory, "settings.json"));
-        DateTimeOffset deadline = new(2026, 8, 7, 9, 0, 0, TimeSpan.Zero);
-        AppSettings expected = AppSettings.Default with { NotificationsPausedUntilUtc = deadline };
-
-        await store.SaveAsync(expected);
-        AppSettingsLoadResult actual = store.Load();
-
-        Assert.Equal(deadline, actual.Settings.NotificationsPausedUntilUtc);
-        string savedJson = await File.ReadAllTextAsync(Path.Combine(this._directory, "settings.json"));
-        Assert.Contains(
-            "\"notificationsPausedUntilUtc\": \"2026-08-07T09:00:00+00:00\"",
-            savedJson,
-            StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task SaveAndLoadRoundTripsCodexSparkCardPreference()
-    {
-        AppSettingsStore store = new(Path.Combine(this._directory, "settings.json"));
-        AppSettings expected = AppSettings.Default with { ShowCodexSparkCard = false };
-
-        await store.SaveAsync(expected);
-        AppSettingsLoadResult actual = store.Load();
-
-        Assert.False(actual.Settings.ShowCodexSparkCard);
-        string savedJson = await File.ReadAllTextAsync(Path.Combine(this._directory, "settings.json"));
-        Assert.Contains("\"showCodexSparkCard\": false", savedJson, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task SaveAndLoadRoundTripsUpdatePreferences()
-    {
-        AppSettingsStore store = new(Path.Combine(this._directory, "settings.json"));
-        AppSettings expected = AppSettings.Default with
-        {
-            CheckForUpdatesAutomatically = false,
-            UpdateChannel = AppUpdateChannel.Beta,
-        };
-
-        await store.SaveAsync(expected);
-        AppSettingsLoadResult actual = store.Load();
-
-        Assert.False(actual.Settings.CheckForUpdatesAutomatically);
-        Assert.Equal(AppUpdateChannel.Beta, actual.Settings.UpdateChannel);
-        string savedJson = await File.ReadAllTextAsync(Path.Combine(this._directory, "settings.json"));
-        Assert.Contains("\"checkForUpdatesAutomatically\": false", savedJson, StringComparison.Ordinal);
-        Assert.Contains("\"updateChannel\": \"Beta\"", savedJson, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void LoadInvalidUpdateChannelFallsBackToStable()
-    {
-        Directory.CreateDirectory(this._directory);
-        string path = Path.Combine(this._directory, "settings.json");
-        File.WriteAllText(path, """
-            {
-              "enabledProviders": ["codex"],
-              "defaultProvider": "codex",
-              "updateChannel": "Nightly"
-            }
-            """);
-
-        AppSettings settings = new AppSettingsStore(path).Load().Settings;
-
-        Assert.Equal(AppUpdateChannel.Stable, settings.UpdateChannel);
-    }
-
-    [Fact]
-    public async Task SaveAndLoadRoundTripsResetTimeDisplayPreference()
-    {
-        AppSettingsStore store = new(Path.Combine(this._directory, "settings.json"));
-        AppSettings expected = AppSettings.Default with
-        {
-            ResetTimeDisplay = ResetTimeDisplayMode.ExactDateTime,
-        };
-
-        await store.SaveAsync(expected);
-        AppSettingsLoadResult actual = store.Load();
-
-        Assert.Equal(ResetTimeDisplayMode.ExactDateTime, actual.Settings.ResetTimeDisplay);
-        string savedJson = await File.ReadAllTextAsync(Path.Combine(this._directory, "settings.json"));
-        Assert.Contains("\"resetTimeDisplay\": \"ExactDateTime\"", savedJson, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void LoadInvalidResetTimeDisplayFallsBackToCountdown()
-    {
-        Directory.CreateDirectory(this._directory);
-        string path = Path.Combine(this._directory, "settings.json");
-        File.WriteAllText(path, """
-            {
-              "enabledProviders": ["codex"],
-              "defaultProvider": "codex",
-              "resetTimeDisplay": "ProviderDefault"
-            }
-            """);
-
-        AppSettings settings = new AppSettingsStore(path).Load().Settings;
-
-        Assert.Equal(ResetTimeDisplayMode.Countdown, settings.ResetTimeDisplay);
-    }
-
-    [Fact]
-    public async Task SaveAndLoadRoundTripsUsageValueDisplayPreference()
-    {
-        AppSettingsStore store = new(Path.Combine(this._directory, "settings.json"));
-        AppSettings expected = AppSettings.Default with
-        {
-            UsageValueDisplay = UsageValueDisplayMode.Remaining,
-        };
-
-        await store.SaveAsync(expected);
-        AppSettingsLoadResult actual = store.Load();
-
-        Assert.Equal(UsageValueDisplayMode.Remaining, actual.Settings.UsageValueDisplay);
-        string savedJson = await File.ReadAllTextAsync(Path.Combine(this._directory, "settings.json"));
-        Assert.Contains("\"usageValueDisplay\": \"Remaining\"", savedJson, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void LoadInvalidUsageValueDisplayFallsBackToUsed()
-    {
-        Directory.CreateDirectory(this._directory);
-        string path = Path.Combine(this._directory, "settings.json");
-        File.WriteAllText(path, """
-            {
-              "enabledProviders": ["codex"],
-              "defaultProvider": "codex",
-              "usageValueDisplay": "Both"
-            }
-            """);
-
-        AppSettings settings = new AppSettingsStore(path).Load().Settings;
-
-        Assert.Equal(UsageValueDisplayMode.Used, settings.UsageValueDisplay);
-    }
-
-    [Fact]
-    public async Task SaveAndLoadRoundTripsNotificationPreferences()
-    {
-        AppSettingsStore store = new(Path.Combine(this._directory, "settings.json"));
-        AppSettings expected = (AppSettings.Default with { AreNotificationsEnabled = false })
-            .WithProviderNotifications(new ProviderNotificationSettings(
-                ProviderId.Codex,
-                LimitNotificationThresholds.Remaining10,
-                NotifyLimitResets: false,
-                NotifyResetCredits: false,
-                NotifyStatusChanges: false,
-                NotifyConnectionChanges: false));
-
-        await store.SaveAsync(expected);
-        AppSettingsLoadResult actual = store.Load();
-
-        Assert.False(actual.Settings.AreNotificationsEnabled);
-        ProviderNotificationSettings codex = actual.Settings.GetProviderNotifications(ProviderId.Codex);
-        Assert.Equal(LimitNotificationThresholds.Remaining10, codex.LimitThresholds);
-        Assert.False(codex.NotifyLimitResets);
-        Assert.False(codex.NotifyResetCredits);
-        Assert.False(codex.NotifyStatusChanges);
-        Assert.False(codex.NotifyConnectionChanges);
-        Assert.Equal(
-            AppSettings.Default.GetProviderNotifications(ProviderId.Claude),
-            actual.Settings.GetProviderNotifications(ProviderId.Claude));
-        string savedJson = await File.ReadAllTextAsync(Path.Combine(this._directory, "settings.json"));
-        Assert.Contains("\"areNotificationsEnabled\": false", savedJson, StringComparison.Ordinal);
-        Assert.Contains("\"providerNotifications\"", savedJson, StringComparison.Ordinal);
-        Assert.Contains("\"limitNotificationThresholds\": \"Remaining10\"", savedJson, StringComparison.Ordinal);
-        Assert.DoesNotContain("\"notifyCodexResetCredits\"", savedJson, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -759,71 +567,6 @@ public sealed class AppSettingsStoreTests : IDisposable
             Assert.False(notifications.NotifyStatusChanges);
             Assert.False(notifications.NotifyConnectionChanges);
         }
-    }
-
-    [Fact]
-    public void LoadInvalidNotificationThresholdsFallsBackSafely()
-    {
-        Directory.CreateDirectory(this._directory);
-        string path = Path.Combine(this._directory, "settings.json");
-        File.WriteAllText(path, """
-            {
-              "enabledProviders": ["codex"],
-              "defaultProvider": "codex",
-              "providerNotifications": [
-                {
-                  "provider": "codex",
-                  "limitNotificationThresholds": "Remaining20, FutureThreshold"
-                }
-              ]
-            }
-            """);
-
-        AppSettings settings = new AppSettingsStore(path).Load().Settings;
-
-        Assert.Equal(
-            AppSettings.Default.GetProviderNotifications(ProviderId.Codex).LimitThresholds,
-            settings.GetProviderNotifications(ProviderId.Codex).LimitThresholds);
-    }
-
-    [Fact]
-    public void LoadInvalidZaiPreferencesFallsBackSafely()
-    {
-        Directory.CreateDirectory(this._directory);
-        string path = Path.Combine(this._directory, "settings.json");
-        File.WriteAllText(path, """
-            {
-              "enabledProviders": ["codex"],
-              "defaultProvider": "codex",
-              "zaiApiKeyStorage": "PlainText",
-              "zaiRegion": "UntrustedEndpoint"
-            }
-            """);
-
-        AppSettings settings = new AppSettingsStore(path).Load().Settings;
-
-        Assert.Equal(ApiKeyStorageMode.WindowsCredentialManager, settings.ZaiApiKeyStorage);
-        Assert.Equal(ZaiApiRegion.Global, settings.ZaiRegion);
-    }
-
-    [Fact]
-    public void LoadInvalidOpenCodePreferencesFallsBackSafely()
-    {
-        Directory.CreateDirectory(this._directory);
-        string path = Path.Combine(this._directory, "settings.json");
-        File.WriteAllText(path, """
-            {
-              "enabledProviders": ["opencode-go"],
-              "defaultProvider": "opencode-go",
-              "openCodeGoApiKeyStorage": "PlainText",
-              "openCodeGoUsageRange": "NinetyDays"
-            }
-            """);
-
-        AppSettings settings = new AppSettingsStore(path).Load().Settings;
-
-        Assert.Equal(ApiKeyStorageMode.WindowsCredentialManager, settings.OpenCodeGoApiKeyStorage);
-        Assert.Equal(OpenCodeGoUsageRange.ThirtyDays, settings.OpenCodeGoUsageRange);
     }
 
     [Fact]

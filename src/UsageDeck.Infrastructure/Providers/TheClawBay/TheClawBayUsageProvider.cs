@@ -9,25 +9,76 @@ using UsageDeck.Infrastructure.Settings;
 
 namespace UsageDeck.Infrastructure.Providers.TheClawBay;
 
-public sealed class TheClawBayUsageProvider(
-    IBoundedProcessRunner processRunner,
-    ITheClawBayCliCommandResolver cliCommandResolver,
-    HttpClient httpClient,
-    ITheClawBayApiKeySource apiKeySource,
-    Func<TheClawBayUsageSource> usageSource,
-    ICliVersionReader? cliVersionReader = null) : IUsageProvider, ICliVersionProvider
+public sealed class TheClawBayUsageProvider : IUsageProvider, ICliVersionProvider
 {
     private const int MaximumResponseBytes = 1_048_576;
     private const int MaximumStandardErrorBytes = 16_384;
     private const string OfficialMissingCredentialError =
         "Error: No saved credential found. Run \"theclawbay setup\" or pass --api-key.";
+    private static readonly TimeSpan ApiRequestTimeout = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan CliRequestTimeout = TimeSpan.FromSeconds(20);
     private static readonly Uri UsageEndpoint = new("https://theclawbay.com/api/codex-auth/v1/quota");
+    private readonly ITheClawBayApiKeySource _apiKeySource;
+    private readonly TimeSpan _apiRequestTimeout;
+    private readonly ITheClawBayCliCommandResolver _cliCommandResolver;
+    private readonly TimeSpan _cliRequestTimeout;
+    private readonly ICliVersionReader? _cliVersionReader;
+    private readonly HttpClient _httpClient;
+    private readonly IBoundedProcessRunner _processRunner;
+    private readonly Func<TheClawBayUsageSource> _usageSource;
+
+    public TheClawBayUsageProvider(
+        IBoundedProcessRunner processRunner,
+        ITheClawBayCliCommandResolver cliCommandResolver,
+        HttpClient httpClient,
+        ITheClawBayApiKeySource apiKeySource,
+        Func<TheClawBayUsageSource> usageSource,
+        ICliVersionReader? cliVersionReader = null)
+        : this(
+            processRunner,
+            cliCommandResolver,
+            httpClient,
+            apiKeySource,
+            usageSource,
+            cliVersionReader,
+            ApiRequestTimeout,
+            CliRequestTimeout)
+    {
+    }
+
+    internal TheClawBayUsageProvider(
+        IBoundedProcessRunner processRunner,
+        ITheClawBayCliCommandResolver cliCommandResolver,
+        HttpClient httpClient,
+        ITheClawBayApiKeySource apiKeySource,
+        Func<TheClawBayUsageSource> usageSource,
+        ICliVersionReader? cliVersionReader,
+        TimeSpan apiRequestTimeout,
+        TimeSpan cliRequestTimeout)
+    {
+        ArgumentNullException.ThrowIfNull(processRunner);
+        ArgumentNullException.ThrowIfNull(cliCommandResolver);
+        ArgumentNullException.ThrowIfNull(httpClient);
+        ArgumentNullException.ThrowIfNull(apiKeySource);
+        ArgumentNullException.ThrowIfNull(usageSource);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(apiRequestTimeout, TimeSpan.Zero);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(cliRequestTimeout, TimeSpan.Zero);
+
+        this._processRunner = processRunner;
+        this._cliCommandResolver = cliCommandResolver;
+        this._httpClient = httpClient;
+        this._apiKeySource = apiKeySource;
+        this._usageSource = usageSource;
+        this._cliVersionReader = cliVersionReader;
+        this._apiRequestTimeout = apiRequestTimeout;
+        this._cliRequestTimeout = cliRequestTimeout;
+    }
 
     public ProviderId Id => ProviderId.TheClawBay;
 
     public string DisplayName => ProviderId.TheClawBay.DisplayName;
 
-    public Task<ProviderSnapshot> FetchAsync(CancellationToken cancellationToken) => usageSource() switch
+    public Task<ProviderSnapshot> FetchAsync(CancellationToken cancellationToken) => this._usageSource() switch
     {
         TheClawBayUsageSource.Automatic => this.FetchAutomaticAsync(cancellationToken),
         TheClawBayUsageSource.Cli => this.FetchFromCliAsync(cancellationToken),
@@ -40,14 +91,14 @@ public sealed class TheClawBayUsageProvider(
     public async Task<string?> ReadCliVersionAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        TheClawBayCliCommand? command = cliCommandResolver.Resolve();
+        TheClawBayCliCommand? command = this._cliCommandResolver.Resolve();
         cancellationToken.ThrowIfCancellationRequested();
-        if (command is null || cliVersionReader is null)
+        if (command is null || this._cliVersionReader is null)
         {
             return null;
         }
 
-        return await cliVersionReader.ReadAsync(
+        return await this._cliVersionReader.ReadAsync(
             CreateCliSpec(command, ["--version"]),
             cancellationToken).ConfigureAwait(false);
     }
@@ -110,11 +161,11 @@ public sealed class TheClawBayUsageProvider(
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(TimeSpan.FromSeconds(15));
+        timeout.CancelAfter(this._apiRequestTimeout);
 
         try
         {
-            using HttpResponseMessage response = await httpClient.SendAsync(
+            using HttpResponseMessage response = await this._httpClient.SendAsync(
                 request,
                 HttpCompletionOption.ResponseHeadersRead,
                 timeout.Token).ConfigureAwait(false);
@@ -176,7 +227,7 @@ public sealed class TheClawBayUsageProvider(
     private async Task<ProviderSnapshot> FetchFromCliAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        TheClawBayCliCommand? command = cliCommandResolver.Resolve();
+        TheClawBayCliCommand? command = this._cliCommandResolver.Resolve();
         cancellationToken.ThrowIfCancellationRequested();
         if (command is null)
         {
@@ -194,12 +245,12 @@ public sealed class TheClawBayUsageProvider(
                 ["TERM"] = "dumb",
             });
         using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(TimeSpan.FromSeconds(20));
+        timeout.CancelAfter(this._cliRequestTimeout);
 
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            ProcessRunResult result = await processRunner.RunAsync(
+            ProcessRunResult result = await this._processRunner.RunAsync(
                 spec,
                 MaximumResponseBytes,
                 MaximumStandardErrorBytes,
@@ -320,7 +371,7 @@ public sealed class TheClawBayUsageProvider(
     {
         try
         {
-            string? apiKey = apiKeySource.ReadApiKey()?.Trim();
+            string? apiKey = this._apiKeySource.ReadApiKey()?.Trim();
             return string.IsNullOrWhiteSpace(apiKey) ? null : apiKey;
         }
         catch (SecretStoreException exception)

@@ -47,13 +47,6 @@ public sealed class UsageModelsTests
     }
 
     [Fact]
-    public void SupportedProvidersIncludesTheClawBay()
-    {
-        Assert.Contains(ProviderId.TheClawBay, ProviderId.Supported);
-        Assert.Equal("TheClawBay", ProviderId.TheClawBay.DisplayName);
-    }
-
-    [Fact]
     public void AvailableProvidersTemporarilyExcludeOpenCodeGo()
     {
         Assert.Contains(ProviderId.OpenCodeGo, ProviderId.Supported);

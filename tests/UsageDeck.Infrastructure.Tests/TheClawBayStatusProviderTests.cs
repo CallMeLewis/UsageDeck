@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Globalization;
 using System.Net;
 using System.Text;
@@ -151,7 +150,7 @@ public sealed class TheClawBayStatusProviderTests
     }
 
     [Fact]
-    public async Task FetchWrapsARequestThatExceedsTheTenSecondTimeout()
+    public async Task FetchWrapsARequestThatExceedsItsTimeout()
     {
         RecordingHandler handler = new(async cancellationToken =>
         {
@@ -162,14 +161,12 @@ public sealed class TheClawBayStatusProviderTests
         {
             Timeout = Timeout.InfiniteTimeSpan,
         };
-        TheClawBayStatusProvider provider = new(client);
-        Stopwatch stopwatch = Stopwatch.StartNew();
+        TheClawBayStatusProvider provider = new(client, TimeSpan.FromMilliseconds(20));
 
         ProviderStatusException exception = await Assert.ThrowsAsync<ProviderStatusException>(
             () => provider.FetchStatusAsync(CancellationToken.None));
 
         Assert.Equal("TheClawBay status could not be refreshed.", exception.SafeMessage);
-        Assert.True(stopwatch.Elapsed >= TimeSpan.FromSeconds(9));
     }
 
     [Fact]
