@@ -76,6 +76,43 @@ public sealed class MainPageLayoutTests
     }
 
     [Fact]
+    public void FooterAllowsTheUpdateActionToShrinkWithinAvailableWidth()
+    {
+        string sourcePath = Path.Combine(
+            AppContext.BaseDirectory,
+            "SourceUnderTest",
+            "MainPage.xaml");
+        XDocument xaml = XDocument.Load(sourcePath);
+        XNamespace presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+        XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
+
+        XElement updateAction = Assert.Single(
+            xaml.Descendants(presentation + "Button"),
+            element => string.Equals(
+                (string?)element.Attribute(x + "Name"),
+                "UpdateActionButton",
+                StringComparison.Ordinal));
+        XElement footerActions = Assert.IsType<XElement>(updateAction.Parent);
+        XElement columnDefinitions = Assert.Single(
+            footerActions.Elements(presentation + "Grid.ColumnDefinitions"));
+        XElement[] columns = columnDefinitions.Elements(presentation + "ColumnDefinition").ToArray();
+        string? columnValue = (string?)updateAction.Attribute("Grid.Column");
+        Assert.True(int.TryParse(columnValue, out int column));
+        Assert.InRange(column, 0, columns.Length - 1);
+        XElement text = Assert.Single(
+            updateAction.Descendants(presentation + "TextBlock"),
+            element => string.Equals(
+                (string?)element.Attribute(x + "Name"),
+                "UpdateActionButtonText",
+                StringComparison.Ordinal));
+
+        Assert.Equal(presentation + "Grid", footerActions.Name);
+        Assert.Equal("*", (string?)columns[column].Attribute("Width"));
+        Assert.Equal("0", (string?)updateAction.Attribute("MinWidth"));
+        Assert.Equal("CharacterEllipsis", (string?)text.Attribute("TextTrimming"));
+    }
+
+    [Fact]
     public void InitialContentTransitionDoesNotForceSynchronousLayout()
     {
         string source = ReadMainPageSource();
