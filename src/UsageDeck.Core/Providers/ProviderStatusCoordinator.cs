@@ -65,14 +65,18 @@ public sealed class ProviderStatusCoordinator
 
     private async Task<ProviderServiceStatusSnapshot> RefreshAndRemoveAsync(IProviderStatusProvider provider)
     {
+        ProviderServiceStatusSnapshot snapshot;
         try
         {
-            return await this.RefreshCoreAsync(provider).ConfigureAwait(false);
+            snapshot = await this.RefreshCoreAsync(provider).ConfigureAwait(false);
         }
         finally
         {
             this._inFlight.TryRemove(provider.Id, out _);
         }
+
+        this.SnapshotChanged?.Invoke(this, snapshot);
+        return snapshot;
     }
 
     private async Task<ProviderServiceStatusSnapshot> RefreshCoreAsync(IProviderStatusProvider provider)
@@ -99,7 +103,6 @@ public sealed class ProviderStatusCoordinator
         }
 
         this._snapshots[provider.Id] = snapshot;
-        this.SnapshotChanged?.Invoke(this, snapshot);
         return snapshot;
     }
 

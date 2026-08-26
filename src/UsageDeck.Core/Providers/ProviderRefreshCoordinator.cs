@@ -84,12 +84,13 @@ public sealed class ProviderRefreshCoordinator
 
     private async Task<ProviderSnapshot> RefreshAndRemoveAsync(IUsageProvider provider)
     {
+        ProviderSnapshot snapshot;
         try
         {
             await this._refreshConcurrency.WaitAsync(this._shutdownToken).ConfigureAwait(false);
             try
             {
-                return await this.RefreshCoreAsync(provider).ConfigureAwait(false);
+                snapshot = await this.RefreshCoreAsync(provider).ConfigureAwait(false);
             }
             finally
             {
@@ -100,6 +101,9 @@ public sealed class ProviderRefreshCoordinator
         {
             this._inFlight.TryRemove(provider.Id, out _);
         }
+
+        this.SnapshotChanged?.Invoke(this, snapshot);
+        return snapshot;
     }
 
     private async Task<ProviderSnapshot> RefreshCoreAsync(IUsageProvider provider)
@@ -136,7 +140,6 @@ public sealed class ProviderRefreshCoordinator
         }
 
         this._snapshots[provider.Id] = snapshot;
-        this.SnapshotChanged?.Invoke(this, snapshot);
         return snapshot;
     }
 
