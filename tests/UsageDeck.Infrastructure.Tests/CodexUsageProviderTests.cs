@@ -97,47 +97,32 @@ public sealed class CodexUsageProviderTests
     }
 
     [Fact]
-    public void NativeProcessSpecUsesSupportedApprovalPolicy()
+    public void ProcessSpecUsesInstalledCodexWithSupportedApprovalPolicy()
     {
         CodexProcessSpecFactory factory = new(new StubExecutableLocator("C:\\Tools\\codex.exe"));
 
-        ProcessStartSpec spec = factory.Create(ProviderHost.Native);
+        ProcessStartSpec spec = factory.Create();
 
+        Assert.Equal("C:\\Tools\\codex.exe", spec.ExecutablePath);
         Assert.Equal(
             ["-s", "read-only", "-a", "never", "app-server"],
             spec.Arguments);
     }
 
     [Fact]
-    public void WslProcessSpecUsesFixedArgumentsWithoutAShell()
+    public void VersionSpecUsesInstalledCodexExecutable()
     {
-        CodexProcessSpecFactory factory = new(new StubExecutableLocator(null));
+        CodexProcessSpecFactory factory = new(new StubExecutableLocator("C:\\Tools\\codex.exe"));
 
-        ProcessStartSpec spec = factory.Create(ProviderHost.Wsl("Ubuntu Dev"));
+        ProcessStartSpec spec = factory.CreateVersion();
 
-        Assert.EndsWith("wsl.exe", spec.ExecutablePath, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(
-            ["--distribution", "Ubuntu Dev", "--exec", "codex", "-s", "read-only", "-a", "never", "app-server"],
-            spec.Arguments);
-    }
-
-    [Fact]
-    public void WslVersionSpecUsesTheProviderDistributionWithoutAShell()
-    {
-        CodexProcessSpecFactory factory = new(new StubExecutableLocator(null));
-
-        ProcessStartSpec spec = factory.CreateVersion(ProviderHost.Wsl("Ubuntu Dev"));
-
-        Assert.EndsWith("wsl.exe", spec.ExecutablePath, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(
-            ["--distribution", "Ubuntu Dev", "--exec", "codex", "--version"],
-            spec.Arguments);
+        Assert.Equal("C:\\Tools\\codex.exe", spec.ExecutablePath);
+        Assert.Equal(["--version"], spec.Arguments);
     }
 
     private static CodexUsageProvider CreateProvider(IProcessSessionFactory sessionFactory) => new(
         sessionFactory,
         new CodexProcessSpecFactory(new StubExecutableLocator("C:\\Tools\\codex.exe")),
-        ProviderHost.Native,
         new FixedTimeProvider(new DateTimeOffset(2026, 7, 16, 12, 0, 0, TimeSpan.Zero)));
 
     private sealed class StubExecutableLocator(string? path) : IExecutableLocator

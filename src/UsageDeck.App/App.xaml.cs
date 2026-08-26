@@ -107,7 +107,6 @@ public partial class App : Application, IDisposable
             new CodexUsageProvider(
                 processSessionFactory,
                 new CodexProcessSpecFactory(executableLocator),
-                ProviderHost.Native,
                 cliVersionReader: cliVersionReader),
             new ClaudeUsageProvider(
                 ptySessionFactory,

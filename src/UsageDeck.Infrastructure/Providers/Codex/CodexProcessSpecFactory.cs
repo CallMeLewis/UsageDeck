@@ -7,32 +7,12 @@ public sealed class CodexProcessSpecFactory(IExecutableLocator executableLocator
 {
     private static readonly string[] CodexArguments = ["-s", "read-only", "-a", "never", "app-server"];
 
-    public ProcessStartSpec Create(ProviderHost host) => this.Create(host, CodexArguments);
+    public ProcessStartSpec Create() => this.Create(CodexArguments);
 
-    public ProcessStartSpec CreateVersion(ProviderHost host) => this.Create(host, ["--version"]);
+    public ProcessStartSpec CreateVersion() => this.Create(["--version"]);
 
-    private ProcessStartSpec Create(ProviderHost host, IReadOnlyList<string> arguments)
+    private ProcessStartSpec Create(IReadOnlyList<string> arguments)
     {
-        ArgumentNullException.ThrowIfNull(host);
-
-        if (host.Kind == ProviderHostKind.Wsl)
-        {
-            if (!OperatingSystem.IsWindows())
-            {
-                throw new ProviderException(ProviderErrorCategory.Unavailable, "WSL is available only on Windows.");
-            }
-
-            string wslPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32", "wsl.exe");
-            if (!File.Exists(wslPath))
-            {
-                throw new ProviderException(ProviderErrorCategory.NotInstalled, "WSL is not installed.");
-            }
-
-            return new ProcessStartSpec(
-                wslPath,
-                ["--distribution", host.WslDistribution!, "--exec", "codex", .. arguments]);
-        }
-
         string? codexPath = executableLocator.FindExecutable("codex");
         if (codexPath is null)
         {

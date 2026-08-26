@@ -19,8 +19,8 @@ if (args.Length > 0 && string.Equals(args[0], "claude-capture", StringComparison
 ExecutableLocator executableLocator = new();
 IUsageProvider provider = args switch
 {
-    [] => CreateCodexProvider(ProviderHost.Native),
-    [var name] when name.Equals("codex", StringComparison.OrdinalIgnoreCase) => CreateCodexProvider(ProviderHost.Native),
+    [] => CreateCodexProvider(),
+    [var name] when name.Equals("codex", StringComparison.OrdinalIgnoreCase) => CreateCodexProvider(),
     [var name] when name.Equals("claude", StringComparison.OrdinalIgnoreCase) =>
         new ClaudeUsageProvider(
             new PtySessionFactory(),
@@ -36,11 +36,8 @@ IUsageProvider provider = args switch
         new KiroUsageProvider(new ProcessSessionFactory(), new PtySessionFactory(), executableLocator),
     [var name] when name.Equals("amp", StringComparison.OrdinalIgnoreCase) =>
         new AmpUsageProvider(new ProcessSessionFactory(), executableLocator),
-    [var name, var option, var distribution]
-        when name.Equals("codex", StringComparison.OrdinalIgnoreCase)
-        && option.Equals("--wsl", StringComparison.OrdinalIgnoreCase) => CreateCodexProvider(ProviderHost.Wsl(distribution)),
     _ => throw new ArgumentException(
-        "Usage: UsageDeck.Probe [codex [--wsl <distribution>] | claude | claude-cli | claude-capture | antigravity | copilot | kiro | amp]")
+        "Usage: UsageDeck.Probe [codex | claude | claude-cli | claude-capture | antigravity | copilot | kiro | amp]")
 };
 
 try
@@ -82,10 +79,9 @@ catch (ProviderException exception)
     Environment.ExitCode = 1;
 }
 
-CodexUsageProvider CreateCodexProvider(ProviderHost host) => new(
+CodexUsageProvider CreateCodexProvider() => new(
     new ProcessSessionFactory(),
-    new CodexProcessSpecFactory(executableLocator),
-    host);
+    new CodexProcessSpecFactory(executableLocator));
 
 static async Task CaptureClaudeUsageAsync()
 {

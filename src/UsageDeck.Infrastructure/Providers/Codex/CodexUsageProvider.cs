@@ -11,20 +11,17 @@ public sealed class CodexUsageProvider : IUsageProvider, ICliVersionProvider
     private const int MaxMessagesPerRequest = 200;
     private readonly IProcessSessionFactory _sessionFactory;
     private readonly CodexProcessSpecFactory _processSpecFactory;
-    private readonly ProviderHost _host;
     private readonly TimeProvider _timeProvider;
     private readonly ICliVersionReader? _cliVersionReader;
 
     public CodexUsageProvider(
         IProcessSessionFactory sessionFactory,
         CodexProcessSpecFactory processSpecFactory,
-        ProviderHost host,
         TimeProvider? timeProvider = null,
         ICliVersionReader? cliVersionReader = null)
     {
         this._sessionFactory = sessionFactory;
         this._processSpecFactory = processSpecFactory;
-        this._host = host;
         this._timeProvider = timeProvider ?? TimeProvider.System;
         this._cliVersionReader = cliVersionReader;
     }
@@ -41,13 +38,13 @@ public sealed class CodexUsageProvider : IUsageProvider, ICliVersionProvider
         }
 
         return await this._cliVersionReader.ReadAsync(
-            this._processSpecFactory.CreateVersion(this._host),
+            this._processSpecFactory.CreateVersion(),
             cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<ProviderSnapshot> FetchAsync(CancellationToken cancellationToken)
     {
-        ProcessStartSpec spec = this._processSpecFactory.Create(this._host);
+        ProcessStartSpec spec = this._processSpecFactory.Create();
 
         IProcessSession session;
         try
@@ -244,7 +241,7 @@ public sealed class CodexUsageProvider : IUsageProvider, ICliVersionProvider
         return new ProviderSnapshot(
             ProviderId.Codex,
             this.DisplayName,
-            this._host.DisplayName,
+            "Native CLI",
             this._timeProvider.GetUtcNow(),
             UsageDataState.Fresh,
             windows,
