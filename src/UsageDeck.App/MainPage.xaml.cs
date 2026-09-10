@@ -7,6 +7,8 @@ using UsageDeck.Infrastructure.Settings;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Windows.UI.ViewManagement;
@@ -21,6 +23,8 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
     private readonly HashSet<ProviderTabViewModel> _providerRefreshesInProgress = [];
     private readonly DispatcherTimer _presentationTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly UISettings _uiSettings = new();
+    private readonly DispatcherTimer _updateNotesHoverTimer = new() { Interval = TimeSpan.FromMilliseconds(400) };
+    private bool _showUpdateNotesOnTick;
     private bool _hasCompletedInitialLoad;
     private bool _hasShownInitialContent;
     private bool _isUpdateOperationInProgress;
@@ -29,6 +33,7 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
     private ResetTimeDisplayMode _resetTimeDisplay = ResetTimeDisplayMode.Countdown;
     private TimeSpan _refreshInterval = TimeSpan.FromMinutes(5);
     private Storyboard? _skeletonShimmerStoryboard;
+    private Storyboard? _updateCheckStoryboard;
     private ProviderTabViewModel _selectedProvider = null!;
     private TimeDisplayPrecision _timeDisplayPrecision = TimeDisplayPrecision.Seconds;
     private string _themeToggleGlyph = "\uE708";
@@ -38,6 +43,7 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
     public MainPage()
     {
         this.InitializeComponent();
+        this.UpdateReleaseNotesFlyout.OverlayInputPassThroughElement = this.UpdateActionButton;
         this._refreshCoordinator = ((App)Application.Current).RefreshCoordinator;
         App app = (App)Application.Current;
         this._showCodexSparkCard = app.CurrentSettings.ShowCodexSparkCard;
@@ -59,6 +65,7 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
         this.Unloaded += this.MainPage_Unloaded;
         this.ActualThemeChanged += this.MainPage_ActualThemeChanged;
         this._presentationTimer.Tick += this.PresentationTimer_Tick;
+        this._updateNotesHoverTimer.Tick += this.UpdateNotesHoverTimer_Tick;
         this._refreshCoordinator.SnapshotChanged += this.RefreshCoordinator_SnapshotChanged;
         this.RefreshProviderStatusPresentation();
         this.RefreshUpdatePresentation();
@@ -222,7 +229,10 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
     private void MainPage_Unloaded(object sender, RoutedEventArgs e)
     {
         this._presentationTimer.Stop();
+        this._updateNotesHoverTimer.Stop();
+        this.UpdateReleaseNotesFlyout.Hide();
         this.StopSkeletonShimmer();
+        this.StopUpdateCheckAnimation();
     }
 
     private void ShowInitialContent()
@@ -432,17 +442,39 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
 
         App app = (App)Application.Current;
         AppUpdateService updater = app.UpdateService;
-        if (updater.AvailableUpdate is not AppUpdateAvailability available)
-        {
-            this.RefreshUpdatePresentation();
-            return;
-        }
-
+        this._updateNotesHoverTimer.Stop();
+        this.UpdateReleaseNotesFlyout.Hide();
+        this.UpdateCheckResultFlyout.Hide();
+        bool wasChecking = updater.AvailableUpdate is null;
         bool wasDownloaded = updater.IsUpdateDownloaded;
         this._isUpdateOperationInProgress = true;
         this.UpdateActionButton.IsEnabled = false;
         try
         {
+            if (wasChecking)
+            {
+                if (!updater.CanCheckForUpdates)
+                {
+                    this.SetUpdateActionPresentation("Check for updates", isBusy: true, isChecking: true);
+                    if (this._uiSettings.AnimationsEnabled)
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(1));
+                    }
+
+                    return;
+                }
+
+                this.SetUpdateActionPresentation("Checking for updates…", isBusy: true, isChecking: true);
+                await updater.CheckForUpdatesAsync(CancellationToken.None);
+                this.StopUpdateCheckAnimation();
+                app.NotifyUpdateStateChanged();
+                this.UpdateCheckResultText.Text = updater.AvailableUpdate is AppUpdateAvailability found
+                    ? $"Version {found.Version} is available. Select the download icon to download it."
+                    : "You’re up to date.";
+                this.UpdateCheckResultFlyout.ShowAt(this.UpdateActionButton);
+                return;
+            }
+
             if (!wasDownloaded)
             {
                 this.SetUpdateActionPresentation("Downloading… 0%", isBusy: true, progress: 0);
@@ -456,7 +488,7 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
                 return;
             }
 
-            if (!await UpdateInstallationDialog.ShowAsync(this.XamlRoot, available.Version))
+            if (!await UpdateInstallationDialog.ShowAsync(this.XamlRoot, updater.AvailableUpdate?.Version))
             {
                 return;
             }
@@ -466,12 +498,15 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
         }
         catch (Exception exception) when (AppUpdateService.IsExpectedFailure(exception))
         {
+            this.StopUpdateCheckAnimation();
             app.NotifyUpdateStateChanged();
             ContentDialog error = new()
             {
                 XamlRoot = this.XamlRoot,
                 Title = "UsageDeck couldn’t update",
-                Content = wasDownloaded
+                Content = wasChecking
+                    ? "UsageDeck could not check for updates. Check your connection and try again."
+                    : wasDownloaded
                     ? "The update could not be started. UsageDeck is still running on the current version."
                     : "The update could not be downloaded. UsageDeck is still running on the current version.",
                 CloseButtonText = "OK",
@@ -495,6 +530,11 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
 
     private void App_AccessibilityChanged()
     {
+        if (!this._uiSettings.AnimationsEnabled)
+        {
+            this.StopUpdateCheckAnimation();
+        }
+
         this.RefreshProviderStatusPresentation();
         this.RefreshVisualStates();
         if (App.IsHighContrastEnabled)
@@ -588,21 +628,51 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
     private void RefreshUpdatePresentation()
     {
         AppUpdateService updater = ((App)Application.Current).UpdateService;
-        this.UpdateActionButton.Visibility = updater.AvailableUpdate is null
-            ? Visibility.Collapsed
-            : Visibility.Visible;
+        bool hasUpdate = updater.AvailableUpdate is not null;
+        this.UpdateActionButton.ContextFlyout = hasUpdate ? this.UpdateReleaseNotesFlyout : null;
+        AutomationProperties.SetHelpText(this.UpdateActionButton, hasUpdate
+            ? "Hover or press Shift+F10 to read the release notes for this update."
+            : string.Empty);
+        if (!hasUpdate)
+        {
+            this._updateNotesHoverTimer.Stop();
+            this.UpdateReleaseNotesFlyout.Hide();
+        }
+
+        this.UpdateAvailabilityText.Text = updater.IsUpdateDownloaded ? "Ready to install" : "Update available";
+        this.UpdateAvailabilityText.Visibility = hasUpdate ? Visibility.Visible : Visibility.Collapsed;
+        this.UpdateActionButtonGlyph.Glyph = hasUpdate ? "\uE896" : "\uE895";
         this.UpdateActionButton.IsEnabled = !this._isUpdateOperationInProgress;
         if (!this._isUpdateOperationInProgress)
         {
             this.SetUpdateActionPresentation(
-                updater.IsUpdateDownloaded ? "Install update" : "Download update",
+                updater.IsUpdateDownloaded ? "Install update"
+                    : hasUpdate ? $"Update available: download version {updater.AvailableUpdate!.Version}"
+                    : "Check for updates",
                 isInstall: updater.IsUpdateDownloaded);
         }
     }
 
-    private void SetUpdateActionPresentation(string text, bool isInstall = false, bool isBusy = false, int? progress = null)
+    private void SetUpdateActionPresentation(string text, bool isInstall = false, bool isBusy = false, int? progress = null, bool isChecking = false)
     {
-        bool showProgress = isBusy && (progress.HasValue || this._uiSettings.AnimationsEnabled);
+        this.StopUpdateCheckAnimation();
+        if (isChecking && this._uiSettings.AnimationsEnabled)
+        {
+            DoubleAnimation rotation = new()
+            {
+                From = 0,
+                To = 360,
+                Duration = new Duration(TimeSpan.FromSeconds(1)),
+                RepeatBehavior = RepeatBehavior.Forever,
+            };
+            Storyboard.SetTarget(rotation, this.UpdateCheckRotation);
+            Storyboard.SetTargetProperty(rotation, nameof(RotateTransform.Angle));
+            this._updateCheckStoryboard = new Storyboard();
+            this._updateCheckStoryboard.Children.Add(rotation);
+            this._updateCheckStoryboard.Begin();
+        }
+
+        bool showProgress = isBusy && !isChecking && (progress.HasValue || this._uiSettings.AnimationsEnabled);
         this.UpdateActionButtonGlyph.Visibility = !showProgress && !isInstall ? Visibility.Visible : Visibility.Collapsed;
         this.UpdateActionInstallIcon.Visibility = !showProgress && isInstall ? Visibility.Visible : Visibility.Collapsed;
         this.UpdateActionButtonProgressRing.IsIndeterminate = !progress.HasValue;
@@ -611,7 +681,75 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
         this.UpdateActionButtonProgressRing.Visibility = showProgress ? Visibility.Visible : Visibility.Collapsed;
         AutomationProperties.SetName(this.UpdateActionButton, text);
         AutomationProperties.SetName(this.UpdateActionButtonProgressRing, text);
-        ToolTipService.SetToolTip(this.UpdateActionButton, text);
+        ToolTipService.SetToolTip(this.UpdateActionButton,
+            ((App)Application.Current).UpdateService.AvailableUpdate is null ? text : null);
+    }
+
+    private void UpdateActionButton_PointerEntered(object sender, PointerRoutedEventArgs e)
+    {
+        if (((App)Application.Current).UpdateService.AvailableUpdate is null
+            || this._isUpdateOperationInProgress)
+        {
+            return;
+        }
+
+        this._showUpdateNotesOnTick = true;
+        this._updateNotesHoverTimer.Stop();
+        this._updateNotesHoverTimer.Start();
+    }
+
+    private void UpdateReleaseNotes_PointerEntered(object sender, PointerRoutedEventArgs e) =>
+        this._updateNotesHoverTimer.Stop();
+
+    private void UpdateReleaseNotes_PointerExited(object sender, PointerRoutedEventArgs e)
+    {
+        this._showUpdateNotesOnTick = false;
+        this._updateNotesHoverTimer.Stop();
+        this._updateNotesHoverTimer.Start();
+    }
+
+    private void UpdateNotesHoverTimer_Tick(object? sender, object e)
+    {
+        this._updateNotesHoverTimer.Stop();
+        if (this._showUpdateNotesOnTick
+            && this.IsLoaded
+            && !this._isUpdateOperationInProgress
+            && ((App)Application.Current).UpdateService.AvailableUpdate is not null)
+        {
+            this.UpdateCheckResultFlyout.Hide();
+            this.UpdateReleaseNotesFlyout.ShowAt(this.UpdateActionButton, new FlyoutShowOptions
+            {
+                ShowMode = FlyoutShowMode.Transient,
+            });
+        }
+        else
+        {
+            this.UpdateReleaseNotesFlyout.Hide();
+        }
+    }
+
+    private void UpdateReleaseNotesFlyout_Opening(object sender, object e)
+    {
+        AppUpdateService updater = ((App)Application.Current).UpdateService;
+        if (updater.AvailableUpdate is not AppUpdateAvailability available)
+        {
+            return;
+        }
+
+        this.UpdateReleaseNotesTitle.Text = $"Release notes for version {available.Version}";
+        this.UpdateReleaseNotesStatus.Text = updater.IsUpdateDownloaded ? "Ready to install" : "Update available";
+        this.UpdateReleaseNotesView.Present(
+            ReleaseNotesReader.FromUpdate(available.Version, available.NotesMarkdown), isCompact: false);
+    }
+
+    private void UpdateReleaseNotesFlyout_Closed(object sender, object e) =>
+        this._updateNotesHoverTimer.Stop();
+
+    private void StopUpdateCheckAnimation()
+    {
+        this._updateCheckStoryboard?.Stop();
+        this._updateCheckStoryboard = null;
+        this.UpdateCheckRotation.Angle = 0;
     }
 
     private void RefreshVisualStates()

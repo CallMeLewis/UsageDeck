@@ -74,7 +74,6 @@ public sealed partial class SettingsWindow : Window, IDisposable
 #endif
         this.SettingsNavigation.SelectedItem = this.SettingsNavigation.MenuItems[0];
         this.VersionText.Text = $"Version {App.VersionNumber}";
-        this.ReleaseNotesTitleText.Text = $"Release notes for version {App.VersionNumber}";
         this.AboutReleaseNotesView.Present(app.ReleaseNotes, isCompact: false);
         this.LoadSettings(app.CurrentSettings);
         this.RefreshUpdatePresentation();

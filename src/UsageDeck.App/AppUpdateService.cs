@@ -6,7 +6,11 @@ using Velopack.Sources;
 
 namespace UsageDeck.App;
 
-internal sealed record AppUpdateAvailability(string Version);
+internal sealed record AppUpdateAvailability(string Version, string? NotesMarkdown)
+{
+    internal static AppUpdateAvailability FromAsset(VelopackAsset asset) =>
+        new(asset.Version.ToString(), asset.NotesMarkdown);
+}
 
 internal sealed class AppUpdateService
 {
@@ -39,7 +43,7 @@ internal sealed class AppUpdateService
 
     public AppUpdateAvailability? AvailableUpdate => this._availableUpdate is null
         ? null
-        : new AppUpdateAvailability(this._availableUpdate.TargetFullRelease.Version.ToString());
+        : AppUpdateAvailability.FromAsset(this._availableUpdate.TargetFullRelease);
 
     public bool IsUpdateDownloaded => GetMatchingDownloadedUpdate(
         this._availableUpdate?.TargetFullRelease,

@@ -1532,20 +1532,14 @@
                             CornerRadius="10"
                             AutomationProperties.Name="Release notes for the installed version">
                             <Expander.Header>
-                                <Grid MinHeight="48" Padding="4,2">
-                                    <StackPanel VerticalAlignment="Center" Spacing="3">
-                                        <TextBlock
-                                            x:Name="ReleaseNotesTitleText"
-                                            FontWeight="SemiBold" />
-                                        <TextBlock
-                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                            Style="{StaticResource CaptionTextBlockStyle}"
-                                            Text="Select to view what’s new" />
-                                    </StackPanel>
-                                </Grid>
+                                <TextBlock
+                                    Margin="4,0"
+                                    VerticalAlignment="Center"
+                                    FontWeight="SemiBold"
+                                    Text="Release notes" />
                             </Expander.Header>
                             <Border
-                                Padding="16,14,16,16"
+                                Padding="20,16,20,20"
                                 BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
                                 BorderThickness="0,1,0,0">
                                 <local:ReleaseNotesView x:Name="AboutReleaseNotesView" />

@@ -45,6 +45,36 @@ public sealed class AppUpdateServiceTests
         Assert.Null(AppUpdateService.GetMatchingDownloadedUpdate(available, downloaded, AppUpdateChannel.Stable));
     }
 
+    [Fact]
+    public void AvailableUpdateCarriesTheTargetReleasesNotes()
+    {
+        VelopackAsset target = Asset("2.0.0-beta.2");
+        target.NotesMarkdown = "## Added\n\n- A new feature.";
+
+        AppUpdateAvailability available = AppUpdateAvailability.FromAsset(target);
+        ReleaseNotesLoadResult notes = ReleaseNotesReader.FromUpdate(available.Version, available.NotesMarkdown);
+
+        Assert.Equal("2.0.0-beta.2", available.Version);
+        Assert.Equal(target.NotesMarkdown, available.NotesMarkdown);
+        Assert.NotNull(notes.Document);
+        Assert.Equal(available.Version, notes.Document.Version);
+        Assert.Equal("A new feature.", Assert.Single(Assert.Single(notes.Document.Sections).Items));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("# Release title\n\n## Fixes")]
+    public void MissingUpdateNotesRemainExplicit(string? markdown)
+    {
+        ReleaseNotesLoadResult notes = ReleaseNotesReader.FromUpdate("2.0.0", markdown);
+
+        Assert.False(notes.IsAvailable);
+        Assert.Null(notes.Document);
+        Assert.Equal("Release notes are not available for this update.", notes.UnavailableMessage);
+    }
+
     private static VelopackAsset Asset(string version) => new()
     {
         PackageId = "UsageDeck",

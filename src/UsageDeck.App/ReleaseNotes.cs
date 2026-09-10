@@ -45,6 +45,14 @@ internal static class ReleaseNotesReader
         }
     }
 
+    internal static ReleaseNotesLoadResult FromUpdate(string version, string? markdown)
+    {
+        ReleaseNotesDocument document = Parse(version, markdown ?? string.Empty);
+        return HasContent(document)
+            ? new ReleaseNotesLoadResult(document, string.Empty)
+            : new ReleaseNotesLoadResult(null, "Release notes are not available for this update.");
+    }
+
     internal static ReleaseNotesDocument Parse(string version, string markdown)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(version);

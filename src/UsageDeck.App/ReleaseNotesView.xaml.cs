@@ -1,6 +1,8 @@
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Shapes;
@@ -41,8 +43,10 @@ public sealed partial class ReleaseNotesView : UserControl
             }
 
             TextBlock heading = CreateTextBlock(section.Heading, isSecondary: false);
-            heading.Margin = new Thickness(0, shownItems == 0 ? 2 : 8, 0, 0);
+            heading.Margin = new Thickness(0, shownItems == 0 ? 0 : 14, 0, 0);
             heading.FontWeight = FontWeights.SemiBold;
+            heading.FontSize = 15;
+            AutomationProperties.SetHeadingLevel(heading, AutomationHeadingLevel.Level3);
             this.ContentPanel.Children.Add(heading);
 
             foreach (string item in visibleItems)
@@ -105,7 +109,7 @@ public sealed partial class ReleaseNotesView : UserControl
             Height = 5,
             Margin = new Thickness(1, 7, 0, 0),
             VerticalAlignment = VerticalAlignment.Top,
-            Fill = (Brush)Application.Current.Resources["BrandAccentBrush"],
+            Fill = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
         };
         Grid.SetColumn(marker, 0);
 
@@ -120,8 +124,9 @@ public sealed partial class ReleaseNotesView : UserControl
     {
         TextBlock text = new()
         {
-            FontSize = 13,
-            LineHeight = 19,
+            FontSize = 14,
+            LineHeight = 21,
+            IsTextSelectionEnabled = true,
             TextWrapping = TextWrapping.Wrap,
         };
         if (isSecondary)

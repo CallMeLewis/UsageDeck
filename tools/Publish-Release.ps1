@@ -24,6 +24,11 @@ if ($version -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0
     throw "Directory.Build.props must contain a valid three-part SemVer <Version>; found '$version'."
 }
 
+$releaseNotesPath = Join-Path $repositoryRoot ".github\release-notes\v$version.md"
+if (-not (Test-Path -LiteralPath $releaseNotesPath -PathType Leaf)) {
+    throw "Release notes are required at '$releaseNotesPath' before packaging."
+}
+
 if (-not [string]::IsNullOrWhiteSpace($RepositoryUrl)) {
     $parsedRepositoryUrl = $null
     $isValidRepositoryUrl = [Uri]::TryCreate(
@@ -203,6 +208,7 @@ try {
         --packDir $publishDirectory `
         --mainExe UsageDeck.Bootstrap.exe `
         --packTitle 'UsageDeck' `
+        --releaseNotes $releaseNotesPath `
         --icon $iconPath `
         --runtime win-x64 `
         --outputDir $releasesDirectory

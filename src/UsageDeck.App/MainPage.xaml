@@ -804,6 +804,16 @@
                     Foreground="{StaticResource BrandAccentBrush}"
                     IsActive="{Binding SelectedProvider.IsLoading}"
                     Visibility="{Binding SelectedProvider.IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                <TextBlock
+                    x:Name="UpdateAvailabilityText"
+                    Grid.Column="3"
+                    Margin="4,0,28,0"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    TextWrapping="Wrap"
+                    AutomationProperties.LiveSetting="Polite"
+                    Visibility="Collapsed" />
                 <Button
                     x:Name="UpdateActionButton"
                     Grid.Column="4"
@@ -813,18 +823,68 @@
                     MinHeight="40"
                     Padding="0"
                     CornerRadius="20"
-                    AutomationProperties.Name="Download update"
+                    AutomationProperties.Name="Check for updates"
                     AutomationProperties.LiveSetting="Polite"
-                    ToolTipService.ToolTip="Download update"
+                    ToolTipService.ToolTip="Check for updates"
+                    PointerEntered="UpdateActionButton_PointerEntered"
+                    PointerExited="UpdateReleaseNotes_PointerExited"
                     Click="UpdateActionButton_Click"
-                    Style="{StaticResource UpdateActionButtonStyle}"
-                    Visibility="Collapsed">
+                    Style="{StaticResource SubtleButtonStyle}">
+                    <Button.ContextFlyout>
+                        <Flyout
+                            x:Name="UpdateReleaseNotesFlyout"
+                            Placement="TopEdgeAlignedRight"
+                            Opening="UpdateReleaseNotesFlyout_Opening"
+                            Closed="UpdateReleaseNotesFlyout_Closed">
+                            <Grid
+                                MaxWidth="360"
+                                RowSpacing="12"
+                                Background="Transparent"
+                                PointerEntered="UpdateReleaseNotes_PointerEntered"
+                                PointerExited="UpdateReleaseNotes_PointerExited">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <StackPanel Spacing="4">
+                                    <TextBlock
+                                        x:Name="UpdateReleaseNotesTitle"
+                                        FontWeight="SemiBold"
+                                        TextWrapping="Wrap"
+                                        AutomationProperties.HeadingLevel="Level2" />
+                                    <TextBlock
+                                        x:Name="UpdateReleaseNotesStatus"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        TextWrapping="Wrap" />
+                                </StackPanel>
+                                <ScrollViewer
+                                    Grid.Row="1"
+                                    MaxHeight="360"
+                                    HorizontalScrollMode="Disabled"
+                                    HorizontalScrollBarVisibility="Disabled"
+                                    VerticalScrollBarVisibility="Auto"
+                                    AutomationProperties.Name="Release notes for the update">
+                                    <local:ReleaseNotesView x:Name="UpdateReleaseNotesView" />
+                                </ScrollViewer>
+                            </Grid>
+                        </Flyout>
+                    </Button.ContextFlyout>
+                    <FlyoutBase.AttachedFlyout>
+                        <Flyout x:Name="UpdateCheckResultFlyout">
+                            <TextBlock x:Name="UpdateCheckResultText" MaxWidth="280" TextWrapping="Wrap" />
+                        </Flyout>
+                    </FlyoutBase.AttachedFlyout>
                     <Grid>
                         <FontIcon
                             x:Name="UpdateActionButtonGlyph"
                             FontSize="16"
-                            Glyph="&#xE896;"
-                            IsTextScaleFactorEnabled="False" />
+                            Glyph="&#xE895;"
+                            RenderTransformOrigin="0.5,0.5"
+                            IsTextScaleFactorEnabled="False">
+                            <FontIcon.RenderTransform>
+                                <RotateTransform x:Name="UpdateCheckRotation" />
+                            </FontIcon.RenderTransform>
+                        </FontIcon>
                         <PathIcon
                             x:Name="UpdateActionInstallIcon"
                             Width="20"
@@ -837,7 +897,7 @@
                             Height="20"
                             MinWidth="20"
                             MinHeight="20"
-                            Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                            Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                             IsIndeterminate="False"
                             Minimum="0"
                             Maximum="100"

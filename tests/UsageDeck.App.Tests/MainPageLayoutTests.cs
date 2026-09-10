@@ -113,7 +113,9 @@ public sealed class MainPageLayoutTests
         Assert.Equal("40", (string?)updateAction.Attribute("Height"));
         Assert.NotNull(updateAction.Attribute("AutomationProperties.Name"));
         Assert.NotNull(updateAction.Attribute("ToolTipService.ToolTip"));
-        Assert.Empty(updateAction.Descendants(presentation + "TextBlock"));
+        Assert.NotEqual("Collapsed", (string?)updateAction.Attribute("Visibility"));
+        Assert.Equal("Check for updates", (string?)updateAction.Attribute("AutomationProperties.Name"));
+        Assert.Empty(updateAction.Elements(presentation + "TextBlock"));
         XElement progress = Assert.Single(updateAction.Descendants(presentation + "ProgressRing"));
         Assert.Equal("False", (string?)progress.Attribute("IsIndeterminate"));
         Assert.Equal("100", (string?)progress.Attribute("Maximum"));
@@ -265,6 +267,41 @@ public sealed class MainPageLayoutTests
         Assert.True(returnAfterDownload > download);
         Assert.True(confirmation > returnAfterDownload);
         Assert.True(restart > confirmation);
+    }
+
+    [Fact]
+    public void MainPageChecksBeforeOfferingASeparateDownloadAction()
+    {
+        string method = ReadMethod(
+            ReadMainPageSource(),
+            "private async void UpdateActionButton_Click",
+            "private void MainPage_ActualThemeChanged");
+
+        int check = method.IndexOf("await updater.CheckForUpdatesAsync", StringComparison.Ordinal);
+        int download = method.IndexOf("await updater.DownloadUpdateAsync", StringComparison.Ordinal);
+        int returnAfterCheck = method.IndexOf("return;", check, StringComparison.Ordinal);
+
+        Assert.True(check >= 0);
+        Assert.True(returnAfterCheck > check);
+        Assert.True(download > returnAfterCheck);
+        Assert.Contains("if (!updater.CanCheckForUpdates)", method);
+        Assert.Contains("You’re up to date.", method);
+        Assert.Contains("UsageDeck could not check for updates.", method);
+    }
+
+    [Fact]
+    public void UnavailableUpdateChecksAnimateWithoutShowingABuildMessage()
+    {
+        string method = ReadMethod(
+            ReadMainPageSource(),
+            "private async void UpdateActionButton_Click",
+            "private void MainPage_ActualThemeChanged");
+        int guard = method.IndexOf("if (!updater.CanCheckForUpdates)", StringComparison.Ordinal);
+        int end = method.IndexOf("return;", guard, StringComparison.Ordinal);
+        string unavailable = method[guard..end];
+        Assert.Contains("isChecking: true", unavailable);
+        Assert.DoesNotContain("ShowAt", unavailable);
+        Assert.DoesNotContain("UpdateCheckResultText.Text", unavailable);
     }
 
     [Fact]
