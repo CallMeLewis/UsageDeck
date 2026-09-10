@@ -1274,22 +1274,26 @@ public sealed partial class SettingsWindow : Window, IDisposable
                 return;
             }
 
-            this.UpdateProgressBar.Visibility = Visibility.Visible;
             if (updater.AvailableUpdate is null)
             {
-                this.SetUpdateActionPresentation("Checking…", "\uE72C", isBusy: true);
+                this.SetUpdateActionPresentation("Checking…", "\uE895", isBusy: true);
                 this.UpdateStatusText.Text = "Checking for updates…";
-                this.UpdateProgressBar.IsIndeterminate = true;
                 await updater.CheckForUpdatesAsync(this._lifetimeCancellation.Token);
                 this.SettingsInfoBar.IsOpen = false;
             }
             else
             {
-                this.SetUpdateActionPresentation("Downloading…", "\uE896", isBusy: true);
-                this.UpdateStatusText.Text = $"Downloading version {updater.AvailableUpdate!.Version}…";
-                this.UpdateProgressBar.IsIndeterminate = false;
-                this.UpdateProgressBar.Value = 0;
-                Progress<int> progress = new(value => this.UpdateProgressBar.Value = value);
+                string version = updater.AvailableUpdate.Version;
+                void PresentDownloadProgress(int value)
+                {
+                    int percentage = Math.Clamp(value, 0, 100);
+                    string status = $"Downloading version {version}: {percentage}%";
+                    this.UpdateStatusText.Text = status;
+                    this.SetUpdateActionPresentation(status, "\uE896", isBusy: true, progress: percentage);
+                }
+
+                PresentDownloadProgress(0);
+                Progress<int> progress = new(PresentDownloadProgress);
                 await updater.DownloadUpdateAsync(progress, this._lifetimeCancellation.Token);
                 this.SettingsInfoBar.IsOpen = false;
             }
@@ -1390,14 +1394,12 @@ public sealed partial class SettingsWindow : Window, IDisposable
         }
 
         AppUpdateService updater = ((App)Application.Current).UpdateService;
-        this.UpdateProgressBar.Visibility = Visibility.Collapsed;
-        this.UpdateProgressBar.IsIndeterminate = false;
         this.UpdateActionButton.IsEnabled = updater.CanCheckForUpdates;
 
         if (!updater.IsConfigured)
         {
             this.UpdateStatusText.Text = "Updates are not configured for this build.";
-            this.SetUpdateActionPresentation("Check for updates", "\uE72C");
+            this.SetUpdateActionPresentation("Check for updates", "\uE895");
             this.SetUpdateActionHelpText(
                 "Set a GitHub release repository when packaging to enable automatic updates.");
             return;
@@ -1406,7 +1408,7 @@ public sealed partial class SettingsWindow : Window, IDisposable
         if (!updater.CanCheckForUpdates)
         {
             this.UpdateStatusText.Text = "Update checks are available in release builds.";
-            this.SetUpdateActionPresentation("Check for updates", "\uE72C");
+            this.SetUpdateActionPresentation("Check for updates", "\uE895");
             this.SetUpdateActionHelpText("Update checks are available in Velopack release builds.");
             return;
         }
@@ -1430,20 +1432,26 @@ public sealed partial class SettingsWindow : Window, IDisposable
         this.UpdateStatusText.Text = updater.HasCheckedForUpdates
             ? $"Version {App.VersionNumber} is up to date."
             : $"Current version: {App.VersionNumber}";
-        this.SetUpdateActionPresentation("Check for updates", "\uE72C");
+        this.SetUpdateActionPresentation("Check for updates", "\uE895");
         this.SetUpdateActionHelpText(updater.HasCheckedForUpdates
             ? "UsageDeck is up to date. Check again for updates."
             : "Check GitHub Releases for a newer version.");
     }
 
-    private void SetUpdateActionPresentation(string text, string glyph, bool isBusy = false)
+    private void SetUpdateActionPresentation(string text, string glyph, bool isBusy = false, int? progress = null)
     {
-        this.UpdateActionButtonText.Text = text;
+        bool showDownload = glyph == "\uE896";
+        bool showInstall = glyph == "\uE777";
+        bool showProgress = isBusy && !showDownload;
         this.UpdateActionButtonGlyph.Glyph = glyph;
-        this.UpdateActionButtonGlyph.Visibility = isBusy ? Visibility.Collapsed : Visibility.Visible;
-        this.UpdateActionButtonProgressRing.IsActive = isBusy;
-        this.UpdateActionButtonProgressRing.Visibility = isBusy ? Visibility.Visible : Visibility.Collapsed;
+        this.UpdateActionButtonGlyph.Visibility = !showProgress && !showDownload && !showInstall ? Visibility.Visible : Visibility.Collapsed;
+        this.UpdateDownloadIcon.Visibility = showDownload ? Visibility.Visible : Visibility.Collapsed;
+        this.UpdateDownloadIcon.SetProgress(progress);
+        this.UpdateActionInstallIcon.Visibility = showInstall && !showProgress ? Visibility.Visible : Visibility.Collapsed;
+        this.UpdateActionButtonProgressRing.IsActive = showProgress;
+        this.UpdateActionButtonProgressRing.Visibility = showProgress ? Visibility.Visible : Visibility.Collapsed;
         AutomationProperties.SetName(this.UpdateActionButton, text);
+        ToolTipService.SetToolTip(this.UpdateActionButton, text);
     }
 
     private void SetUpdateActionHelpText(string helpText)

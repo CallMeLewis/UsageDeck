@@ -1617,39 +1617,40 @@
                                                 AutomationProperties.LiveSetting="Polite"
                                                 FontWeight="SemiBold"
                                                 TextWrapping="Wrap" />
-                                            <ProgressBar
-                                                x:Name="UpdateProgressBar"
-                                                Height="4"
-                                                Margin="0,8,0,0"
-                                                Maximum="100"
-                                                Minimum="0"
-                                                Visibility="Collapsed" />
                                         </StackPanel>
                                         <Button
                                             x:Name="UpdateActionButton"
                                             Grid.Column="1"
-                                            MinWidth="160"
+                                            Width="40"
+                                            Height="40"
                                             VerticalAlignment="Center"
+                                            AutomationProperties.Name="Check for updates"
+                                            AutomationProperties.LiveSetting="Polite"
                                             Click="UpdateActionButton_Click"
                                             Style="{StaticResource UpdateActionButtonStyle}">
-                                            <StackPanel Orientation="Horizontal" Spacing="7">
+                                            <Grid>
                                                 <FontIcon
                                                     x:Name="UpdateActionButtonGlyph"
-                                                    FontSize="14"
-                                                    Glyph="&#xE72C;"
+                                                    FontSize="16"
+                                                    Glyph="&#xE895;"
                                                     IsTextScaleFactorEnabled="False" />
+                                                <local:DownloadProgressIcon
+                                                    x:Name="UpdateDownloadIcon"
+                                                    Visibility="Collapsed" />
+                                                <PathIcon
+                                                    x:Name="UpdateActionInstallIcon"
+                                                    Width="20"
+                                                    Height="20"
+                                                    Data="M2,5 H6 V6.5 H3.5 V14.5 H16.5 V6.5 H14 V5 H18 V16 H10.75 V18 H14 V19.5 H6 V18 H9.25 V16 H2 Z M9.25,0 H10.75 V8.25 L13,6 L14,7 L10,11 L6,7 L7,6 L9.25,8.25 Z"
+                                                    Visibility="Collapsed" />
                                                 <ProgressRing
                                                     x:Name="UpdateActionButtonProgressRing"
-                                                    Width="14"
-                                                    Height="14"
-                                                    Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                                    Width="20"
+                                                    Height="20"
+                                                    Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                                                     IsActive="False"
                                                     Visibility="Collapsed" />
-                                                <TextBlock
-                                                    x:Name="UpdateActionButtonText"
-                                                    VerticalAlignment="Center"
-                                                    Text="Check for updates" />
-                                            </StackPanel>
+                                            </Grid>
                                         </Button>
                                     </Grid>
                                 </StackPanel>

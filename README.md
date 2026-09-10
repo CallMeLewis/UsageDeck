@@ -21,7 +21,7 @@ UsageDeck brings usage from several coding assistants into one compact WinUI 3 w
 - System, light, and dark themes with optional Mica.
 - Settings stored per Windows user in `%LOCALAPPDATA%\UsageDeckData\settings.json`, outside the installer-owned application directory.
 - UsageDeck-branded application, installer, executable, and update packages.
-- Built-in updates through versioned Velopack releases. Hover over an available update’s icon to read its release notes, including after download. Keyboard users can focus the icon and press Shift+F10. Older releases may not include notes in their update metadata.
+- Built-in updates through versioned Velopack releases, with release-note previews before installation.
 - Optional background start at Windows sign-in, with UsageDeck kept quietly in the notification area.
 
 ## Supported providers

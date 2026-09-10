@@ -1,0 +1,45 @@
+<UserControl
+    x:Class="UsageDeck.App.DownloadProgressIcon"
+    x:Name="IconRoot"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Width="20"
+    Height="20"
+    IsHitTestVisible="False"
+    AutomationProperties.AccessibilityView="Raw">
+    <Viewbox>
+        <Grid Width="24" Height="24">
+            <Path
+                x:Name="ProgressTrack"
+                Data="M12,2 A10,10 0 0 1 12,22 A10,10 0 0 1 12,2"
+                Stroke="{Binding Foreground, ElementName=IconRoot}"
+                StrokeThickness="1.5" />
+            <Path
+                Stroke="{Binding Foreground, ElementName=IconRoot}"
+                StrokeThickness="1.5"
+                StrokeStartLineCap="Round"
+                StrokeEndLineCap="Round"
+                x:Name="ProgressArc"
+                Visibility="Collapsed">
+                <Path.Data>
+                    <PathGeometry>
+                        <PathFigure StartPoint="12,2" IsClosed="False">
+                            <ArcSegment
+                                x:Name="ProgressSegment"
+                                Point="12,2"
+                                Size="10,10"
+                                SweepDirection="Clockwise" />
+                        </PathFigure>
+                    </PathGeometry>
+                </Path.Data>
+            </Path>
+            <Path
+                Data="M12,7 V16 M8,12 L12,16 L16,12"
+                Stroke="{Binding Foreground, ElementName=IconRoot}"
+                StrokeThickness="1.5"
+                StrokeStartLineCap="Round"
+                StrokeEndLineCap="Round"
+                StrokeLineJoin="Round" />
+        </Grid>
+    </Viewbox>
+</UserControl>

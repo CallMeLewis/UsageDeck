@@ -672,17 +672,23 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
             this._updateCheckStoryboard.Begin();
         }
 
-        bool showProgress = isBusy && !isChecking && (progress.HasValue || this._uiSettings.AnimationsEnabled);
-        this.UpdateActionButtonGlyph.Visibility = !showProgress && !isInstall ? Visibility.Visible : Visibility.Collapsed;
+        bool showDownload = !isChecking && !isInstall
+            && (progress.HasValue || ((App)Application.Current).UpdateService.AvailableUpdate is not null);
+        bool showProgress = isBusy && !isChecking && !showDownload && this._uiSettings.AnimationsEnabled;
+        this.UpdateDownloadIcon.Visibility = showDownload ? Visibility.Visible : Visibility.Collapsed;
+        this.UpdateDownloadIcon.SetProgress(progress);
+        this.UpdateActionButtonGlyph.Visibility = !showProgress && !isInstall && !showDownload ? Visibility.Visible : Visibility.Collapsed;
         this.UpdateActionInstallIcon.Visibility = !showProgress && isInstall ? Visibility.Visible : Visibility.Collapsed;
-        this.UpdateActionButtonProgressRing.IsIndeterminate = !progress.HasValue;
-        this.UpdateActionButtonProgressRing.Value = Math.Clamp(progress ?? 0, 0, 100);
+        if (progress.HasValue)
+        {
+            this.UpdateAvailabilityText.Text = text;
+        }
         this.UpdateActionButtonProgressRing.IsActive = showProgress;
         this.UpdateActionButtonProgressRing.Visibility = showProgress ? Visibility.Visible : Visibility.Collapsed;
         AutomationProperties.SetName(this.UpdateActionButton, text);
         AutomationProperties.SetName(this.UpdateActionButtonProgressRing, text);
         ToolTipService.SetToolTip(this.UpdateActionButton,
-            ((App)Application.Current).UpdateService.AvailableUpdate is null ? text : null);
+            isBusy || ((App)Application.Current).UpdateService.AvailableUpdate is null ? text : null);
     }
 
     private void UpdateActionButton_PointerEntered(object sender, PointerRoutedEventArgs e)

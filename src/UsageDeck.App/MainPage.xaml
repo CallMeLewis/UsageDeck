@@ -885,6 +885,9 @@
                                 <RotateTransform x:Name="UpdateCheckRotation" />
                             </FontIcon.RenderTransform>
                         </FontIcon>
+                        <local:DownloadProgressIcon
+                            x:Name="UpdateDownloadIcon"
+                            Visibility="Collapsed" />
                         <PathIcon
                             x:Name="UpdateActionInstallIcon"
                             Width="20"
@@ -898,9 +901,7 @@
                             MinWidth="20"
                             MinHeight="20"
                             Foreground="{ThemeResource TextFillColorPrimaryBrush}"
-                            IsIndeterminate="False"
-                            Minimum="0"
-                            Maximum="100"
+                            IsIndeterminate="True"
                             IsActive="False"
                             Visibility="Collapsed" />
                     </Grid>

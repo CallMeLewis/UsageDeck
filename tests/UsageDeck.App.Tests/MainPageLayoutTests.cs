@@ -117,8 +117,27 @@ public sealed class MainPageLayoutTests
         Assert.Equal("Check for updates", (string?)updateAction.Attribute("AutomationProperties.Name"));
         Assert.Empty(updateAction.Elements(presentation + "TextBlock"));
         XElement progress = Assert.Single(updateAction.Descendants(presentation + "ProgressRing"));
-        Assert.Equal("False", (string?)progress.Attribute("IsIndeterminate"));
-        Assert.Equal("100", (string?)progress.Attribute("Maximum"));
+        Assert.Equal("True", (string?)progress.Attribute("IsIndeterminate"));
+        XNamespace local = "using:UsageDeck.App";
+        Assert.Single(updateAction.Descendants(local + "DownloadProgressIcon"));
+    }
+
+    [Fact]
+    public void SettingsUpdatesUseIconsWithDownloadProgressInsideTheIcon()
+    {
+        XDocument xaml = XDocument.Load(Path.Combine(AppContext.BaseDirectory, "SourceUnderTest", "SettingsWindow.xaml"));
+        XNamespace presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+        XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
+        XNamespace local = "using:UsageDeck.App";
+        XElement action = Assert.Single(xaml.Descendants(presentation + "Button"),
+            element => (string?)element.Attribute(x + "Name") == "UpdateActionButton");
+
+        Assert.Equal("40", (string?)action.Attribute("Width"));
+        Assert.NotNull(action.Attribute("AutomationProperties.Name"));
+        Assert.Empty(action.Descendants(presentation + "TextBlock"));
+        Assert.Single(action.Descendants(local + "DownloadProgressIcon"));
+        Assert.DoesNotContain(xaml.Descendants(presentation + "ProgressBar"),
+            element => (string?)element.Attribute(x + "Name") == "UpdateProgressBar");
     }
 
     [Fact]
