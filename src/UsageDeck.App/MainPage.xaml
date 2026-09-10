@@ -804,16 +804,6 @@
                     Foreground="{StaticResource BrandAccentBrush}"
                     IsActive="{Binding SelectedProvider.IsLoading}"
                     Visibility="{Binding SelectedProvider.IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                <TextBlock
-                    x:Name="UpdateAvailabilityText"
-                    Grid.Column="3"
-                    Margin="4,0,28,0"
-                    HorizontalAlignment="Right"
-                    VerticalAlignment="Center"
-                    Style="{StaticResource CaptionTextBlockStyle}"
-                    TextWrapping="Wrap"
-                    AutomationProperties.LiveSetting="Polite"
-                    Visibility="Collapsed" />
                 <Button
                     x:Name="UpdateActionButton"
                     Grid.Column="4"

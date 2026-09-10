@@ -116,6 +116,7 @@ public sealed class MainPageLayoutTests
         Assert.NotEqual("Collapsed", (string?)updateAction.Attribute("Visibility"));
         Assert.Equal("Check for updates", (string?)updateAction.Attribute("AutomationProperties.Name"));
         Assert.Empty(updateAction.Elements(presentation + "TextBlock"));
+        Assert.Empty(footerActions.Elements(presentation + "TextBlock"));
         XElement progress = Assert.Single(updateAction.Descendants(presentation + "ProgressRing"));
         Assert.Equal("True", (string?)progress.Attribute("IsIndeterminate"));
         XNamespace local = "using:UsageDeck.App";
@@ -304,7 +305,8 @@ public sealed class MainPageLayoutTests
         Assert.True(returnAfterCheck > check);
         Assert.True(download > returnAfterCheck);
         Assert.Contains("if (!updater.CanCheckForUpdates)", method);
-        Assert.Contains("You’re up to date.", method);
+        Assert.DoesNotContain("up to date", method);
+        Assert.Contains("if (updater.AvailableUpdate is AppUpdateAvailability found)", method);
         Assert.Contains("UsageDeck could not check for updates.", method);
     }
 

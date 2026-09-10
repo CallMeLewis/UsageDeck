@@ -468,10 +468,12 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
                 await updater.CheckForUpdatesAsync(CancellationToken.None);
                 this.StopUpdateCheckAnimation();
                 app.NotifyUpdateStateChanged();
-                this.UpdateCheckResultText.Text = updater.AvailableUpdate is AppUpdateAvailability found
-                    ? $"Version {found.Version} is available. Select the download icon to download it."
-                    : "You’re up to date.";
-                this.UpdateCheckResultFlyout.ShowAt(this.UpdateActionButton);
+                if (updater.AvailableUpdate is AppUpdateAvailability found)
+                {
+                    this.UpdateCheckResultText.Text = $"Version {found.Version} is available. Select the download icon to download it.";
+                    this.UpdateCheckResultFlyout.ShowAt(this.UpdateActionButton);
+                }
+
                 return;
             }
 
@@ -639,8 +641,6 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
             this.UpdateReleaseNotesFlyout.Hide();
         }
 
-        this.UpdateAvailabilityText.Text = updater.IsUpdateDownloaded ? "Ready to install" : "Update available";
-        this.UpdateAvailabilityText.Visibility = hasUpdate ? Visibility.Visible : Visibility.Collapsed;
         this.UpdateActionButtonGlyph.Glyph = hasUpdate ? "\uE896" : "\uE895";
         this.UpdateActionButton.IsEnabled = !this._isUpdateOperationInProgress;
         if (!this._isUpdateOperationInProgress)
@@ -679,10 +679,6 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
         this.UpdateDownloadIcon.SetProgress(progress);
         this.UpdateActionButtonGlyph.Visibility = !showProgress && !isInstall && !showDownload ? Visibility.Visible : Visibility.Collapsed;
         this.UpdateActionInstallIcon.Visibility = !showProgress && isInstall ? Visibility.Visible : Visibility.Collapsed;
-        if (progress.HasValue)
-        {
-            this.UpdateAvailabilityText.Text = text;
-        }
         this.UpdateActionButtonProgressRing.IsActive = showProgress;
         this.UpdateActionButtonProgressRing.Visibility = showProgress ? Visibility.Visible : Visibility.Collapsed;
         AutomationProperties.SetName(this.UpdateActionButton, text);
