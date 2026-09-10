@@ -394,23 +394,6 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
         }
     }
 
-    private async void ThemeButton_Click(object sender, RoutedEventArgs e)
-    {
-        App app = (App)Application.Current;
-        AppThemePreference nextTheme = this.ActualTheme == ElementTheme.Dark
-            ? AppThemePreference.Light
-            : AppThemePreference.Dark;
-
-        try
-        {
-            await app.UpdateSettingsAsync(settings => settings with { Theme = nextTheme });
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
-        {
-            this.SelectedProvider.ShowWarning("The theme preference could not be saved.");
-        }
-    }
-
     private void ProvidersButton_Click(object sender, RoutedEventArgs e) =>
         ((App)Application.Current).ShowSettingsWindow();
 
@@ -462,12 +445,12 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
         {
             if (!wasDownloaded)
             {
-                this.SetUpdateActionPresentation("Downloading… 0%", "\uE896", isBusy: true);
+                this.SetUpdateActionPresentation("Downloading… 0%", isBusy: true, progress: 0);
                 Progress<int> progress = new(value =>
                     this.SetUpdateActionPresentation(
                         $"Downloading… {value}%",
-                        "\uE896",
-                        isBusy: true));
+                        isBusy: true,
+                        progress: value));
                 await updater.DownloadUpdateAsync(progress, CancellationToken.None);
                 app.NotifyUpdateStateChanged();
                 return;
@@ -478,7 +461,7 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
                 return;
             }
 
-            this.SetUpdateActionPresentation("Restarting…", "\uE777", isBusy: true);
+            this.SetUpdateActionPresentation("Restarting…", isInstall: true, isBusy: true);
             app.RestartForUpdate();
         }
         catch (Exception exception) when (AppUpdateService.IsExpectedFailure(exception))
@@ -613,18 +596,22 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
         {
             this.SetUpdateActionPresentation(
                 updater.IsUpdateDownloaded ? "Install update" : "Download update",
-                updater.IsUpdateDownloaded ? "\uE777" : "\uE896");
+                isInstall: updater.IsUpdateDownloaded);
         }
     }
 
-    private void SetUpdateActionPresentation(string text, string glyph, bool isBusy = false)
+    private void SetUpdateActionPresentation(string text, bool isInstall = false, bool isBusy = false, int? progress = null)
     {
-        this.UpdateActionButtonText.Text = text;
-        this.UpdateActionButtonGlyph.Glyph = glyph;
-        this.UpdateActionButtonGlyph.Visibility = isBusy ? Visibility.Collapsed : Visibility.Visible;
-        this.UpdateActionButtonProgressRing.IsActive = isBusy;
-        this.UpdateActionButtonProgressRing.Visibility = isBusy ? Visibility.Visible : Visibility.Collapsed;
+        bool showProgress = isBusy && (progress.HasValue || this._uiSettings.AnimationsEnabled);
+        this.UpdateActionButtonGlyph.Visibility = !showProgress && !isInstall ? Visibility.Visible : Visibility.Collapsed;
+        this.UpdateActionInstallIcon.Visibility = !showProgress && isInstall ? Visibility.Visible : Visibility.Collapsed;
+        this.UpdateActionButtonProgressRing.IsIndeterminate = !progress.HasValue;
+        this.UpdateActionButtonProgressRing.Value = Math.Clamp(progress ?? 0, 0, 100);
+        this.UpdateActionButtonProgressRing.IsActive = showProgress;
+        this.UpdateActionButtonProgressRing.Visibility = showProgress ? Visibility.Visible : Visibility.Collapsed;
         AutomationProperties.SetName(this.UpdateActionButton, text);
+        AutomationProperties.SetName(this.UpdateActionButtonProgressRing, text);
+        ToolTipService.SetToolTip(this.UpdateActionButton, text);
     }
 
     private void RefreshVisualStates()

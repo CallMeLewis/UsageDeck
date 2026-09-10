@@ -76,7 +76,7 @@ public sealed class MainPageLayoutTests
     }
 
     [Fact]
-    public void FooterAllowsTheUpdateActionToShrinkWithinAvailableWidth()
+    public void FooterKeepsNavigationLeftAndIconOnlyUpdateRight()
     {
         string sourcePath = Path.Combine(
             AppContext.BaseDirectory,
@@ -99,17 +99,24 @@ public sealed class MainPageLayoutTests
         string? columnValue = (string?)updateAction.Attribute("Grid.Column");
         Assert.True(int.TryParse(columnValue, out int column));
         Assert.InRange(column, 0, columns.Length - 1);
-        XElement text = Assert.Single(
-            updateAction.Descendants(presentation + "TextBlock"),
-            element => string.Equals(
-                (string?)element.Attribute(x + "Name"),
-                "UpdateActionButtonText",
-                StringComparison.Ordinal));
-
-        Assert.Equal(presentation + "Grid", footerActions.Name);
-        Assert.Equal("*", (string?)columns[column].Attribute("Width"));
-        Assert.Equal("0", (string?)updateAction.Attribute("MinWidth"));
-        Assert.Equal("CharacterEllipsis", (string?)text.Attribute("TextTrimming"));
+        XElement[] buttons = footerActions.Elements(presentation + "Button").ToArray();
+        string?[] expectedActions = ["ProvidersButton_Click", "RefreshButton_Click", null, "UpdateActionButton_Click"];
+        string?[] expectedColumns = ["0", "1", "2", "4"];
+        Assert.Equal(
+            expectedActions,
+            buttons.Select(button => (string?)button.Attribute("Click")).ToArray());
+        Assert.Equal(expectedColumns,
+            buttons.Select(button => (string?)button.Attribute("Grid.Column")).ToArray());
+        Assert.Equal("*", (string?)columns[3].Attribute("Width"));
+        Assert.Equal("Auto", (string?)columns[column].Attribute("Width"));
+        Assert.Equal("40", (string?)updateAction.Attribute("Width"));
+        Assert.Equal("40", (string?)updateAction.Attribute("Height"));
+        Assert.NotNull(updateAction.Attribute("AutomationProperties.Name"));
+        Assert.NotNull(updateAction.Attribute("ToolTipService.ToolTip"));
+        Assert.Empty(updateAction.Descendants(presentation + "TextBlock"));
+        XElement progress = Assert.Single(updateAction.Descendants(presentation + "ProgressRing"));
+        Assert.Equal("False", (string?)progress.Attribute("IsIndeterminate"));
+        Assert.Equal("100", (string?)progress.Attribute("Maximum"));
     }
 
     [Fact]
