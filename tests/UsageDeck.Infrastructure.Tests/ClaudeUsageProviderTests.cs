@@ -95,6 +95,32 @@ public sealed class ClaudeUsageProviderTests
         Assert.InRange(content.BytesRead, 1, 1_056_768);
     }
 
+    [Theory]
+    [InlineData("[]")]
+    [InlineData("null")]
+    [InlineData("42")]
+    [InlineData("{}")]
+    [InlineData("")]
+    [InlineData(" ")]
+    public async Task FetchFallsBackToTheCliWhenTheApiResponseHasAnUnexpectedShape(string body)
+    {
+        FakePtySessionFactory sessions = new(new FakePtySession("Current session\n25% used\nResets 4pm"));
+        using HttpClient client = new(new StubHttpHandler(HttpStatusCode.OK, body));
+        ClaudeUsageProvider provider = new(
+            sessions,
+            new StubExecutableLocator("C:\\tools\\claude.exe"),
+            new ImmediateTimeProvider(TestNow),
+            httpClient: client,
+            credentialsReader: new StubCredentialsReader(
+                new ClaudeCredentials("test-token", TestNow.AddHours(8))));
+
+        ProviderSnapshot snapshot = await provider.FetchAsync(CancellationToken.None);
+
+        Assert.Equal("Claude CLI", snapshot.SourceDescription);
+        Assert.Equal(25, Assert.Single(snapshot.UsageWindows).UsedPercent);
+        Assert.NotNull(sessions.StartSpec);
+    }
+
     [Fact]
     public async Task FetchSkipsTheApiWhenTheStoredTokenHasExpired()
     {

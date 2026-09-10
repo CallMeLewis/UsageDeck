@@ -6,6 +6,30 @@ namespace UsageDeck.Infrastructure.Tests;
 
 public sealed class CodexUsageProviderTests
 {
+    [Theory]
+    [InlineData("null", null)]
+    [InlineData("\"1784204040\"", 1784204040L)]
+    [InlineData("true", null)]
+    public async Task FetchAcceptsStringNumbersAndOptionalResetTimes(string resetJson, long? resetSeconds)
+    {
+        FakeProcessSession session = new([
+            "{\"id\":null}",
+            "{\"id\":1,\"result\":{}}",
+            "{\"id\":2,\"result\":{\"rateLimits\":{\"primary\":{\"usedPercent\":\"12\",\"windowDurationMins\":\"300\",\"resetsAt\":"
+                + resetJson + "}}}}",
+            "{\"id\":3,\"result\":{}}",
+        ]);
+
+        ProviderSnapshot result = await CreateProvider(new FixedProcessSessionFactory(session))
+            .FetchAsync(CancellationToken.None);
+
+        UsageWindow window = Assert.Single(result.UsageWindows);
+        Assert.Equal(12, window.UsedPercent);
+        Assert.Equal(TimeSpan.FromHours(5), window.Duration);
+        Assert.Equal(resetSeconds is long value ? DateTimeOffset.FromUnixTimeSeconds(value) : (DateTimeOffset?)null,
+            window.ResetsAt);
+    }
+
     [Fact]
     public async Task FetchMapsPrimaryWeeklyAdditionalCreditsAndIdentity()
     {

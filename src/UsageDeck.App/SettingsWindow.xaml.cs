@@ -681,9 +681,10 @@ public sealed partial class SettingsWindow : Window, IDisposable
             return;
         }
 
+        bool isOn = this.StatusMonitoringToggle.IsOn;
         await this.SaveSettingsAsync(settings => settings with
         {
-            IsStatusMonitoringEnabled = this.StatusMonitoringToggle.IsOn,
+            IsStatusMonitoringEnabled = isOn,
         });
     }
 
@@ -724,9 +725,10 @@ public sealed partial class SettingsWindow : Window, IDisposable
             return;
         }
 
+        bool isOn = this.CodexSparkCardToggle.IsOn;
         await this.SaveSettingsAsync(settings => settings with
         {
-            ShowCodexSparkCard = this.CodexSparkCardToggle.IsOn,
+            ShowCodexSparkCard = isOn,
         });
     }
 
@@ -737,9 +739,10 @@ public sealed partial class SettingsWindow : Window, IDisposable
             return;
         }
 
+        bool isOn = this.AutomaticUpdatesToggle.IsOn;
         await this.SaveSettingsAsync(settings => settings with
         {
-            CheckForUpdatesAutomatically = this.AutomaticUpdatesToggle.IsOn,
+            CheckForUpdatesAutomatically = isOn,
         });
     }
 

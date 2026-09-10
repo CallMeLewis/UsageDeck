@@ -41,7 +41,10 @@ internal sealed class AppUpdateService
         ? null
         : new AppUpdateAvailability(this._availableUpdate.TargetFullRelease.Version.ToString());
 
-    public bool IsUpdateDownloaded => this._downloadedUpdate is not null;
+    public bool IsUpdateDownloaded => GetMatchingDownloadedUpdate(
+        this._availableUpdate?.TargetFullRelease,
+        this._downloadedUpdate,
+        this.Channel) is not null;
 
     public async Task<AppUpdateAvailability?> CheckForUpdatesAsync(CancellationToken cancellationToken)
     {
@@ -53,7 +56,10 @@ internal sealed class AppUpdateService
             cancellationToken.ThrowIfCancellationRequested();
             this._availableUpdate = await manager.CheckForUpdatesAsync();
             cancellationToken.ThrowIfCancellationRequested();
-            this._downloadedUpdate = manager.UpdatePendingRestart;
+            this._downloadedUpdate = GetMatchingDownloadedUpdate(
+                this._availableUpdate?.TargetFullRelease,
+                manager.UpdatePendingRestart,
+                this.Channel);
             this.HasCheckedForUpdates = true;
             return this.AvailableUpdate;
         }
@@ -92,12 +98,28 @@ internal sealed class AppUpdateService
     public void PrepareUpdateAndRestart()
     {
         UpdateManager manager = this.GetAvailableManager();
-        VelopackAsset update = this._downloadedUpdate
-            ?? manager.UpdatePendingRestart
+        VelopackAsset update = GetMatchingDownloadedUpdate(
+            this._availableUpdate?.TargetFullRelease,
+            this._downloadedUpdate,
+            this.Channel)
             ?? throw new InvalidOperationException("No downloaded application update is ready to install.");
 
         manager.WaitExitThenApplyUpdates(update, silent: false, restart: true);
     }
+
+    internal static VelopackAsset? GetMatchingDownloadedUpdate(
+        VelopackAsset? available,
+        VelopackAsset? downloaded,
+        AppUpdateChannel channel) =>
+        available is not null
+        && downloaded is not null
+        && (ShouldIncludePrereleases(channel) || !downloaded.Version.IsPrerelease)
+        && available.Version == downloaded.Version
+        && available.Type == downloaded.Type
+        && string.Equals(available.PackageId, downloaded.PackageId, StringComparison.Ordinal)
+        && string.Equals(available.FileName, downloaded.FileName, StringComparison.Ordinal)
+            ? downloaded
+            : null;
 
     public static bool IsExpectedFailure(Exception exception) => exception is
         HttpRequestException

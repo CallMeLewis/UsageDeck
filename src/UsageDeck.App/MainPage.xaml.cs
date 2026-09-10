@@ -21,11 +21,9 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
     private readonly HashSet<ProviderTabViewModel> _providerRefreshesInProgress = [];
     private readonly DispatcherTimer _presentationTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly UISettings _uiSettings = new();
-    private readonly string _appVersionText = $"v{App.VersionNumber}";
     private bool _hasCompletedInitialLoad;
     private bool _hasShownInitialContent;
     private bool _isUpdateOperationInProgress;
-    private bool _isVersionFlyoutOpen;
     private bool _showCodexSparkCard = true;
     private int _refreshOperationsInProgress;
     private ResetTimeDisplayMode _resetTimeDisplay = ResetTimeDisplayMode.Countdown;
@@ -64,7 +62,6 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
         this._refreshCoordinator.SnapshotChanged += this.RefreshCoordinator_SnapshotChanged;
         this.RefreshProviderStatusPresentation();
         this.RefreshUpdatePresentation();
-        this.VersionReleaseNotesView.Present(app.ReleaseNotes, isCompact: true);
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -76,8 +73,6 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
     public string AllSummaryText => this.Providers.Count == 1
         ? "1 enabled provider"
         : $"{this.Providers.Count} enabled providers";
-
-    public string AppVersionText => this._appVersionText;
 
     public string ThemeToggleGlyph
     {
@@ -418,26 +413,6 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
 
     private void ProvidersButton_Click(object sender, RoutedEventArgs e) =>
         ((App)Application.Current).ShowSettingsWindow();
-
-    private void VersionButton_PointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
-    {
-        if (!this._isVersionFlyoutOpen)
-        {
-            this.VersionFlyout.ShowAt(this.VersionButton);
-        }
-    }
-
-    private void VersionFlyout_Opened(object? sender, object e) =>
-        this._isVersionFlyoutOpen = true;
-
-    private void VersionFlyout_Closed(object? sender, object e) =>
-        this._isVersionFlyoutOpen = false;
-
-    private void ViewReleaseNotesInSettingsButton_Click(object sender, RoutedEventArgs e)
-    {
-        this.VersionFlyout.Hide();
-        ((App)Application.Current).ShowSettingsWindow("about");
-    }
 
     private async void ProviderStatusFlyout_Opening(object? sender, object e)
     {

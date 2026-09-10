@@ -147,6 +147,39 @@ public sealed class NotificationEvaluatorTests
         Assert.IsType<UsageWindowResetNotification>(notification);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void RecoveryOnlyRearmsThresholdsWhenTheUsageCycleChanged(bool cycleChanged)
+    {
+        NotificationEvaluator evaluator = new();
+        NotificationEvaluationOptions options = new([20]);
+        DateTimeOffset originalReset = Now.AddMinutes(10);
+        evaluator.EvaluateUsage(Snapshot(usedPercent: 79, resetsAt: originalReset), options);
+        Assert.Single(evaluator.EvaluateUsage(
+            Snapshot(usedPercent: 81, capturedAt: Now.AddMinutes(5), resetsAt: originalReset), options));
+        evaluator.EvaluateUsage(Snapshot(
+            usedPercent: 81,
+            capturedAt: Now.AddMinutes(10),
+            state: UsageDataState.Stale,
+            errorCategory: ProviderErrorCategory.Transient), options);
+        DateTimeOffset nextReset = cycleChanged ? Now.AddHours(5) : originalReset;
+
+        Assert.Empty(evaluator.EvaluateUsage(
+            Snapshot(usedPercent: 10, capturedAt: Now.AddMinutes(15), resetsAt: nextReset), options));
+        IReadOnlyList<UsageNotificationEvent> notifications = evaluator.EvaluateUsage(
+            Snapshot(usedPercent: 81, capturedAt: Now.AddMinutes(20), resetsAt: nextReset), options);
+
+        if (cycleChanged)
+        {
+            Assert.IsType<LimitThresholdCrossedNotification>(Assert.Single(notifications));
+        }
+        else
+        {
+            Assert.Empty(notifications);
+        }
+    }
+
     [Fact]
     public void IncreasedCodexResetCreditCountNotifies()
     {

@@ -524,66 +524,67 @@ public partial class App : Application, IDisposable
 
     private void RefreshCoordinator_SnapshotChanged(object? sender, ProviderSnapshot snapshot)
     {
-        AppSettings settings = this.CurrentSettings;
-        IReadOnlyList<UsageNotificationEvent> notifications = this._notificationEvaluator.EvaluateUsage(
-            snapshot,
-            CreateNotificationOptions(settings, snapshot.ProviderId));
-        this.ShowNotifications(notifications, settings.UsageValueDisplay);
+        // Evaluate and deliver together on the UI thread so queued results use the latest settings.
+        _ = this._dispatcherQueue.TryEnqueue(() =>
+        {
+            AppSettings settings = this.CurrentSettings;
+            IReadOnlyList<UsageNotificationEvent> notifications = EvaluateUsageNotifications(
+                this._notificationEvaluator, snapshot, settings, DateTimeOffset.UtcNow);
+            this.ShowNotifications(notifications, settings.UsageValueDisplay);
+        });
     }
 
     private void StatusCoordinator_SnapshotChanged(
         object? sender,
         ProviderServiceStatusSnapshot snapshot)
     {
-        AppSettings settings = this.CurrentSettings;
-        if (!settings.IsStatusMonitoringEnabled)
-        {
-            return;
-        }
-
-        IReadOnlyList<UsageNotificationEvent> notifications = this._notificationEvaluator.EvaluateStatus(
-            snapshot,
-            CreateNotificationOptions(settings, snapshot.ProviderId));
-        this.ShowNotifications(
-            notifications,
-            settings.UsageValueDisplay,
-            requireStatusMonitoring: true);
-    }
-
-    private void ShowNotifications(
-        IReadOnlyList<UsageNotificationEvent> notifications,
-        UsageValueDisplayMode displayMode,
-        bool requireStatusMonitoring = false)
-    {
-        if (notifications.Count == 0)
-        {
-            return;
-        }
-
-        NotificationMessage[] messages = notifications
-            .Select(notification => NotificationMessageFormatter.Format(notification, displayMode))
-            .ToArray();
         _ = this._dispatcherQueue.TryEnqueue(() =>
         {
             AppSettings settings = this.CurrentSettings;
-            if ((requireStatusMonitoring && !settings.IsStatusMonitoringEnabled)
-                || !NotificationPause.AllowsDelivery(settings, DateTimeOffset.UtcNow))
-            {
-                return;
-            }
-
-            foreach (NotificationMessage message in messages)
-            {
-                _ = this._notificationService.Show(message);
-            }
+            IReadOnlyList<UsageNotificationEvent> notifications = EvaluateStatusNotifications(
+                this._notificationEvaluator, snapshot, settings, DateTimeOffset.UtcNow);
+            this.ShowNotifications(notifications, settings.UsageValueDisplay);
         });
+    }
+
+    internal static IReadOnlyList<UsageNotificationEvent> EvaluateUsageNotifications(
+        NotificationEvaluator evaluator,
+        ProviderSnapshot snapshot,
+        AppSettings settings,
+        DateTimeOffset now) =>
+        settings.EnabledProviders.Contains(snapshot.ProviderId)
+            ? evaluator.EvaluateUsage(
+                snapshot,
+                CreateNotificationOptions(settings, snapshot.ProviderId, now))
+            : [];
+
+    internal static IReadOnlyList<UsageNotificationEvent> EvaluateStatusNotifications(
+        NotificationEvaluator evaluator,
+        ProviderServiceStatusSnapshot snapshot,
+        AppSettings settings,
+        DateTimeOffset now) =>
+        settings.IsStatusMonitoringEnabled && settings.EnabledProviders.Contains(snapshot.ProviderId)
+            ? evaluator.EvaluateStatus(
+                snapshot,
+                CreateNotificationOptions(settings, snapshot.ProviderId, now))
+            : [];
+
+    private void ShowNotifications(
+        IReadOnlyList<UsageNotificationEvent> notifications,
+        UsageValueDisplayMode displayMode)
+    {
+        foreach (UsageNotificationEvent notification in notifications)
+        {
+            _ = this._notificationService.Show(NotificationMessageFormatter.Format(notification, displayMode));
+        }
     }
 
     private static NotificationEvaluationOptions CreateNotificationOptions(
         AppSettings settings,
-        ProviderId providerId)
+        ProviderId providerId,
+        DateTimeOffset now)
     {
-        if (!settings.AreNotificationsEnabled)
+        if (!NotificationPause.AllowsDelivery(settings, now))
         {
             return new NotificationEvaluationOptions(
                 [],

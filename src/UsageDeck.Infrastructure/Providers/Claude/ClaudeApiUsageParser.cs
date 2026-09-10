@@ -14,10 +14,11 @@ public static partial class ClaudeApiUsageParser
 {
     public static IReadOnlyList<UsageWindow> Parse(string json)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(json);
+        ArgumentNullException.ThrowIfNull(json);
 
         using JsonDocument document = ParseDocument(json);
-        if (!document.RootElement.TryGetProperty("limits", out JsonElement limits)
+        if (document.RootElement.ValueKind != JsonValueKind.Object
+            || !document.RootElement.TryGetProperty("limits", out JsonElement limits)
             || limits.ValueKind != JsonValueKind.Array)
         {
             throw new ProviderException(

@@ -504,7 +504,7 @@ public sealed class CodexUsageProvider : IUsageProvider, ICliVersionProvider
     {
         if (TryGetProperty(element, camelName, snakeName, out JsonElement property))
         {
-            if (property.TryGetDouble(out value))
+            if (property.ValueKind == JsonValueKind.Number && property.TryGetDouble(out value))
             {
                 return double.IsFinite(value);
             }
@@ -522,7 +522,8 @@ public sealed class CodexUsageProvider : IUsageProvider, ICliVersionProvider
 
     private static bool TryGetInt32(JsonElement element, string name, out int value)
     {
-        if (TryGetProperty(element, name, out JsonElement property))
+        if (TryGetProperty(element, name, out JsonElement property)
+            && property.ValueKind == JsonValueKind.Number)
         {
             return property.TryGetInt32(out value);
         }
@@ -539,7 +540,7 @@ public sealed class CodexUsageProvider : IUsageProvider, ICliVersionProvider
     {
         if (TryGetProperty(element, camelName, snakeName, out JsonElement property))
         {
-            if (property.TryGetInt64(out value))
+            if (property.ValueKind == JsonValueKind.Number && property.TryGetInt64(out value))
             {
                 return true;
             }

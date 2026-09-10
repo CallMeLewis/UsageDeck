@@ -13,6 +13,7 @@ public sealed class NotificationEvaluator
     private readonly Dictionary<UsageWindowKey, HashSet<int>> _notifiedThresholds = [];
     private readonly Dictionary<ProviderId, ProviderServiceStatusSnapshot> _statusSnapshots = [];
     private readonly Dictionary<ProviderId, ProviderSnapshot> _usageSnapshots = [];
+    private readonly Dictionary<ProviderId, ProviderSnapshot> _lastFreshUsageSnapshots = [];
 
     public IReadOnlyList<UsageNotificationEvent> EvaluateUsage(
         ProviderSnapshot current,
@@ -36,8 +37,23 @@ public sealed class NotificationEvaluator
                 }
                 else
                 {
+                    // Recovery stays quiet, but a cycle that reset during the failure must rearm its warnings.
+                    if (this._lastFreshUsageSnapshots.TryGetValue(current.ProviderId, out ProviderSnapshot? lastFresh))
+                    {
+                        foreach (UsageWindow window in current.UsageWindows)
+                        {
+                            UsageWindow? previousWindow = lastFresh.UsageWindows.FirstOrDefault(value => value.Id == window.Id);
+                            if (previousWindow is not null && HasReset(previousWindow, window, current.CapturedAt))
+                            {
+                                this._notifiedThresholds.Remove(new UsageWindowKey(current.ProviderId, window.Id));
+                            }
+                        }
+                    }
+
                     this.SeedThresholds(current, options);
                 }
+
+                this._lastFreshUsageSnapshots[current.ProviderId] = current;
             }
             else if (previous is not null)
             {
@@ -105,6 +121,7 @@ public sealed class NotificationEvaluator
         lock (this._gate)
         {
             RemoveMissing(this._usageSnapshots, retained);
+            RemoveMissing(this._lastFreshUsageSnapshots, retained);
             RemoveMissing(this._statusSnapshots, retained);
             RemoveMissing(this._consecutiveFailures, retained);
             RemoveMissing(this._activeConnectionAlerts, retained);
