@@ -17,6 +17,7 @@ namespace UsageDeck.App;
 
 public sealed partial class MainPage : Page, INotifyPropertyChanged
 {
+    private readonly App _app = (App)Application.Current;
     private readonly ProviderTabViewModel _allProvidersTab = new(ProviderId.All, ProviderId.All.DisplayName);
     private readonly ProviderRefreshCoordinator _refreshCoordinator;
     private readonly Dictionary<ProviderId, ProviderSnapshot> _lastAppliedSnapshots = [];
@@ -28,6 +29,23 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
     private bool _hasCompletedInitialLoad;
     private bool _hasShownInitialContent;
     private bool _isUpdateOperationInProgress;
+#if DEBUG
+    private readonly DebugUpdatePreview _updatePreview = new();
+
+    private bool IsUpdateIconPreviewEnabled => !this._app.UpdateService.CanCheckForUpdates;
+#endif
+
+    private AppUpdateAvailability? DisplayedUpdate =>
+#if DEBUG
+        this.IsUpdateIconPreviewEnabled ? this._updatePreview.AvailableUpdate :
+#endif
+        this._app.UpdateService.AvailableUpdate;
+
+    private bool IsDisplayedUpdateDownloaded =>
+#if DEBUG
+        this.IsUpdateIconPreviewEnabled ? this._updatePreview.IsDownloaded :
+#endif
+        this._app.UpdateService.IsUpdateDownloaded;
     private bool _showCodexSparkCard = true;
     private int _refreshOperationsInProgress;
     private ResetTimeDisplayMode _resetTimeDisplay = ResetTimeDisplayMode.Countdown;
@@ -435,6 +453,14 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
             return;
         }
 
+#if DEBUG
+        if (this.IsUpdateIconPreviewEnabled)
+        {
+            await this.RunUpdateIconPreviewAsync();
+            return;
+        }
+#endif
+
         App app = (App)Application.Current;
         AppUpdateService updater = app.UpdateService;
         this._updateNotesHoverTimer.Stop();
@@ -622,10 +648,45 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
         ToolTipService.SetToolTip(this.ProviderStatusButton, buttonLabel);
     }
 
+#if DEBUG
+    private async Task RunUpdateIconPreviewAsync()
+    {
+        this._updateNotesHoverTimer.Stop();
+        this.UpdateReleaseNotesFlyout.Hide();
+        this.UpdateCheckResultFlyout.Hide();
+        this._isUpdateOperationInProgress = true;
+        this.UpdateActionButton.IsEnabled = false;
+        try
+        {
+            if (this._updatePreview.AvailableUpdate is null)
+            {
+                this.SetUpdateActionPresentation("Checking for updates…", isBusy: true, isChecking: true);
+                await Task.Delay(TimeSpan.FromSeconds(1));
+            }
+            else if (!this._updatePreview.IsDownloaded)
+            {
+                for (int progress = 0; progress <= 100; progress += 2)
+                {
+                    this.SetUpdateActionPresentation($"Downloading… {progress}%", isBusy: true, progress: progress);
+                    await Task.Delay(TimeSpan.FromMilliseconds(80));
+                }
+            }
+
+            this._updatePreview.Advance();
+        }
+        finally
+        {
+            this.StopUpdateCheckAnimation();
+            this._isUpdateOperationInProgress = false;
+            this.RefreshUpdatePresentation();
+        }
+    }
+#endif
+
     private void RefreshUpdatePresentation()
     {
-        AppUpdateService updater = ((App)Application.Current).UpdateService;
-        bool hasUpdate = updater.AvailableUpdate is not null;
+        AppUpdateAvailability? available = this.DisplayedUpdate;
+        bool hasUpdate = available is not null;
         this.UpdateActionButton.ContextFlyout = hasUpdate ? this.UpdateReleaseNotesFlyout : null;
         AutomationProperties.SetHelpText(this.UpdateActionButton, hasUpdate
             ? "Hover or press Shift+F10 to read the release notes for this update."
@@ -641,10 +702,10 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
         if (!this._isUpdateOperationInProgress)
         {
             this.SetUpdateActionPresentation(
-                updater.IsUpdateDownloaded ? "Install update"
-                    : hasUpdate ? $"Update available: download version {updater.AvailableUpdate!.Version}"
+                this.IsDisplayedUpdateDownloaded ? "Install update"
+                    : hasUpdate ? $"Update available: download version {available!.Version}"
                     : "Check for updates",
-                isInstall: updater.IsUpdateDownloaded);
+                isInstall: this.IsDisplayedUpdateDownloaded);
         }
     }
 
@@ -668,7 +729,7 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
         }
 
         bool showDownload = !isChecking && !isInstall
-            && (progress.HasValue || ((App)Application.Current).UpdateService.AvailableUpdate is not null);
+            && (progress.HasValue || this.DisplayedUpdate is not null);
         bool showProgress = isBusy && !isChecking && !showDownload && this._uiSettings.AnimationsEnabled;
         this.UpdateDownloadIcon.Visibility = showDownload ? Visibility.Visible : Visibility.Collapsed;
         this.UpdateDownloadIcon.SetProgress(progress);
@@ -682,7 +743,7 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
 
     private void UpdateActionButton_PointerEntered(object sender, PointerRoutedEventArgs e)
     {
-        if (((App)Application.Current).UpdateService.AvailableUpdate is null
+        if (this.DisplayedUpdate is null
             || this._isUpdateOperationInProgress)
         {
             return;
@@ -711,7 +772,7 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
         if (this._showUpdateNotesOnTick
             && this.IsLoaded
             && !this._isUpdateOperationInProgress
-            && ((App)Application.Current).UpdateService.AvailableUpdate is not null)
+            && this.DisplayedUpdate is not null)
         {
             this.UpdateCheckResultFlyout.Hide();
             this.UpdateReleaseNotesFlyout.ShowAt(this.UpdateActionButton, new FlyoutShowOptions
@@ -727,14 +788,13 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
 
     private void UpdateReleaseNotesFlyout_Opening(object sender, object e)
     {
-        AppUpdateService updater = ((App)Application.Current).UpdateService;
-        if (updater.AvailableUpdate is not AppUpdateAvailability available)
+        if (this.DisplayedUpdate is not AppUpdateAvailability available)
         {
             return;
         }
 
         this.UpdateReleaseNotesTitle.Text = $"Release notes for version {available.Version}";
-        this.UpdateReleaseNotesStatus.Text = updater.IsUpdateDownloaded ? "Ready to install" : "Update available";
+        this.UpdateReleaseNotesStatus.Text = this.IsDisplayedUpdateDownloaded ? "Ready to install" : "Update available";
         this.UpdateReleaseNotesView.Present(
             ReleaseNotesReader.FromUpdate(available.Version, available.NotesMarkdown), isCompact: false);
     }

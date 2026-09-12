@@ -795,15 +795,6 @@
                         Glyph="&#xE9D9;"
                         IsTextScaleFactorEnabled="False" />
                 </Button>
-                <ProgressRing
-                    Grid.Column="3"
-                    Width="16"
-                    Height="16"
-                    HorizontalAlignment="Right"
-                    Margin="0,0,8,0"
-                    Foreground="{StaticResource BrandAccentBrush}"
-                    IsActive="{Binding SelectedProvider.IsLoading}"
-                    Visibility="{Binding SelectedProvider.IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}" />
                 <Button
                     x:Name="UpdateActionButton"
                     Grid.Column="4"
@@ -863,10 +854,10 @@
                             <TextBlock x:Name="UpdateCheckResultText" MaxWidth="280" TextWrapping="Wrap" />
                         </Flyout>
                     </FlyoutBase.AttachedFlyout>
-                    <Grid Width="24" Height="24">
+                    <Grid Width="30" Height="30">
                         <FontIcon
                             x:Name="UpdateActionButtonGlyph"
-                            FontSize="20"
+                            FontSize="16"
                             Glyph="&#xE895;"
                             RenderTransformOrigin="0.5,0.5"
                             IsTextScaleFactorEnabled="False">
@@ -879,8 +870,8 @@
                             Visibility="Collapsed" />
                         <Viewbox
                             x:Name="UpdateActionInstallIcon"
-                            Width="24"
-                            Height="24"
+                            Width="20"
+                            Height="20"
                             IsHitTestVisible="False"
                             AutomationProperties.AccessibilityView="Raw"
                             Visibility="Collapsed">
@@ -892,10 +883,10 @@
                         </Viewbox>
                         <ProgressRing
                             x:Name="UpdateActionButtonProgressRing"
-                            Width="24"
-                            Height="24"
-                            MinWidth="24"
-                            MinHeight="24"
+                            Width="20"
+                            Height="20"
+                            MinWidth="20"
+                            MinHeight="20"
                             Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                             IsIndeterminate="True"
                             IsActive="False"

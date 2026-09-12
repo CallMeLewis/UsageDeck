@@ -77,3 +77,5 @@ dotnet test UsageDeck.slnx -c Debug -p:SkipReleaseArtifacts=true -p:WindowsAppSd
 ```
 
 Visual Studio users can open `UsageDeck.slnx` and select the shared **UsageDeck** launch profile.
+
+In local Debug builds where real update checks are unavailable, the footer update button previews the icons: click Check for updates to show a simulated update, click Download for about four seconds of progress, then click Install to reset to no update. Hover for one second to see the sample release notes. This preview does not download, install, or restart anything and is excluded from Release builds.
