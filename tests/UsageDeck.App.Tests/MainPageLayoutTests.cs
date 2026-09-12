@@ -124,21 +124,25 @@ public sealed class MainPageLayoutTests
     }
 
     [Fact]
-    public void SettingsUpdatesUseIconsWithDownloadProgressInsideTheIcon()
+    public void SettingsUpdatesUseALabelledButtonWithoutIcons()
     {
         XDocument xaml = XDocument.Load(Path.Combine(AppContext.BaseDirectory, "SourceUnderTest", "SettingsWindow.xaml"));
         XNamespace presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
         XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
-        XNamespace local = "using:UsageDeck.App";
         XElement action = Assert.Single(xaml.Descendants(presentation + "Button"),
             element => (string?)element.Attribute(x + "Name") == "UpdateActionButton");
 
-        Assert.Equal("40", (string?)action.Attribute("Width"));
+        Assert.Null(action.Attribute("Width"));
+        Assert.Equal("Check for updates", (string?)action.Attribute("Content"));
         Assert.NotNull(action.Attribute("AutomationProperties.Name"));
-        Assert.Empty(action.Descendants(presentation + "TextBlock"));
-        Assert.Single(action.Descendants(local + "DownloadProgressIcon"));
+        Assert.Empty(action.Elements());
         Assert.DoesNotContain(xaml.Descendants(presentation + "ProgressBar"),
             element => (string?)element.Attribute(x + "Name") == "UpdateProgressBar");
+
+        string source = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "SourceUnderTest", "SettingsWindow.xaml.cs"));
+        Assert.Contains("this.SetUpdateActionPresentation(\"Download\");", source, StringComparison.Ordinal);
+        Assert.Contains("this.SetUpdateActionPresentation(\"Install\");", source, StringComparison.Ordinal);
+        Assert.Contains("this.UpdateActionButton.Content = text;", source, StringComparison.Ordinal);
     }
 
     [Fact]

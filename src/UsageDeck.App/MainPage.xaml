@@ -882,7 +882,7 @@
                             x:Name="UpdateActionInstallIcon"
                             Width="20"
                             Height="20"
-                            Data="M2,5 H6 V6.5 H3.5 V14.5 H16.5 V6.5 H14 V5 H18 V16 H10.75 V18 H14 V19.5 H6 V18 H9.25 V16 H2 Z M9.25,0 H10.75 V8.25 L13,6 L14,7 L10,11 L6,7 L7,6 L9.25,8.25 Z"
+                            Data="F0 M18,3 V9 H12 V7.5 H15.9 A7,7 0 1 0 9,19 V20.5 A8.5,8.5 0 1 1 16.5,5.8 V3 Z M24,18 A6,6 0 1 1 12,18 A6,6 0 1 1 24,18 Z M14.5,18 L17,20.5 L21.5,16 L20.5,15 L17,18.5 L15.5,17 Z"
                             Visibility="Collapsed" />
                         <ProgressRing
                             x:Name="UpdateActionButtonProgressRing"

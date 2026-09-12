@@ -13,7 +13,8 @@
                 x:Name="ProgressTrack"
                 Data="M12,2 A10,10 0 0 1 12,22 A10,10 0 0 1 12,2"
                 Stroke="{Binding Foreground, ElementName=IconRoot}"
-                StrokeThickness="1.5" />
+                StrokeThickness="1.5"
+                Visibility="Collapsed" />
             <Path
                 Stroke="{Binding Foreground, ElementName=IconRoot}"
                 StrokeThickness="1.5"
@@ -34,12 +35,30 @@
                 </Path.Data>
             </Path>
             <Path
-                Data="M12,7 V16 M8,12 L12,16 L16,12"
+                x:Name="DownloadArrow"
+                Data="M12,7 V14 M9,11 L12,14 L15,11 M8,15 V17 H16 V15"
+                Stroke="{Binding Foreground, ElementName=IconRoot}"
+                StrokeThickness="1.5"
+                StrokeStartLineCap="Round"
+                StrokeEndLineCap="Round"
+                StrokeLineJoin="Round"
+                Visibility="Collapsed" />
+            <Path
+                x:Name="AvailableArrow"
+                Data="M10,6 V15 M6,11 L10,15 L14,11 M4,15 V19 Q4,20 5,20 H15 Q16,20 16,19 V15"
                 Stroke="{Binding Foreground, ElementName=IconRoot}"
                 StrokeThickness="1.5"
                 StrokeStartLineCap="Round"
                 StrokeEndLineCap="Round"
                 StrokeLineJoin="Round" />
+            <Ellipse
+                x:Name="AvailableDot"
+                Width="6"
+                Height="6"
+                Margin="0,2,2,0"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                Fill="{Binding Foreground, ElementName=IconRoot}" />
         </Grid>
     </Viewbox>
 </UserControl>
