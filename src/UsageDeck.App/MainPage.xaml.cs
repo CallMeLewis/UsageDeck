@@ -23,7 +23,7 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
     private readonly HashSet<ProviderTabViewModel> _providerRefreshesInProgress = [];
     private readonly DispatcherTimer _presentationTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly UISettings _uiSettings = new();
-    private readonly DispatcherTimer _updateNotesHoverTimer = new() { Interval = TimeSpan.FromMilliseconds(400) };
+    private readonly DispatcherTimer _updateNotesHoverTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private bool _showUpdateNotesOnTick;
     private bool _hasCompletedInitialLoad;
     private bool _hasShownInitialContent;
@@ -678,8 +678,6 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
         this.UpdateActionButtonProgressRing.Visibility = showProgress ? Visibility.Visible : Visibility.Collapsed;
         AutomationProperties.SetName(this.UpdateActionButton, text);
         AutomationProperties.SetName(this.UpdateActionButtonProgressRing, text);
-        ToolTipService.SetToolTip(this.UpdateActionButton,
-            isBusy || ((App)Application.Current).UpdateService.AvailableUpdate is null ? text : null);
     }
 
     private void UpdateActionButton_PointerEntered(object sender, PointerRoutedEventArgs e)
@@ -692,6 +690,7 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
 
         this._showUpdateNotesOnTick = true;
         this._updateNotesHoverTimer.Stop();
+        this._updateNotesHoverTimer.Interval = TimeSpan.FromSeconds(1);
         this._updateNotesHoverTimer.Start();
     }
 
@@ -702,6 +701,7 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
     {
         this._showUpdateNotesOnTick = false;
         this._updateNotesHoverTimer.Stop();
+        this._updateNotesHoverTimer.Interval = TimeSpan.FromMilliseconds(400);
         this._updateNotesHoverTimer.Start();
     }
 

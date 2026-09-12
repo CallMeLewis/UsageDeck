@@ -112,7 +112,7 @@ public sealed class MainPageLayoutTests
         Assert.Equal("40", (string?)updateAction.Attribute("Width"));
         Assert.Equal("40", (string?)updateAction.Attribute("Height"));
         Assert.NotNull(updateAction.Attribute("AutomationProperties.Name"));
-        Assert.NotNull(updateAction.Attribute("ToolTipService.ToolTip"));
+        Assert.Null(updateAction.Attribute("ToolTipService.ToolTip"));
         Assert.NotEqual("Collapsed", (string?)updateAction.Attribute("Visibility"));
         Assert.Equal("Check for updates", (string?)updateAction.Attribute("AutomationProperties.Name"));
         Assert.Empty(updateAction.Elements(presentation + "TextBlock"));

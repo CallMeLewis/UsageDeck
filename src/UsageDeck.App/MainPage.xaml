@@ -815,7 +815,6 @@
                     CornerRadius="20"
                     AutomationProperties.Name="Check for updates"
                     AutomationProperties.LiveSetting="Polite"
-                    ToolTipService.ToolTip="Check for updates"
                     PointerEntered="UpdateActionButton_PointerEntered"
                     PointerExited="UpdateReleaseNotes_PointerExited"
                     Click="UpdateActionButton_Click"
@@ -864,10 +863,10 @@
                             <TextBlock x:Name="UpdateCheckResultText" MaxWidth="280" TextWrapping="Wrap" />
                         </Flyout>
                     </FlyoutBase.AttachedFlyout>
-                    <Grid>
+                    <Grid Width="24" Height="24">
                         <FontIcon
                             x:Name="UpdateActionButtonGlyph"
-                            FontSize="16"
+                            FontSize="20"
                             Glyph="&#xE895;"
                             RenderTransformOrigin="0.5,0.5"
                             IsTextScaleFactorEnabled="False">
@@ -878,18 +877,25 @@
                         <local:DownloadProgressIcon
                             x:Name="UpdateDownloadIcon"
                             Visibility="Collapsed" />
-                        <PathIcon
+                        <Viewbox
                             x:Name="UpdateActionInstallIcon"
-                            Width="20"
-                            Height="20"
-                            Data="F0 M18,3 V9 H12 V7.5 H15.9 A7,7 0 1 0 9,19 V20.5 A8.5,8.5 0 1 1 16.5,5.8 V3 Z M24,18 A6,6 0 1 1 12,18 A6,6 0 1 1 24,18 Z M14.5,18 L17,20.5 L21.5,16 L20.5,15 L17,18.5 L15.5,17 Z"
-                            Visibility="Collapsed" />
+                            Width="24"
+                            Height="24"
+                            IsHitTestVisible="False"
+                            AutomationProperties.AccessibilityView="Raw"
+                            Visibility="Collapsed">
+                            <Canvas Width="26" Height="26">
+                                <Path
+                                    Fill="{Binding Foreground, ElementName=UpdateActionButton}"
+                                    Data="F0 M18,3 V9 H12 V7.5 H15.9 A7,7 0 1 0 9,19 V20.5 A8.5,8.5 0 1 1 16.5,5.8 V3 Z M24,18 A6,6 0 1 1 12,18 A6,6 0 1 1 24,18 Z M14.5,18 L17,20.5 L21.5,16 L20.5,15 L17,18.5 L15.5,17 Z" />
+                            </Canvas>
+                        </Viewbox>
                         <ProgressRing
                             x:Name="UpdateActionButtonProgressRing"
-                            Width="20"
-                            Height="20"
-                            MinWidth="20"
-                            MinHeight="20"
+                            Width="24"
+                            Height="24"
+                            MinWidth="24"
+                            MinHeight="24"
                             Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                             IsIndeterminate="True"
                             IsActive="False"

@@ -3,8 +3,8 @@
     x:Name="IconRoot"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Width="20"
-    Height="20"
+    Width="24"
+    Height="24"
     IsHitTestVisible="False"
     AutomationProperties.AccessibilityView="Raw">
     <Viewbox>
@@ -36,7 +36,7 @@
             </Path>
             <Path
                 x:Name="DownloadArrow"
-                Data="M12,7 V14 M9,11 L12,14 L15,11 M8,15 V17 H16 V15"
+                Data="M12,5 V15 M8,11 L12,15 L16,11 M7,16 V19 H17 V16"
                 Stroke="{Binding Foreground, ElementName=IconRoot}"
                 StrokeThickness="1.5"
                 StrokeStartLineCap="Round"
