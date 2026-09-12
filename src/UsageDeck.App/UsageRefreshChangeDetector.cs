@@ -7,12 +7,7 @@ internal static class UsageRefreshChangeDetector
 {
     public static IReadOnlyCollection<ProviderId> AffectedProviders(
         AppSettings previous,
-        AppSettings current) => AffectedProviders(previous, current, ProviderId.All);
-
-    public static IReadOnlyCollection<ProviderId> AffectedProviders(
-        AppSettings previous,
-        AppSettings current,
-        ProviderId selectedProvider)
+        AppSettings current)
     {
         ArgumentNullException.ThrowIfNull(previous);
         ArgumentNullException.ThrowIfNull(current);
@@ -25,7 +20,7 @@ internal static class UsageRefreshChangeDetector
 
         if (previous.RefreshIntervalMinutes != current.RefreshIntervalMinutes)
         {
-            affected.UnionWith(UsageRefreshScope.AutomaticProviders(current, selectedProvider));
+            affected.UnionWith(UsageRefreshScope.AutomaticProviders(current));
         }
 
         if (previous.ZaiApiKeyStorage != current.ZaiApiKeyStorage

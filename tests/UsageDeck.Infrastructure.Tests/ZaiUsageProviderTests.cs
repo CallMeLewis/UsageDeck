@@ -11,6 +11,22 @@ public sealed class ZaiUsageProviderTests
     private static readonly DateTimeOffset Now = new(2026, 7, 17, 12, 0, 0, TimeSpan.Zero);
 
     [Fact]
+    public async Task FetchPreservesRequestedBackoff()
+    {
+        RecordingHandler handler = new(_ =>
+        {
+            HttpResponseMessage response = new(HttpStatusCode.TooManyRequests);
+            response.Headers.RetryAfter = new System.Net.Http.Headers.RetryConditionHeaderValue(TimeSpan.FromMinutes(10));
+            return response;
+        });
+        using HttpClient client = new(handler);
+        ZaiUsageProvider provider = new(client, new StubApiKeySource("test-key"), () => ZaiApiRegion.Global,
+            new FixedTimeProvider(Now));
+        ProviderException failure = await Assert.ThrowsAsync<ProviderException>(() => provider.FetchAsync(CancellationToken.None));
+        Assert.Equal(Now.AddMinutes(10), failure.RetryNotBeforeUtc);
+    }
+
+    [Fact]
     public async Task FetchRequiresAKeyBeforeMakingARequest()
     {
         RecordingHandler handler = new(_ => throw new InvalidOperationException("HTTP should not be called."));

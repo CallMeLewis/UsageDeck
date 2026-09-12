@@ -52,6 +52,8 @@ public sealed class ProviderException : Exception
 
     public ProviderErrorCategory Category { get; }
 
+    public DateTimeOffset? RetryNotBeforeUtc { get; init; }
+
     public string SafeMessage { get; }
 }
 

@@ -10,6 +10,19 @@ public sealed class ClaudeUsageProviderTests
 {
     private static readonly DateTimeOffset TestNow = new(2026, 7, 16, 12, 0, 0, TimeSpan.Zero);
 
+    [Fact]
+    public async Task ThrottledApiDoesNotFallBackToAnotherUsageRequestThroughCli()
+    {
+        FakePtySessionFactory sessions = new(new FakePtySession("unused"));
+        using HttpClient client = new(new StubHttpHandler(HttpStatusCode.TooManyRequests, "{}"));
+        ClaudeUsageProvider provider = new(sessions, new StubExecutableLocator("C:\\tools\\claude.exe"),
+            new ImmediateTimeProvider(TestNow), httpClient: client,
+            credentialsReader: new StubCredentialsReader(new ClaudeCredentials("test-token", TestNow.AddHours(8))));
+        ProviderException failure = await Assert.ThrowsAsync<ProviderException>(() => provider.FetchAsync(CancellationToken.None));
+        Assert.Equal(TestNow.AddMinutes(5), failure.RetryNotBeforeUtc);
+        Assert.Null(sessions.StartSpec);
+    }
+
     private const string ApiResponse = """
         {
           "limits": [

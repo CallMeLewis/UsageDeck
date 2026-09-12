@@ -169,6 +169,7 @@ public sealed class TheClawBayUsageProvider : IUsageProvider, ICliVersionProvide
                 request,
                 HttpCompletionOption.ResponseHeadersRead,
                 timeout.Token).ConfigureAwait(false);
+            UsageRetryBackoff.ThrowIfRequested(response, this.DisplayName, DateTimeOffset.UtcNow);
             if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
             {
                 throw new ProviderException(
@@ -383,7 +384,8 @@ public sealed class TheClawBayUsageProvider : IUsageProvider, ICliVersionProvide
         }
     }
 
-    private static bool IsEligibleForFallback(ProviderException exception) => exception.Category is
+    private static bool IsEligibleForFallback(ProviderException exception) => exception.RetryNotBeforeUtc is null
+        && exception.Category is
         ProviderErrorCategory.AuthenticationRequired
         or ProviderErrorCategory.Transient
         or ProviderErrorCategory.Unavailable;

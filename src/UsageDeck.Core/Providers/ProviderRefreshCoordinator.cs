@@ -121,7 +121,7 @@ public sealed class ProviderRefreshCoordinator
         }
         catch (ProviderException exception)
         {
-            snapshot = this.MakeFailureSnapshot(provider, exception.Category, exception.SafeMessage);
+            snapshot = this.MakeFailureSnapshot(provider, exception.Category, exception.SafeMessage, exception.RetryNotBeforeUtc);
         }
         catch (Exception exception)
         {
@@ -146,11 +146,12 @@ public sealed class ProviderRefreshCoordinator
     private ProviderSnapshot MakeFailureSnapshot(
         IUsageProvider provider,
         ProviderErrorCategory category,
-        string safeMessage)
+        string safeMessage,
+        DateTimeOffset? retryNotBeforeUtc = null)
     {
         if (this._snapshots.TryGetValue(provider.Id, out ProviderSnapshot? previous))
         {
-            return previous.WithFailure(UsageDataState.Stale, safeMessage, category);
+            return previous.WithFailure(UsageDataState.Stale, safeMessage, category, retryNotBeforeUtc);
         }
 
         UsageDataState state = category == ProviderErrorCategory.AuthenticationRequired
@@ -164,7 +165,7 @@ public sealed class ProviderRefreshCoordinator
             DateTimeOffset.MinValue,
             state,
             safeError: safeMessage,
-            errorCategory: category);
+            errorCategory: category) { RetryNotBeforeUtc = retryNotBeforeUtc };
     }
 
     private async Task<string?> ReadCliVersionSafelyAsync(IUsageProvider provider)

@@ -11,9 +11,12 @@ public sealed class NotificationEvaluator
     private readonly object _gate = new();
     private readonly HashSet<ProviderId> _notifiedStatusIncidents = [];
     private readonly Dictionary<UsageWindowKey, HashSet<int>> _notifiedThresholds = [];
+    private readonly Dictionary<UsageWindowKey, int> _failedThresholdDeliveries = [];
+    private readonly HashSet<ProviderId> _failedStatusDeliveries = [];
     private readonly Dictionary<ProviderId, ProviderServiceStatusSnapshot> _statusSnapshots = [];
     private readonly Dictionary<ProviderId, ProviderSnapshot> _usageSnapshots = [];
     private readonly Dictionary<ProviderId, ProviderSnapshot> _lastFreshUsageSnapshots = [];
+    private readonly Dictionary<ProviderId, HashSet<int>> _recoveryThresholds = [];
 
     public IReadOnlyList<UsageNotificationEvent> EvaluateUsage(
         ProviderSnapshot current,
@@ -26,6 +29,7 @@ public sealed class NotificationEvaluator
         {
             List<UsageNotificationEvent> notifications = [];
             this._usageSnapshots.TryGetValue(current.ProviderId, out ProviderSnapshot? previous);
+            this.ClearInapplicableThresholdRetries(current, options);
 
             if (current.State == UsageDataState.Fresh)
             {
@@ -37,7 +41,7 @@ public sealed class NotificationEvaluator
                 }
                 else
                 {
-                    // Recovery stays quiet, but a cycle that reset during the failure must rearm its warnings.
+                    // Rearm known resets, then warn only when the usage cycle is demonstrably unchanged.
                     if (this._lastFreshUsageSnapshots.TryGetValue(current.ProviderId, out ProviderSnapshot? lastFresh))
                     {
                         foreach (UsageWindow window in current.UsageWindows)
@@ -48,12 +52,21 @@ public sealed class NotificationEvaluator
                                 this._notifiedThresholds.Remove(new UsageWindowKey(current.ProviderId, window.Id));
                             }
                         }
+
+                        int[] recoveryThresholds = options.RemainingThresholds
+                            .Where(threshold => this._recoveryThresholds.TryGetValue(current.ProviderId, out HashSet<int>? allowed)
+                                && allowed.Contains(threshold))
+                            .ToArray();
+                        this.EvaluateUsageWindows(lastFresh, current,
+                            new NotificationEvaluationOptions(recoveryThresholds, notifyLimitResets: false),
+                            notifications, recovering: true);
                     }
 
                     this.SeedThresholds(current, options);
                 }
 
                 this._lastFreshUsageSnapshots[current.ProviderId] = current;
+                this._recoveryThresholds.Remove(current.ProviderId);
             }
             else if (previous is not null)
             {
@@ -62,6 +75,18 @@ public sealed class NotificationEvaluator
             else
             {
                 this.SeedConnectionFailure(current, options, notifications);
+            }
+
+            if (current.State != UsageDataState.Fresh)
+            {
+                if (this._recoveryThresholds.TryGetValue(current.ProviderId, out HashSet<int>? allowed))
+                {
+                    allowed.IntersectWith(options.RemainingThresholds);
+                }
+                else
+                {
+                    this._recoveryThresholds[current.ProviderId] = options.RemainingThresholds.ToHashSet();
+                }
             }
 
             this._usageSnapshots[current.ProviderId] = current;
@@ -79,15 +104,22 @@ public sealed class NotificationEvaluator
         lock (this._gate)
         {
             List<UsageNotificationEvent> notifications = [];
+            if (!current.HasProblems || current.IsStale || !options.NotifyProviderStatusChanges)
+            {
+                this._failedStatusDeliveries.Remove(current.ProviderId);
+            }
+
             if (this._statusSnapshots.TryGetValue(
                     current.ProviderId,
                     out ProviderServiceStatusSnapshot? previous))
             {
-                if (!previous.HasProblems && current.HasProblems && !current.IsStale)
+                if ((!previous.HasProblems || this._failedStatusDeliveries.Contains(current.ProviderId))
+                    && current.HasProblems && !current.IsStale)
                 {
                     if (options.NotifyProviderStatusChanges)
                     {
                         this._notifiedStatusIncidents.Add(current.ProviderId);
+                        this._failedStatusDeliveries.Remove(current.ProviderId);
                         notifications.Add(new ProviderIncidentDetectedNotification(
                             current.ProviderId,
                             current.ProviderId.DisplayName,
@@ -122,10 +154,17 @@ public sealed class NotificationEvaluator
         {
             RemoveMissing(this._usageSnapshots, retained);
             RemoveMissing(this._lastFreshUsageSnapshots, retained);
+            RemoveMissing(this._recoveryThresholds, retained);
             RemoveMissing(this._statusSnapshots, retained);
             RemoveMissing(this._consecutiveFailures, retained);
             RemoveMissing(this._activeConnectionAlerts, retained);
             this._notifiedStatusIncidents.RemoveWhere(id => !retained.Contains(id));
+            this._failedStatusDeliveries.RemoveWhere(id => !retained.Contains(id));
+            foreach (UsageWindowKey key in this._failedThresholdDeliveries.Keys
+                .Where(key => !retained.Contains(key.ProviderId)).ToArray())
+            {
+                this._failedThresholdDeliveries.Remove(key);
+            }
             foreach (UsageWindowKey key in this._notifiedThresholds.Keys
                 .Where(key => !retained.Contains(key.ProviderId))
                 .ToArray())
@@ -141,6 +180,64 @@ public sealed class NotificationEvaluator
         {
             this._statusSnapshots.Clear();
             this._notifiedStatusIncidents.Clear();
+            this._failedStatusDeliveries.Clear();
+        }
+    }
+
+    public void UpdateRecoveryOptions(ProviderId providerId, NotificationEvaluationOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        lock (this._gate)
+        {
+            if (this._recoveryThresholds.TryGetValue(providerId, out HashSet<int>? allowed))
+            {
+                allowed.IntersectWith(options.RemainingThresholds);
+            }
+        }
+    }
+
+    // Report rejected delivery before evaluating another snapshot. Evaluation reserves alerts
+    // to prevent duplicates; a rejection releases only warnings that can still be relevant.
+    public void ReportDeliveryFailure(UsageNotificationEvent notification)
+    {
+        ArgumentNullException.ThrowIfNull(notification);
+        lock (this._gate)
+        {
+            switch (notification)
+            {
+                case LimitThresholdCrossedNotification threshold:
+                    UsageWindowKey key = new(threshold.ProviderId, threshold.WindowId);
+                    this.GetNotifiedThresholds(threshold.ProviderId, threshold.WindowId)
+                        .Remove(threshold.RemainingThreshold);
+                    this._failedThresholdDeliveries[key] = threshold.RemainingThreshold;
+                    break;
+                case ProviderAuthenticationRequiredNotification:
+                case ProviderDataUnavailableNotification:
+                    this._activeConnectionAlerts.Remove(notification.ProviderId);
+                    break;
+                case ProviderIncidentDetectedNotification:
+                    this._notifiedStatusIncidents.Remove(notification.ProviderId);
+                    this._failedStatusDeliveries.Add(notification.ProviderId);
+                    break;
+            }
+        }
+    }
+
+    private void ClearInapplicableThresholdRetries(
+        ProviderSnapshot current,
+        NotificationEvaluationOptions options)
+    {
+        foreach ((UsageWindowKey key, int threshold) in this._failedThresholdDeliveries
+            .Where(entry => entry.Key.ProviderId == current.ProviderId).ToArray())
+        {
+            UsageWindow? window = current.UsageWindows.FirstOrDefault(window => window.Id == key.WindowId);
+            if (current.State != UsageDataState.Fresh
+                || !options.RemainingThresholds.Contains(threshold)
+                || window is null || !window.IsLimitNotificationEligible
+                || !window.UsageKnown || window.IsUnlimited || window.UsedPercent < 100 - threshold)
+            {
+                this._failedThresholdDeliveries.Remove(key);
+            }
         }
     }
 
@@ -156,7 +253,8 @@ public sealed class NotificationEvaluator
         ProviderSnapshot previous,
         ProviderSnapshot current,
         NotificationEvaluationOptions options,
-        List<UsageNotificationEvent> notifications)
+        List<UsageNotificationEvent> notifications,
+        bool recovering = false)
     {
         Dictionary<string, UsageWindow> previousWindows = previous.UsageWindows
             .ToDictionary(window => window.Id, StringComparer.Ordinal);
@@ -188,9 +286,18 @@ public sealed class NotificationEvaluator
                 continue;
             }
 
+            // A matching future reset is required to establish continuity across missing readings.
+            if (recovering && (previousWindow.ResetsAt is not DateTimeOffset reset
+                || window.ResetsAt != reset || reset <= current.CapturedAt
+                || current.CapturedAt < previous.CapturedAt))
+            {
+                continue;
+            }
+
             if (HasReset(previousWindow, window, current.CapturedAt))
             {
                 this._notifiedThresholds.Remove(key);
+                this._failedThresholdDeliveries.Remove(key);
                 if (options.NotifyLimitResets)
                 {
                     notifications.Add(new UsageWindowResetNotification(
@@ -210,7 +317,8 @@ public sealed class NotificationEvaluator
                 .Where(threshold =>
                 {
                     double usedThreshold = 100 - threshold;
-                    return previousWindow.UsedPercent < usedThreshold
+                    return (previousWindow.UsedPercent < usedThreshold
+                            || this._failedThresholdDeliveries.GetValueOrDefault(key, -1) == threshold)
                         && window.UsedPercent >= usedThreshold;
                 })
                 .Select(threshold => (int?)threshold)
@@ -223,6 +331,7 @@ public sealed class NotificationEvaluator
 
             if (mostSevereThreshold is int threshold)
             {
+                this._failedThresholdDeliveries.Remove(key);
                 notifications.Add(new LimitThresholdCrossedNotification(
                     current.ProviderId,
                     current.DisplayName,

@@ -166,6 +166,8 @@ public sealed record ProviderSnapshot
 
     public ProviderErrorCategory? ErrorCategory { get; }
 
+    public DateTimeOffset? RetryNotBeforeUtc { get; init; }
+
     public UsageDataCoverage Coverage { get; }
 
     public double HighestUsedPercent => this.UsageWindows.Count == 0
@@ -175,7 +177,8 @@ public sealed record ProviderSnapshot
     public ProviderSnapshot WithFailure(
         UsageDataState state,
         string safeError,
-        ProviderErrorCategory? errorCategory = null) => new(
+        ProviderErrorCategory? errorCategory = null,
+        DateTimeOffset? retryNotBeforeUtc = null) => new(
         this.ProviderId,
         this.DisplayName,
         this.SourceDescription,
@@ -188,7 +191,7 @@ public sealed record ProviderSnapshot
         safeError,
         this.CliVersion,
         errorCategory,
-        this.Coverage);
+        this.Coverage) { RetryNotBeforeUtc = retryNotBeforeUtc };
 
     public ProviderSnapshot WithCliVersion(string? cliVersion) => new(
         this.ProviderId,
@@ -203,5 +206,5 @@ public sealed record ProviderSnapshot
         this.SafeError,
         cliVersion,
         this.ErrorCategory,
-        this.Coverage);
+        this.Coverage) { RetryNotBeforeUtc = this.RetryNotBeforeUtc };
 }

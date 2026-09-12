@@ -109,6 +109,7 @@ public sealed class OpenCodeGoUsageProvider(
                 request,
                 HttpCompletionOption.ResponseHeadersRead,
                 timeout.Token).ConfigureAwait(false);
+            UsageRetryBackoff.ThrowIfRequested(response, "OpenCode Console", DateTimeOffset.UtcNow);
             if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
             {
                 throw new ProviderException(

@@ -60,6 +60,7 @@ public sealed class ZaiUsageProvider(
                 endpoint,
                 apiKey,
                 timeout.Token).ConfigureAwait(false);
+            UsageRetryBackoff.ThrowIfRequested(response, this.DisplayName, this._timeProvider.GetUtcNow());
             if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
             {
                 throw new ProviderException(
@@ -127,7 +128,8 @@ public sealed class ZaiUsageProvider(
             apiKey,
             useBearerScheme: false,
             cancellationToken).ConfigureAwait(false);
-        if (response.StatusCode is not (HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden))
+        if (response.StatusCode is not (HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+            || response.Headers.RetryAfter is not null)
         {
             return response;
         }

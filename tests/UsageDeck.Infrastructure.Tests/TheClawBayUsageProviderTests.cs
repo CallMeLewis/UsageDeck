@@ -300,7 +300,7 @@ public sealed class TheClawBayUsageProviderTests
 
     [Theory]
     [InlineData(HttpStatusCode.Unauthorized)]
-    [InlineData(HttpStatusCode.TooManyRequests)]
+    [InlineData(HttpStatusCode.ServiceUnavailable)]
     [InlineData(HttpStatusCode.BadRequest)]
     public async Task AutomaticFallsBackToCliForEligibleApiFailures(HttpStatusCode statusCode)
     {
@@ -390,7 +390,7 @@ public sealed class TheClawBayUsageProviderTests
     [Fact]
     public async Task AutomaticCombinesEligibleFailuresUsingDeterministicCategoryPrecedence()
     {
-        RecordingHandler handler = new(_ => new HttpResponseMessage(HttpStatusCode.TooManyRequests));
+        RecordingHandler handler = new(_ => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
         TheClawBayUsageProvider provider = CreateProvider(
             new HttpClient(handler),
             new FakeProcessSessionFactory("unused"),
@@ -405,6 +405,25 @@ public sealed class TheClawBayUsageProviderTests
         Assert.Equal(
             "No usable TheClawBay source was available. Check the API key or run theclawbay setup, then refresh.",
             exception.SafeMessage);
+    }
+
+    [Fact]
+    public async Task AutomaticRespectsBackoffWithoutStartingCliFallback()
+    {
+        DateTimeOffset retryAt = DateTimeOffset.UtcNow.AddMinutes(10);
+        RecordingHandler handler = new(_ =>
+        {
+            HttpResponseMessage response = new(HttpStatusCode.TooManyRequests);
+            response.Headers.RetryAfter = new System.Net.Http.Headers.RetryConditionHeaderValue(retryAt);
+            return response;
+        });
+        using HttpClient client = new(handler);
+        FakeProcessSessionFactory processes = new(QuotaJson);
+        TheClawBayUsageProvider provider = CreateProvider(client, processes, "test-key", TheClawBayUsageSource.Automatic);
+
+        ProviderException failure = await Assert.ThrowsAsync<ProviderException>(() => provider.FetchAsync(CancellationToken.None));
+        Assert.Equal(retryAt, failure.RetryNotBeforeUtc);
+        Assert.Null(processes.StartSpec);
     }
 
     [Fact]

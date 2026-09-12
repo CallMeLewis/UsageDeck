@@ -78,6 +78,7 @@ public sealed class ClaudeUsageProvider(
         {
             using HttpResponseMessage response = await httpClient!.SendAsync(
                 request, HttpCompletionOption.ResponseHeadersRead, timeout.Token).ConfigureAwait(false);
+            UsageRetryBackoff.ThrowIfRequested(response, this.DisplayName, this._timeProvider.GetUtcNow());
             if (!response.IsSuccessStatusCode)
             {
                 return null;
@@ -93,6 +94,11 @@ public sealed class ClaudeUsageProvider(
                 this._timeProvider.GetUtcNow(),
                 UsageDataState.Fresh,
                 windows);
+        }
+        catch (ProviderException exception) when (exception.RetryNotBeforeUtc is not null)
+        {
+            // Falling back to the CLI would immediately query the same throttled usage service.
+            throw;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

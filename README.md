@@ -17,7 +17,9 @@ UsageDeck brings usage from several coding assistants into one compact WinUI 3 w
 - Optional official service-status monitoring for enabled providers, with incident warnings on affected tabs.
 - Per-provider Windows notification rules for limit thresholds and resets, Codex reset credits, provider incidents, sign-in requirements, repeated refresh failures, and recoveries. Settings also reports Windows delivery status and can send a test notification.
 - Temporary notification pauses from the tray or Settings for 30 minutes, 1 hour, 2 hours, 4 hours, or until the following morning, with an immediate resume action. Suppressed alerts are not replayed on resume, and problems first detected during a pause do not produce recovery messages.
-- Automatic refresh every 1, 5, 15, or 30 minutes, with manual refresh at any time.
+- Automatic refresh of every enabled provider every 1, 5, 15, or 30 minutes, including while hidden in the notification area, with manual refresh at any time.
+- Failed usage checks receive up to two confirmation checks about a minute apart before returning to the normal schedule. Provider-requested waiting periods take priority, including for manual refreshes.
+- After a temporary refresh failure, new limit warnings can still appear when fresh data confirms the same usage cycle. Paused alerts are not replayed.
 - System, light, and dark themes with optional Mica.
 - Settings stored per Windows user in `%LOCALAPPDATA%\UsageDeckData\settings.json`, outside the installer-owned application directory.
 - UsageDeck-branded application, installer, executable, and update packages.

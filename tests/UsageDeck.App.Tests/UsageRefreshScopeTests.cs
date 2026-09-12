@@ -6,7 +6,7 @@ namespace UsageDeck.App.Tests;
 public sealed class UsageRefreshScopeTests
 {
     [Fact]
-    public void AllTabRefreshesEveryEnabledProvider()
+    public void AutomaticRefreshIncludesEveryEnabledProvider()
     {
         AppSettings settings = AppSettings.Default with
         {
@@ -14,24 +14,24 @@ public sealed class UsageRefreshScopeTests
         };
 
         IReadOnlyCollection<ProviderId> providers = UsageRefreshScope.AutomaticProviders(
-            settings,
-            ProviderId.All);
+            settings);
 
         Assert.Equal(settings.EnabledProviders, providers);
     }
 
     [Fact]
-    public void IndividualTabRefreshesOnlyTheSelectedProvider()
+    public void IndividualDefaultTabWithAllTabHiddenStillMonitorsEveryEnabledProvider()
     {
         AppSettings settings = AppSettings.Default with
         {
+            DefaultProvider = ProviderId.Claude,
+            IsAllTabEnabled = false,
             EnabledProviders = [ProviderId.Codex, ProviderId.Claude, ProviderId.Amp],
         };
 
         IReadOnlyCollection<ProviderId> providers = UsageRefreshScope.AutomaticProviders(
-            settings,
-            ProviderId.Claude);
+            settings);
 
-        Assert.Equal([ProviderId.Claude], providers);
+        Assert.Equal(settings.EnabledProviders, providers);
     }
 }

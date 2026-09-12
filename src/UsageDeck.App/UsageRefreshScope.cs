@@ -5,18 +5,9 @@ namespace UsageDeck.App;
 
 internal static class UsageRefreshScope
 {
-    public static IReadOnlyCollection<ProviderId> AutomaticProviders(
-        AppSettings settings,
-        ProviderId selectedProvider)
+    public static IReadOnlyCollection<ProviderId> AutomaticProviders(AppSettings settings)
     {
         ArgumentNullException.ThrowIfNull(settings);
-        if (selectedProvider == ProviderId.All)
-        {
-            return settings.EnabledProviders.ToArray();
-        }
-
-        return settings.EnabledProviders.Contains(selectedProvider)
-            ? [selectedProvider]
-            : [];
+        return settings.EnabledProviders.ToArray();
     }
 }

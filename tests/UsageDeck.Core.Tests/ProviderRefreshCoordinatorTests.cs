@@ -4,6 +4,31 @@ namespace UsageDeck.Core.Tests;
 
 public sealed class ProviderRefreshCoordinatorTests
 {
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task FailurePreservesRetryDeadlineWithOrWithoutCachedUsage(bool hasCachedUsage)
+    {
+        DateTimeOffset retryAt = DateTimeOffset.UtcNow.AddMinutes(10);
+        bool fail = !hasCachedUsage;
+        FakeProvider provider = new(_ => fail
+            ? throw new ProviderException(ProviderErrorCategory.Transient, "Provider requested a pause.")
+                { RetryNotBeforeUtc = retryAt }
+            : Task.FromResult(FreshSnapshot()), cliVersion: "1.0");
+        ProviderRefreshCoordinator coordinator = new([provider]);
+        if (hasCachedUsage)
+        {
+            await coordinator.RefreshAsync(ProviderId.Codex);
+        }
+
+        fail = true;
+        ProviderSnapshot failure = await coordinator.RefreshAsync(ProviderId.Codex);
+        Assert.Equal(retryAt, failure.RetryNotBeforeUtc);
+        Assert.Equal("1.0", failure.CliVersion);
+        fail = false;
+        Assert.Null((await coordinator.RefreshAsync(ProviderId.Codex)).RetryNotBeforeUtc);
+    }
+
     [Fact]
     public async Task SimultaneousRefreshesStartOnlyOneProviderFetch()
     {

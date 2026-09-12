@@ -124,11 +124,6 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
             this._selectedProvider?.IsSelected = false;
             this._selectedProvider = value;
             this._selectedProvider.IsSelected = true;
-            if (Application.Current is App app)
-            {
-                app.SetSelectedUsageProvider(value.Id);
-            }
-
             this.OnPropertyChanged();
         }
     }
