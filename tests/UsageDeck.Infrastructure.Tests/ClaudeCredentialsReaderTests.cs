@@ -28,6 +28,22 @@ public sealed class ClaudeCredentialsReaderTests : IDisposable
         Assert.NotNull(credentials);
         Assert.Equal("token-value", credentials.AccessToken);
         Assert.Equal(DateTimeOffset.FromUnixTimeMilliseconds(1785025642000), credentials.ExpiresAt);
+        Assert.Equal("max", credentials.Plan);
+    }
+
+    [Theory]
+    [InlineData("max", "default_claude_max_5x", "max 5x")]
+    [InlineData("max", "default_claude_max_20x", "max 20x")]
+    [InlineData("pro", "default_claude_ai", "pro")]
+    [InlineData("pro", null, "pro")]
+    [InlineData(null, "default_claude_max_5x", null)]
+    [InlineData(" ", "default_claude_max_5x", null)]
+    public void DescribePlanAddsTheUsageMultiplierFromTheRateLimitTier(
+        string? subscriptionType,
+        string? rateLimitTier,
+        string? expected)
+    {
+        Assert.Equal(expected, ClaudeCredentialsReader.DescribePlan(subscriptionType, rateLimitTier));
     }
 
     [Fact]

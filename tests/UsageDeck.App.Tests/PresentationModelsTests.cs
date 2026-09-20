@@ -304,6 +304,28 @@ public sealed class PresentationModelsTests
         Assert.Equal("Pro", model.PlanText);
     }
 
+    [Theory]
+    [InlineData("max 5x", "Max 5x")]
+    [InlineData("max 20x", "Max 20x")]
+    [InlineData("max", "Max")]
+    public void ApplySnapshotKeepsClaudeUsageMultipliersLowercase(string plan, string expected)
+    {
+        DateTimeOffset now = new(2026, 7, 18, 12, 0, 0, TimeSpan.Zero);
+        ProviderTabViewModel model = new(ProviderId.Claude, "Claude");
+        ProviderSnapshot snapshot = new(
+            ProviderId.Claude,
+            "Claude",
+            "Claude API",
+            now,
+            UsageDataState.Fresh,
+            [],
+            new AccountIdentity(null, plan));
+
+        model.ApplySnapshot(snapshot, now, TimeDisplayPrecision.Seconds);
+
+        Assert.Equal(expected, model.PlanText);
+    }
+
     [Fact]
     public void ApplySnapshotMarksAnInitiallyUnloadedProviderAsLoaded()
     {

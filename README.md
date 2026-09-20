@@ -31,7 +31,7 @@ UsageDeck brings usage from several coding assistants into one compact WinUI 3 w
 | Provider | Source |
 | --- | --- |
 | Codex | Installed Codex CLI app server |
-| Claude Code | Anthropic usage API using Claude CLI credentials, with an authenticated `/usage` terminal fallback |
+| Claude Code | Authenticated `/usage` view of the signed-in Claude Code CLI, or an opt-in direct check of Anthropic's usage service |
 | Antigravity | Backend quota through the signed-in `agy` CLI |
 | GitHub Copilot | Authenticated GitHub CLI (`gh`) |
 | Kiro | `kiro-cli` |
@@ -60,7 +60,7 @@ For TheClawBay, open **Settings → Providers → TheClawBay** and choose **Auto
 Most usage collection happens locally through provider-owned tools. UsageDeck does not log tokens, cookies, raw provider responses, or captured terminal output.
 
 - Codex, Antigravity, Copilot, Kiro, and Amp keep authentication under their own tools.
-- Claude first sends the access token stored by Claude Code only to Anthropic's fixed usage endpoint. If that is unavailable, UsageDeck opens the authenticated `/usage` view in an isolated terminal session. UsageDeck never writes to Claude Code's credential store.
+- Claude opens the authenticated `/usage` view in an isolated terminal session, so sign-in stays with Claude Code. The session runs in UsageDeck's own empty `ClaudeProbe` folder with tools disabled, and UsageDeck answers Claude Code's one-time folder trust prompt for that folder only. UsageDeck reads the plan name from Claude Code's local sign-in file and never writes to that file. **Settings → Providers → Claude → Faster direct usage check** is off by default. When you turn it on, UsageDeck sends the access token stored by Claude Code only to Anthropic's fixed usage endpoint and falls back to the `/usage` view if that fails. Anthropic does not document that endpoint or officially support its use by other apps, and UsageDeck asks you to confirm the risk before enabling it.
 - Z.AI sends its key only to the fixed endpoint for the selected region and never writes it to the settings file.
 - A UsageDeck-managed TheClawBay key is sent only to `https://theclawbay.com/api/codex-auth/v1/quota`. CLI mode leaves sign-in under the CLI's ownership, the public status request is unauthenticated, and raw responses are not logged.
 - Service-status checks use public official endpoints and do not send provider credentials. Providers without a verified public source are labelled unavailable rather than inferred to be operational.

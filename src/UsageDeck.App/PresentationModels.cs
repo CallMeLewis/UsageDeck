@@ -55,7 +55,7 @@ public sealed record ProviderSettingsPresentation(
                 "claude",
                 true,
                 "Managed by the Claude Code CLI",
-                "UsageDeck uses the provider-owned sign-in and does not store credentials from the Claude Code CLI."),
+                "UsageDeck uses the provider-owned sign-in and does not store credentials from the Claude Code CLI. The faster direct usage check is off unless you turn it on below."),
             [ProviderId.Antigravity] = new(
                 ProviderId.Antigravity,
                 "Shows backend model quota data for the account signed in to the Antigravity CLI.",
@@ -605,8 +605,19 @@ public sealed class ProviderTabViewModel : INotifyPropertyChanged
     }
 
     private static string FormatGenericPlanName(string plan) =>
-        CultureInfo.InvariantCulture.TextInfo.ToTitleCase(
-            plan.Trim().Replace('-', ' ').Replace('_', ' ').ToLowerInvariant());
+        string.Join(
+            ' ',
+            plan.Replace('-', ' ')
+                .Replace('_', ' ')
+                .ToLowerInvariant()
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Select(FormatPlanWord));
+
+    // Title casing would turn a usage multiplier such as "5x" into "5X".
+    private static string FormatPlanWord(string word) =>
+        word.Length > 1 && word[^1] == 'x' && word[..^1].All(char.IsAsciiDigit)
+            ? word
+            : CultureInfo.InvariantCulture.TextInfo.ToTitleCase(word);
 
     private static string FormatCredits(CreditBalance? credits)
     {

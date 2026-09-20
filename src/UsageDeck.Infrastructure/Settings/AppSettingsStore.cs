@@ -102,7 +102,8 @@ public sealed record AppSettings(
     TheClawBayUsageSource TheClawBayUsageSource = TheClawBayUsageSource.Automatic,
     ApiKeyStorageMode TheClawBayApiKeyStorage = ApiKeyStorageMode.WindowsCredentialManager,
     bool StartAtSignIn = false,
-    DateTimeOffset? NotificationsPausedUntilUtc = null)
+    DateTimeOffset? NotificationsPausedUntilUtc = null,
+    bool UseClaudeUsageApi = false)
 {
     public static AppSettings Default { get; } = new(
         [ProviderId.Codex, ProviderId.Claude],
@@ -349,7 +350,8 @@ public sealed class AppSettingsStore
                     TheClawBayUsageSource: theClawBayUsageSource,
                     TheClawBayApiKeyStorage: theClawBayApiKeyStorage,
                     StartAtSignIn: document.StartAtSignIn ?? false,
-                    NotificationsPausedUntilUtc: document.NotificationsPausedUntilUtc),
+                    NotificationsPausedUntilUtc: document.NotificationsPausedUntilUtc,
+                    UseClaudeUsageApi: document.UseClaudeUsageApi ?? false),
                 CombineWarnings(migrationWarning, warning));
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
@@ -448,7 +450,8 @@ public sealed class AppSettingsStore
             settings.TheClawBayUsageSource.ToString(),
             settings.TheClawBayApiKeyStorage.ToString(),
             settings.StartAtSignIn,
-            settings.NotificationsPausedUntilUtc);
+            settings.NotificationsPausedUntilUtc,
+            settings.UseClaudeUsageApi);
 
         try
         {
@@ -645,6 +648,7 @@ public sealed class AppSettingsStore
         string? TheClawBayApiKeyStorage = null,
         bool? StartAtSignIn = null,
         DateTimeOffset? NotificationsPausedUntilUtc = null,
+        bool? UseClaudeUsageApi = null,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         string? LimitNotificationThresholds = null,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

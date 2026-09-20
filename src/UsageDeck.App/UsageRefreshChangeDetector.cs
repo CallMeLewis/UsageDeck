@@ -41,6 +41,11 @@ internal static class UsageRefreshChangeDetector
             affected.Add(ProviderId.TheClawBay);
         }
 
+        if (previous.UseClaudeUsageApi != current.UseClaudeUsageApi)
+        {
+            affected.Add(ProviderId.Claude);
+        }
+
         affected.IntersectWith(current.EnabledProviders);
         return affected;
     }

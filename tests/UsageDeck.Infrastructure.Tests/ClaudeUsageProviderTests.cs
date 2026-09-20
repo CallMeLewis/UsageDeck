@@ -17,7 +17,8 @@ public sealed class ClaudeUsageProviderTests
         using HttpClient client = new(new StubHttpHandler(HttpStatusCode.TooManyRequests, "{}"));
         ClaudeUsageProvider provider = new(sessions, new StubExecutableLocator("C:\\tools\\claude.exe"),
             new ImmediateTimeProvider(TestNow), httpClient: client,
-            credentialsReader: new StubCredentialsReader(new ClaudeCredentials("test-token", TestNow.AddHours(8))));
+            credentialsReader: new StubCredentialsReader(new ClaudeCredentials("test-token", TestNow.AddHours(8))),
+            useUsageApi: () => true);
         ProviderException failure = await Assert.ThrowsAsync<ProviderException>(() => provider.FetchAsync(CancellationToken.None));
         Assert.Equal(TestNow.AddMinutes(5), failure.RetryNotBeforeUtc);
         Assert.Null(sessions.StartSpec);
@@ -49,17 +50,43 @@ public sealed class ClaudeUsageProviderTests
             new ImmediateTimeProvider(TestNow),
             httpClient: new HttpClient(handler),
             credentialsReader: new StubCredentialsReader(
-                new ClaudeCredentials("token-value", TestNow.AddHours(8))));
+                new ClaudeCredentials("token-value", TestNow.AddHours(8), "max 5x")),
+            useUsageApi: () => true);
 
         ProviderSnapshot snapshot = await provider.FetchAsync(CancellationToken.None);
 
         Assert.Equal("Claude API", snapshot.SourceDescription);
+        Assert.Equal("max 5x", snapshot.Identity?.Plan);
         Assert.Equal(
             ["session", "weekly", "weekly-fable"],
             snapshot.UsageWindows.Select(window => window.Id));
         Assert.Null(sessions.StartSpec);
         Assert.Equal("Bearer token-value", handler.AuthorizationHeader);
         Assert.Equal("oauth-2025-04-20", handler.AnthropicBetaHeader);
+    }
+
+    [Fact]
+    public async Task FetchReadsTheCliWithoutCallingTheUsageApiUnlessOptedIn()
+    {
+        FakePtySessionFactory sessions = new(new FakePtySession("""
+            Current session
+            25% used
+            Resets 4pm
+            """));
+        StubHttpHandler handler = new(HttpStatusCode.OK, ApiResponse);
+        ClaudeUsageProvider provider = new(
+            sessions,
+            new StubExecutableLocator("C:\\tools\\claude.exe"),
+            new ImmediateTimeProvider(TestNow),
+            httpClient: new HttpClient(handler),
+            credentialsReader: new StubCredentialsReader(
+                new ClaudeCredentials("token-value", TestNow.AddHours(8), "max 5x")));
+
+        ProviderSnapshot snapshot = await provider.FetchAsync(CancellationToken.None);
+
+        Assert.Equal("Claude CLI", snapshot.SourceDescription);
+        Assert.Equal("max 5x", snapshot.Identity?.Plan);
+        Assert.Equal(0, handler.RequestCount);
     }
 
     [Fact]
@@ -76,12 +103,14 @@ public sealed class ClaudeUsageProviderTests
             new ImmediateTimeProvider(TestNow),
             httpClient: new HttpClient(new StubHttpHandler(HttpStatusCode.Unauthorized, "{}")),
             credentialsReader: new StubCredentialsReader(
-                new ClaudeCredentials("token-value", TestNow.AddHours(8))));
+                new ClaudeCredentials("token-value", TestNow.AddHours(8), "max 5x")),
+            useUsageApi: () => true);
 
         ProviderSnapshot snapshot = await provider.FetchAsync(CancellationToken.None);
 
         Assert.Equal("Claude CLI", snapshot.SourceDescription);
         Assert.Equal(25, Assert.Single(snapshot.UsageWindows).UsedPercent);
+        Assert.Equal("max 5x", snapshot.Identity?.Plan);
         Assert.NotNull(sessions.StartSpec);
     }
 
@@ -100,7 +129,8 @@ public sealed class ClaudeUsageProviderTests
             new ImmediateTimeProvider(TestNow),
             httpClient: new HttpClient(new StubContentHttpHandler(content)),
             credentialsReader: new StubCredentialsReader(
-                new ClaudeCredentials("token-value", TestNow.AddHours(8))));
+                new ClaudeCredentials("token-value", TestNow.AddHours(8))),
+            useUsageApi: () => true);
 
         ProviderSnapshot snapshot = await provider.FetchAsync(CancellationToken.None);
 
@@ -125,7 +155,8 @@ public sealed class ClaudeUsageProviderTests
             new ImmediateTimeProvider(TestNow),
             httpClient: client,
             credentialsReader: new StubCredentialsReader(
-                new ClaudeCredentials("test-token", TestNow.AddHours(8))));
+                new ClaudeCredentials("test-token", TestNow.AddHours(8))),
+            useUsageApi: () => true);
 
         ProviderSnapshot snapshot = await provider.FetchAsync(CancellationToken.None);
 
@@ -149,7 +180,8 @@ public sealed class ClaudeUsageProviderTests
             new ImmediateTimeProvider(TestNow),
             httpClient: new HttpClient(handler),
             credentialsReader: new StubCredentialsReader(
-                new ClaudeCredentials("token-value", TestNow.AddMinutes(-5))));
+                new ClaudeCredentials("token-value", TestNow.AddMinutes(-5))),
+            useUsageApi: () => true);
 
         ProviderSnapshot snapshot = await provider.FetchAsync(CancellationToken.None);
 
@@ -170,7 +202,8 @@ public sealed class ClaudeUsageProviderTests
             new StubExecutableLocator("C:\\tools\\claude.exe"),
             new ImmediateTimeProvider(TestNow),
             httpClient: new HttpClient(new StubHttpHandler(HttpStatusCode.OK, ApiResponse)),
-            credentialsReader: new StubCredentialsReader(null));
+            credentialsReader: new StubCredentialsReader(null),
+            useUsageApi: () => true);
 
         ProviderSnapshot snapshot = await provider.FetchAsync(CancellationToken.None);
 
@@ -250,6 +283,67 @@ public sealed class ClaudeUsageProviderTests
         Assert.True(
             time.Elapsed < TimeSpan.FromSeconds(8),
             $"Expected the capture to settle shortly after the panel painted, but it took {time.Elapsed}.");
+    }
+
+    // Taken from Claude Code 2.1.278: "No, exit" is preselected, and moving the selection repaints
+    // only the selector rather than the row it lands on.
+    private const string TrustPrompt = """
+        Accessing workspace:
+        Quick safety check: Is this a project you created or one you trust?
+        > No, exit
+          Yes, I trust this folder
+        Enter to confirm · Esc to cancel
+        """;
+
+    private const string DownArrow = "\u001b[B";
+
+    [Fact]
+    public async Task FetchTrustsItsOwnProbeFolderBeforeAskingForUsage()
+    {
+        int enterCount = 0;
+        ScriptedPtySession session = new()
+        {
+            Respond = written => written switch
+            {
+                DownArrow => "\u001b[1C\u001b[4A \n\u001b[1C\u001b[1B>\n",
+                "\r" when ++enterCount == 2 => "Current session\n25% used\nResets 4pm\n",
+                _ => null,
+            },
+        };
+        ScriptedTimeProvider time = new(TestNow, session);
+        time.Schedule(TimeSpan.FromSeconds(1), TrustPrompt);
+        ClaudeUsageProvider provider = new(
+            new FakePtySessionFactory(session),
+            new StubExecutableLocator("C:\\tools\\claude.exe"),
+            time);
+
+        ProviderSnapshot snapshot = await provider.FetchAsync(CancellationToken.None);
+
+        Assert.False(session.ReleaseTimedOut);
+        Assert.Equal([DownArrow, "\r", "/usage", "\r"], session.Writes);
+        Assert.Equal(25, Assert.Single(snapshot.UsageWindows).UsedPercent);
+    }
+
+    [Fact]
+    public async Task FetchDoesNotConfirmATrustPromptItCannotVerify()
+    {
+        ScriptedPtySession session = new()
+        {
+            Respond = written => written == DownArrow ? "Something else was selected\n" : null,
+        };
+        ScriptedTimeProvider time = new(TestNow, session);
+        time.Schedule(TimeSpan.FromSeconds(1), TrustPrompt);
+        ClaudeUsageProvider provider = new(
+            new FakePtySessionFactory(session),
+            new StubExecutableLocator("C:\\tools\\claude.exe"),
+            time);
+
+        ProviderException failure = await Assert.ThrowsAsync<ProviderException>(
+            () => provider.FetchAsync(CancellationToken.None));
+
+        Assert.Equal(ProviderErrorCategory.Unavailable, failure.Category);
+        Assert.Contains("trust", failure.SafeMessage, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("\r", session.Writes);
     }
 
     private sealed class StubExecutableLocator(string path) : IExecutableLocator
@@ -489,8 +583,22 @@ public sealed class ClaudeUsageProviderTests
             }
         }
 
-        public Task WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken) =>
-            Task.CompletedTask;
+        /// <summary>Returns the output the fake terminal paints in reply to a write, if any.</summary>
+        public Func<string, string?>? Respond { get; init; }
+
+        public List<string> Writes { get; } = [];
+
+        public Task WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken)
+        {
+            string text = Encoding.UTF8.GetString(buffer.Span);
+            this.Writes.Add(text);
+            if (this.Respond?.Invoke(text) is { } reply)
+            {
+                this.Release(reply);
+            }
+
+            return Task.CompletedTask;
+        }
 
         public void Kill()
         {

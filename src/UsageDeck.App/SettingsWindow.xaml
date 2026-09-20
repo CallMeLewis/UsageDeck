@@ -1383,6 +1383,39 @@
                             </Border>
                         </StackPanel>
 
+                        <StackPanel
+                            x:Name="ClaudeConfigurationPanel"
+                            Spacing="10"
+                            Visibility="Collapsed">
+                            <TextBlock FontWeight="SemiBold" Text="Usage source" />
+                            <Border Style="{StaticResource SettingsGroupBorderStyle}">
+                                <Grid Padding="16" ColumnSpacing="24">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="80" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel VerticalAlignment="Center" Spacing="3">
+                                        <TextBlock FontWeight="SemiBold" Text="Faster direct usage check" />
+                                        <TextBlock
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Style="{StaticResource CaptionTextBlockStyle}"
+                                            Text="Ask Anthropic's usage service directly with your Claude Code sign-in instead of opening the Claude Code usage screen. Anthropic does not document or officially support this for other apps."
+                                            TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <ToggleSwitch
+                                        x:Name="ClaudeUsageApiToggle"
+                                        Grid.Column="1"
+                                        MinWidth="0"
+                                        VerticalAlignment="Center"
+                                        HorizontalAlignment="Right"
+                                        AutomationProperties.Name="Use the faster direct Claude usage check"
+                                        OffContent=""
+                                        OnContent=""
+                                        Toggled="ClaudeUsageApiToggle_Toggled" />
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+
                     </StackPanel>
                 </ScrollViewer>
 

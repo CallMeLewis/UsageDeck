@@ -45,6 +45,19 @@ public sealed class UsageRefreshChangeDetectorTests
     }
 
     [Fact]
+    public void ClaudeUsageApiChoiceRefreshesOnlyClaude()
+    {
+        AppSettings previous = AppSettings.Default;
+        AppSettings current = previous with { UseClaudeUsageApi = true };
+
+        IReadOnlyCollection<ProviderId> affected = UsageRefreshChangeDetector.AffectedProviders(
+            previous,
+            current);
+
+        Assert.Equal([ProviderId.Claude], affected);
+    }
+
+    [Fact]
     public void PresentationSettingsDoNotRefreshUsage()
     {
         AppSettings previous = AppSettings.Default;

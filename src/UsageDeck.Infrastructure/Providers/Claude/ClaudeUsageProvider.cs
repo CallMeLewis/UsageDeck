@@ -1,20 +1,24 @@
 using System.Text;
+using System.Text.RegularExpressions;
 using UsageDeck.Core.Providers;
 using UsageDeck.Infrastructure.Compatibility;
 using UsageDeck.Infrastructure.Processes;
 
 namespace UsageDeck.Infrastructure.Providers.Claude;
 
-public sealed class ClaudeUsageProvider(
+public sealed partial class ClaudeUsageProvider(
     IPtySessionFactory ptySessionFactory,
     IExecutableLocator executableLocator,
     TimeProvider? timeProvider = null,
     ICliVersionReader? cliVersionReader = null,
     HttpClient? httpClient = null,
-    IClaudeCredentialsReader? credentialsReader = null) : IUsageProvider, ICliVersionProvider
+    IClaudeCredentialsReader? credentialsReader = null,
+    Func<bool>? useUsageApi = null) : IUsageProvider, ICliVersionProvider
 {
     private static readonly Uri UsageEndpoint = new("https://api.anthropic.com/api/oauth/usage");
     private static readonly TimeSpan ApiTimeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan PromptRenderDelay = TimeSpan.FromSeconds(4);
+    private static readonly TimeSpan TrustPromptRedrawDelay = TimeSpan.FromMilliseconds(500);
     private static readonly TimeSpan SettleBudget = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan SettlePollInterval = TimeSpan.FromMilliseconds(250);
     private static readonly TimeSpan QuietPeriod = TimeSpan.FromSeconds(1.5);
@@ -22,6 +26,7 @@ public sealed class ClaudeUsageProvider(
 
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
     private readonly IClaudeCredentialsReader _credentialsReader = credentialsReader ?? new ClaudeCredentialsReader();
+    private readonly Func<bool> _useUsageApi = useUsageApi ?? (() => false);
 
     public ProviderId Id => ProviderId.Claude;
 
@@ -42,18 +47,24 @@ public sealed class ClaudeUsageProvider(
 
     public async Task<ProviderSnapshot> FetchAsync(CancellationToken cancellationToken)
     {
-        // The /usage panel is drawn from an API the CLI calls, so ask that API directly with the
-        // CLI's own token: sub-second instead of booting a whole Claude Code session, and immune
-        // to the panel's rendering quirks. Any failure - no credentials, expired token, endpoint
-        // changed - falls back to scraping the CLI, which also refreshes the CLI's token for the
-        // next attempt. UsageDeck never writes to Claude's credential store itself.
+        // Reading the /usage panel through the unmodified CLI is the default because Anthropic
+        // intends Claude Code's sign-in for Claude Code itself. The panel is drawn from an API the
+        // CLI calls, so people who opt in can ask that API directly with the CLI's own token:
+        // sub-second instead of booting a whole Claude Code session, and immune to the panel's
+        // rendering quirks. Any failure - no credentials, expired token, endpoint changed - falls
+        // back to scraping the CLI, which also refreshes the CLI's token for the next attempt.
+        // UsageDeck never writes to Claude's credential store itself.
+        AccountIdentity? identity = null;
         if (httpClient is not null)
         {
             ClaudeCredentials? credentials = this._credentialsReader.Read();
-            if (credentials is not null && credentials.ExpiresAt > this._timeProvider.GetUtcNow().AddMinutes(1))
+            identity = credentials?.Plan is null ? null : new AccountIdentity(null, credentials.Plan);
+            if (this._useUsageApi()
+                && credentials is not null
+                && credentials.ExpiresAt > this._timeProvider.GetUtcNow().AddMinutes(1))
             {
                 ProviderSnapshot? snapshot = await this.TryFetchFromApiAsync(
-                    credentials.AccessToken, cancellationToken).ConfigureAwait(false);
+                    credentials.AccessToken, identity, cancellationToken).ConfigureAwait(false);
                 if (snapshot is not null)
                 {
                     return snapshot;
@@ -61,11 +72,12 @@ public sealed class ClaudeUsageProvider(
             }
         }
 
-        return await this.FetchFromCliAsync(cancellationToken).ConfigureAwait(false);
+        return await this.FetchFromCliAsync(identity, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<ProviderSnapshot?> TryFetchFromApiAsync(
         string accessToken,
+        AccountIdentity? identity,
         CancellationToken cancellationToken)
     {
         using HttpRequestMessage request = new(HttpMethod.Get, UsageEndpoint);
@@ -93,7 +105,8 @@ public sealed class ClaudeUsageProvider(
                 "Claude API",
                 this._timeProvider.GetUtcNow(),
                 UsageDataState.Fresh,
-                windows);
+                windows,
+                identity);
         }
         catch (ProviderException exception) when (exception.RetryNotBeforeUtc is not null)
         {
@@ -145,7 +158,9 @@ public sealed class ClaudeUsageProvider(
         ProviderErrorCategory.InvalidResponse,
         "Claude returned a usage response that was too large to process safely.");
 
-    private async Task<ProviderSnapshot> FetchFromCliAsync(CancellationToken cancellationToken)
+    private async Task<ProviderSnapshot> FetchFromCliAsync(
+        AccountIdentity? identity,
+        CancellationToken cancellationToken)
     {
         string? executablePath = executableLocator.FindExecutable("claude");
         if (executablePath is null)
@@ -170,7 +185,7 @@ public sealed class ClaudeUsageProvider(
             });
 
         using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(TimeSpan.FromSeconds(18));
+        timeout.CancelAfter(TimeSpan.FromSeconds(24));
 
         try
         {
@@ -179,7 +194,9 @@ public sealed class ClaudeUsageProvider(
             object captureLock = new();
             Task captureTask = CaptureAsync(session, captured, captureLock, timeout.Token);
 
-            await Task.Delay(TimeSpan.FromSeconds(4), this._timeProvider, timeout.Token).ConfigureAwait(false);
+            await Task.Delay(PromptRenderDelay, this._timeProvider, timeout.Token).ConfigureAwait(false);
+            await this.AcceptWorkspaceTrustAsync(
+                session, captured, captureLock, workingDirectory, timeout.Token).ConfigureAwait(false);
             await session.WriteAsync(Encoding.UTF8.GetBytes("/usage"), timeout.Token).ConfigureAwait(false);
             await Task.Delay(TimeSpan.FromMilliseconds(150), this._timeProvider, timeout.Token).ConfigureAwait(false);
             await session.WriteAsync("\r"u8.ToArray(), timeout.Token).ConfigureAwait(false);
@@ -249,7 +266,8 @@ public sealed class ClaudeUsageProvider(
                 "Claude CLI",
                 capturedAt,
                 UsageDataState.Fresh,
-                windows);
+                windows,
+                identity);
         }
         catch (ProviderException)
         {
@@ -264,6 +282,85 @@ public sealed class ClaudeUsageProvider(
             throw new ProviderException(ProviderErrorCategory.Unavailable, "Claude usage could not be read.", exception);
         }
     }
+
+    /// <summary>
+    /// Claude Code asks whether to trust a folder the first time it opens there, with "No, exit"
+    /// preselected, so sending /usage and Enter would quit the session. UsageDeck answers only for
+    /// its own empty probe folder, and only confirms once the trust row is the selected one.
+    /// Claude Code records the answer itself, so the prompt appears once.
+    /// </summary>
+    private async Task AcceptWorkspaceTrustAsync(
+        IPtySession session,
+        StringBuilder captured,
+        object captureLock,
+        string workingDirectory,
+        CancellationToken cancellationToken)
+    {
+        string prompt = ReadCompactScreen(captured, captureLock, 0);
+        if (!prompt.Contains("trustthisfolder", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        if (Directory.EnumerateFileSystemEntries(workingDirectory).Any())
+        {
+            throw new ProviderException(
+                ProviderErrorCategory.Unavailable,
+                "Claude Code asked whether to trust UsageDeck's folder, but that folder is not empty. "
+                + @"Empty %LOCALAPPDATA%\UsageDeck\ClaudeProbe and refresh.");
+        }
+
+        if (!TrustRowSelectedRegex().IsMatch(prompt))
+        {
+            if (!TrustRowBelowSelectionRegex().IsMatch(prompt))
+            {
+                throw TrustPromptNotAnswered();
+            }
+
+            int redrawStart;
+            lock (captureLock)
+            {
+                redrawStart = captured.Length;
+            }
+
+            // Claude Code repaints only the cells that changed, so moving down one row shows up
+            // as the selector on its own rather than as the trust row being printed again.
+            await session.WriteAsync("\u001b[B"u8.ToArray(), cancellationToken).ConfigureAwait(false);
+            await Task.Delay(TrustPromptRedrawDelay, this._timeProvider, cancellationToken).ConfigureAwait(false);
+            if (!SelectorOnlyRegex().IsMatch(ReadCompactScreen(captured, captureLock, redrawStart)))
+            {
+                throw TrustPromptNotAnswered();
+            }
+        }
+
+        await session.WriteAsync("\r"u8.ToArray(), cancellationToken).ConfigureAwait(false);
+        await Task.Delay(PromptRenderDelay, this._timeProvider, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static ProviderException TrustPromptNotAnswered() => new(
+        ProviderErrorCategory.Unavailable,
+        "Claude Code asked whether to trust UsageDeck's folder and UsageDeck could not answer it. "
+        + @"Run `claude` once in %LOCALAPPDATA%\UsageDeck\ClaudeProbe, trust the folder, and refresh.");
+
+    private static string ReadCompactScreen(StringBuilder captured, object captureLock, int start)
+    {
+        string text;
+        lock (captureLock)
+        {
+            text = captured.ToString(start, captured.Length - start);
+        }
+
+        return ClaudeUsageParser.Compact(ClaudeUsageParser.StripTerminalSequences(text));
+    }
+
+    [GeneratedRegex("[>❯]yes,itrustthisfolder", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex TrustRowSelectedRegex();
+
+    [GeneratedRegex("[>❯]no,exityes,itrustthisfolder", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex TrustRowBelowSelectionRegex();
+
+    [GeneratedRegex("^[>❯]$")]
+    private static partial Regex SelectorOnlyRegex();
 
     private static async Task CaptureAsync(
         IPtySession session,

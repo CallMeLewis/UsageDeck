@@ -1,8 +1,13 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace UsageDeck.Infrastructure.Providers.Claude;
 
-public sealed record ClaudeCredentials(string AccessToken, DateTimeOffset ExpiresAt);
+/// <param name="Plan">
+/// The subscription tier Claude Code recorded at sign-in, such as "max 5x", or null when the
+/// CLI did not record one.
+/// </param>
+public sealed record ClaudeCredentials(string AccessToken, DateTimeOffset ExpiresAt, string? Plan = null);
 
 public interface IClaudeCredentialsReader
 {
@@ -14,7 +19,7 @@ public interface IClaudeCredentialsReader
     ClaudeCredentials? Read();
 }
 
-public sealed class ClaudeCredentialsReader(string? credentialsPath = null) : IClaudeCredentialsReader
+public sealed partial class ClaudeCredentialsReader(string? credentialsPath = null) : IClaudeCredentialsReader
 {
     private readonly string _credentialsPath = credentialsPath ?? Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
@@ -49,7 +54,8 @@ public sealed class ClaudeCredentialsReader(string? credentialsPath = null) : IC
 
             return new ClaudeCredentials(
                 accessToken,
-                DateTimeOffset.FromUnixTimeMilliseconds(expiresAt.GetInt64()));
+                DateTimeOffset.FromUnixTimeMilliseconds(expiresAt.GetInt64()),
+                DescribePlan(GetString(oauth, "subscriptionType"), GetString(oauth, "rateLimitTier")));
         }
         catch (Exception exception) when (
             exception is IOException or UnauthorizedAccessException or JsonException or FormatException)
@@ -57,4 +63,29 @@ public sealed class ClaudeCredentialsReader(string? credentialsPath = null) : IC
             return null;
         }
     }
+
+    /// <summary>
+    /// Combines the subscription type with the usage multiplier that only the rate limit tier
+    /// carries, so "max" with "default_claude_max_5x" becomes "max 5x".
+    /// </summary>
+    internal static string? DescribePlan(string? subscriptionType, string? rateLimitTier)
+    {
+        if (string.IsNullOrWhiteSpace(subscriptionType))
+        {
+            return null;
+        }
+
+        Match multiplier = TierMultiplierRegex().Match(rateLimitTier ?? string.Empty);
+        return multiplier.Success
+            ? $"{subscriptionType.Trim()} {multiplier.Groups["multiplier"].Value}"
+            : subscriptionType.Trim();
+    }
+
+    private static string? GetString(JsonElement element, string propertyName) =>
+        element.TryGetProperty(propertyName, out JsonElement value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
+
+    [GeneratedRegex("_(?<multiplier>\\d+x)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex TierMultiplierRegex();
 }

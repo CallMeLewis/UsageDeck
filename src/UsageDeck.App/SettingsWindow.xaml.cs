@@ -88,6 +88,7 @@ public sealed partial class SettingsWindow : Window, IDisposable
             this.StatusMonitoringToggle.IsOn = settings.IsStatusMonitoringEnabled;
             this.StartAtSignInToggle.IsOn = settings.StartAtSignIn;
             this.CodexSparkCardToggle.IsOn = settings.ShowCodexSparkCard;
+            this.ClaudeUsageApiToggle.IsOn = settings.UseClaudeUsageApi;
             this.AutomaticUpdatesToggle.IsOn = settings.CheckForUpdatesAutomatically;
             this.NotificationsEnabledToggle.IsOn = settings.AreNotificationsEnabled;
             this.RefreshNotificationPausePresentation(settings);
@@ -731,6 +732,26 @@ public sealed partial class SettingsWindow : Window, IDisposable
         });
     }
 
+    private async void ClaudeUsageApiToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (this._isApplyingSettings)
+        {
+            return;
+        }
+
+        bool isOn = this.ClaudeUsageApiToggle.IsOn;
+        if (isOn && !await ClaudeUsageApiDialog.ShowAsync(this.RootLayout.XamlRoot))
+        {
+            this.LoadSettings(((App)Application.Current).CurrentSettings);
+            return;
+        }
+
+        await this.SaveSettingsAsync(settings => settings with
+        {
+            UseClaudeUsageApi = isOn,
+        });
+    }
+
     private async void AutomaticUpdatesToggle_Toggled(object sender, RoutedEventArgs e)
     {
         if (this._isApplyingSettings)
@@ -805,6 +826,7 @@ public sealed partial class SettingsWindow : Window, IDisposable
         AppSettings settings = ((App)Application.Current).CurrentSettings;
         this.UpdateSelectedProviderEnabledState(settings);
         this.RefreshCodexPresentation();
+        this.RefreshClaudePresentation();
         this.RefreshOpenCodeGoPresentation(settings);
         this.RefreshZaiPresentation(settings);
         this.RefreshTheClawBayPresentation(settings);
@@ -815,6 +837,11 @@ public sealed partial class SettingsWindow : Window, IDisposable
 
     private void RefreshCodexPresentation() =>
         this.CodexConfigurationPanel.Visibility = this._selectedProvider == ProviderId.Codex
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+    private void RefreshClaudePresentation() =>
+        this.ClaudeConfigurationPanel.Visibility = this._selectedProvider == ProviderId.Claude
             ? Visibility.Visible
             : Visibility.Collapsed;
 

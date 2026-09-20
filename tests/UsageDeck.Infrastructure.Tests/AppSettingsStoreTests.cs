@@ -123,6 +123,7 @@ public sealed class AppSettingsStoreTests : IDisposable
                 TheClawBayApiKeyStorage = ApiKeyStorageMode.SessionOnly,
                 StartAtSignIn = true,
                 NotificationsPausedUntilUtc = pauseDeadline,
+                UseClaudeUsageApi = true,
             })
             .WithProviderNotifications(new ProviderNotificationSettings(
                 ProviderId.Codex,
@@ -158,6 +159,7 @@ public sealed class AppSettingsStoreTests : IDisposable
         Assert.Equal(ApiKeyStorageMode.SessionOnly, actual.Settings.TheClawBayApiKeyStorage);
         Assert.Equal(expected.StartAtSignIn, actual.Settings.StartAtSignIn);
         Assert.Equal(pauseDeadline, actual.Settings.NotificationsPausedUntilUtc);
+        Assert.True(actual.Settings.UseClaudeUsageApi);
         Assert.Equal(
             expected.ProviderNotifications!.ToArray(),
             actual.Settings.ProviderNotifications!.ToArray());
@@ -537,6 +539,23 @@ public sealed class AppSettingsStoreTests : IDisposable
         AppSettings settings = new AppSettingsStore(path).Load().Settings;
 
         Assert.False(settings.StartAtSignIn);
+    }
+
+    [Fact]
+    public void LoadSettingsWithoutClaudeUsageApiChoiceDefaultsToTheCli()
+    {
+        Directory.CreateDirectory(this._directory);
+        string path = Path.Combine(this._directory, "settings.json");
+        File.WriteAllText(path, """
+            {
+              "enabledProviders": ["claude"],
+              "defaultProvider": "claude"
+            }
+            """);
+
+        AppSettings settings = new AppSettingsStore(path).Load().Settings;
+
+        Assert.False(settings.UseClaudeUsageApi);
     }
 
     [Fact]
