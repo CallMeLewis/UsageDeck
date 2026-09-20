@@ -241,13 +241,14 @@ public sealed class ClaudeUsageProviderTests
     {
         // Claude Code paints the per-model weekly row after the rest of the panel, so a capture
         // that stops a fixed interval after the first row appears loses it entirely.
-        ScriptedPtySession session = new();
+        ScriptedPtySession session = new() { Respond = EchoCommand };
         ScriptedTimeProvider time = new(new DateTimeOffset(2026, 7, 16, 12, 0, 0, TimeSpan.Zero), session);
 
-        // Offsets run from the provider starting; it spends the first ~4.15s waiting for the
-        // prompt to render before it sends /usage.
-        time.Schedule(TimeSpan.FromSeconds(4.3), "Current session\n3% used (Resets 2:40am)\n");
-        time.Schedule(TimeSpan.FromSeconds(6), "Current week (Fable)\n1% used (Resets Jul 29, 4am)\n");
+        // Offsets run from the provider starting; the prompt settles and /usage is submitted
+        // about 2.4s in.
+        time.Schedule(TimeSpan.FromSeconds(1), MainPrompt);
+        time.Schedule(TimeSpan.FromSeconds(3), "Current session\n3% used (Resets 2:40am)\n");
+        time.Schedule(TimeSpan.FromSeconds(4.7), "Current week (Fable)\n1% used (Resets Jul 29, 4am)\n");
 
         ClaudeUsageProvider provider = new(
             new FakePtySessionFactory(session),
@@ -266,10 +267,11 @@ public sealed class ClaudeUsageProviderTests
         // Some frames are padded with cursor movement instead of spaces, so the settle loop has
         // to recognise "Currentsession" too - otherwise it waits out its whole budget on a panel
         // that finished painting seconds ago.
-        ScriptedPtySession session = new();
+        ScriptedPtySession session = new() { Respond = EchoCommand };
         ScriptedTimeProvider time = new(new DateTimeOffset(2026, 7, 16, 12, 0, 0, TimeSpan.Zero), session);
+        time.Schedule(TimeSpan.FromSeconds(1), MainPrompt);
         time.Schedule(
-            TimeSpan.FromSeconds(4.3),
+            TimeSpan.FromSeconds(3),
             "Currentsession\n██████████    20% usedResets2:40am(Europe/London)");
 
         ClaudeUsageProvider provider = new(
@@ -285,9 +287,32 @@ public sealed class ClaudeUsageProviderTests
             $"Expected the capture to settle shortly after the panel painted, but it took {time.Elapsed}.");
     }
 
+    private static string? EchoCommand(string written) => written == "/usage" ? CommandEcho : null;
+
+    [Fact]
+    public async Task FetchWaitsForTheCommandEchoAndNeverSubmitsInputItCannotSee()
+    {
+        // Input typed before Claude Code is ready is replayed later rather than lost, so pressing
+        // Enter blind, or typing again, can send stray text to the model as a prompt.
+        ScriptedPtySession session = new();
+        ScriptedTimeProvider time = new(TestNow, session);
+        time.Schedule(TimeSpan.FromSeconds(1), MainPrompt);
+        ClaudeUsageProvider provider = new(
+            new FakePtySessionFactory(session),
+            new StubExecutableLocator("C:\\tools\\claude.exe"),
+            time);
+
+        ProviderException failure = await Assert.ThrowsAsync<ProviderException>(
+            () => provider.FetchAsync(CancellationToken.None));
+
+        Assert.Equal(ProviderErrorCategory.Transient, failure.Category);
+        Assert.Equal(["/usage"], session.Writes);
+    }
+
     // Taken from Claude Code 2.1.278: "No, exit" is preselected, and moving the selection repaints
     // only the selector rather than the row it lands on.
     private const string TrustPrompt = """
+        ────────────────────────────────────────
         Accessing workspace:
         Quick safety check: Is this a project you created or one you trust?
         > No, exit
@@ -296,6 +321,14 @@ public sealed class ClaudeUsageProviderTests
         """;
 
     private const string DownArrow = "\u001b[B";
+
+    private const string MainPrompt = """
+        ────────────────────────────────────────
+        >
+        ────────────────────────────────────────
+        """;
+
+    private const string CommandEcho = "> /usage\n";
 
     [Fact]
     public async Task FetchTrustsItsOwnProbeFolderBeforeAskingForUsage()
@@ -306,7 +339,8 @@ public sealed class ClaudeUsageProviderTests
             Respond = written => written switch
             {
                 DownArrow => "\u001b[1C\u001b[4A \n\u001b[1C\u001b[1B>\n",
-                "\r" when ++enterCount == 2 => "Current session\n25% used\nResets 4pm\n",
+                "/usage" => CommandEcho,
+                "\r" => ++enterCount == 1 ? MainPrompt : "Current session\n25% used\nResets 4pm\n",
                 _ => null,
             },
         };
@@ -474,36 +508,31 @@ public sealed class ClaudeUsageProviderTests
         }
     }
 
+    // Behaves like Claude Code at its prompt: echoes the typed command into the input box and
+    // paints the given panel once Enter is pressed.
     private sealed class FakePtySession(string output) : IPtySession
     {
-        private readonly byte[] _output = Encoding.UTF8.GetBytes(output);
-        private bool _hasReadOutput;
-        private readonly StringBuilder _written = new();
+        private readonly ScriptedPtySession _terminal = new()
+        {
+            Respond = written => written switch
+            {
+                "/usage" => CommandEcho,
+                "\r" => output,
+                _ => null,
+            },
+        };
 
         public bool WasKilled { get; private set; }
 
         public bool WasDisposed { get; private set; }
 
-        public string WrittenText => this._written.ToString();
+        public string WrittenText => string.Concat(this._terminal.Writes);
 
-        public async Task<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken)
-        {
-            if (!this._hasReadOutput)
-            {
-                this._hasReadOutput = true;
-                this._output.CopyTo(buffer);
-                return this._output.Length;
-            }
+        public Task<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken) =>
+            this._terminal.ReadAsync(buffer, cancellationToken);
 
-            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
-            return 0;
-        }
-
-        public Task WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken)
-        {
-            this._written.Append(Encoding.UTF8.GetString(buffer.Span));
-            return Task.CompletedTask;
-        }
+        public Task WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken) =>
+            this._terminal.WriteAsync(buffer, cancellationToken);
 
         public void Kill() => this.WasKilled = true;
 

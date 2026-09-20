@@ -17,7 +17,11 @@ public sealed partial class ClaudeUsageProvider(
 {
     private static readonly Uri UsageEndpoint = new("https://api.anthropic.com/api/oauth/usage");
     private static readonly TimeSpan ApiTimeout = TimeSpan.FromSeconds(10);
-    private static readonly TimeSpan PromptRenderDelay = TimeSpan.FromSeconds(4);
+    private static readonly TimeSpan PromptBudget = TimeSpan.FromSeconds(12);
+    private static readonly TimeSpan PromptQuietPeriod = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan CommandEchoBudget = TimeSpan.FromSeconds(8);
+    private static readonly TimeSpan CommandEchoPollInterval = TimeSpan.FromMilliseconds(100);
+    private const string PromptRule = "────";
     private static readonly TimeSpan TrustPromptRedrawDelay = TimeSpan.FromMilliseconds(500);
     private static readonly TimeSpan SettleBudget = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan SettlePollInterval = TimeSpan.FromMilliseconds(250);
@@ -185,7 +189,7 @@ public sealed partial class ClaudeUsageProvider(
             });
 
         using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(TimeSpan.FromSeconds(24));
+        timeout.CancelAfter(TimeSpan.FromSeconds(45));
 
         try
         {
@@ -194,12 +198,10 @@ public sealed partial class ClaudeUsageProvider(
             object captureLock = new();
             Task captureTask = CaptureAsync(session, captured, captureLock, timeout.Token);
 
-            await Task.Delay(PromptRenderDelay, this._timeProvider, timeout.Token).ConfigureAwait(false);
+            await this.WaitForPromptAsync(captured, captureLock, 0, timeout.Token).ConfigureAwait(false);
             await this.AcceptWorkspaceTrustAsync(
                 session, captured, captureLock, workingDirectory, timeout.Token).ConfigureAwait(false);
-            await session.WriteAsync(Encoding.UTF8.GetBytes("/usage"), timeout.Token).ConfigureAwait(false);
-            await Task.Delay(TimeSpan.FromMilliseconds(150), this._timeProvider, timeout.Token).ConfigureAwait(false);
-            await session.WriteAsync("\r"u8.ToArray(), timeout.Token).ConfigureAwait(false);
+            await this.SubmitUsageCommandAsync(session, captured, captureLock, timeout.Token).ConfigureAwait(false);
 
             // The panel does not paint atomically. Measured captures show the per-model weekly
             // row landing 200-550ms after the rest of the panel on an idle machine, and later
@@ -333,8 +335,96 @@ public sealed partial class ClaudeUsageProvider(
             }
         }
 
+        int promptStart;
+        lock (captureLock)
+        {
+            promptStart = captured.Length;
+        }
+
         await session.WriteAsync("\r"u8.ToArray(), cancellationToken).ConfigureAwait(false);
-        await Task.Delay(PromptRenderDelay, this._timeProvider, cancellationToken).ConfigureAwait(false);
+        await this.WaitForPromptAsync(captured, captureLock, promptStart, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Claude Code paints its prompt asynchronously and takes longer when the machine is busy, as
+    /// it is when every provider refreshes at once. Output going quiet is not enough on its own
+    /// because start-up pauses for over a second before the prompt exists, and anything typed
+    /// into that gap is held back and replayed later. Waits for a ruled box, which both the prompt
+    /// and the trust question draw, to appear after <paramref name="start"/> and stop changing.
+    /// Running out of budget is not an error because <see cref="SubmitUsageCommandAsync"/> never
+    /// presses Enter on input it has not seen echoed.
+    /// </summary>
+    private async Task WaitForPromptAsync(
+        StringBuilder captured,
+        object captureLock,
+        int start,
+        CancellationToken cancellationToken)
+    {
+        DateTimeOffset waitUntil = this._timeProvider.GetUtcNow().Add(PromptBudget);
+        int lastLength = start;
+        DateTimeOffset? quietSince = null;
+        while (this._timeProvider.GetUtcNow() < waitUntil)
+        {
+            await Task.Delay(SettlePollInterval, this._timeProvider, cancellationToken).ConfigureAwait(false);
+            int length;
+            lock (captureLock)
+            {
+                length = captured.Length;
+            }
+
+            if (length != lastLength)
+            {
+                lastLength = length;
+                quietSince = null;
+                continue;
+            }
+
+            if (!ReadCompactScreen(captured, captureLock, start).Contains(PromptRule, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            quietSince ??= this._timeProvider.GetUtcNow();
+            if (this._timeProvider.GetUtcNow() - quietSince.Value >= PromptQuietPeriod)
+            {
+                return;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Types /usage exactly once and presses Enter only after Claude Code has echoed it back.
+    /// Input is never retyped: early keystrokes are replayed rather than lost, so typing again can
+    /// leave "/usage/usage" in the box, which Claude Code would send to the model as a prompt.
+    /// </summary>
+    private async Task SubmitUsageCommandAsync(
+        IPtySession session,
+        StringBuilder captured,
+        object captureLock,
+        CancellationToken cancellationToken)
+    {
+        int echoStart;
+        lock (captureLock)
+        {
+            echoStart = captured.Length;
+        }
+
+        await session.WriteAsync(Encoding.UTF8.GetBytes("/usage"), cancellationToken).ConfigureAwait(false);
+        DateTimeOffset echoUntil = this._timeProvider.GetUtcNow().Add(CommandEchoBudget);
+        while (this._timeProvider.GetUtcNow() < echoUntil)
+        {
+            await Task.Delay(CommandEchoPollInterval, this._timeProvider, cancellationToken).ConfigureAwait(false);
+            if (ReadCompactScreen(captured, captureLock, echoStart)
+                .Contains("/usage", StringComparison.OrdinalIgnoreCase))
+            {
+                await session.WriteAsync("\r"u8.ToArray(), cancellationToken).ConfigureAwait(false);
+                return;
+            }
+        }
+
+        throw new ProviderException(
+            ProviderErrorCategory.Transient,
+            "Claude Code started but did not accept the usage command in time.");
     }
 
     private static ProviderException TrustPromptNotAnswered() => new(
