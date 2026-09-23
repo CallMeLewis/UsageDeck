@@ -1257,7 +1257,7 @@
                                             </Grid>
                                         </Border>
                                         <Grid
-                                            x:Name="CodexResetCreditsRow"
+                                            x:Name="ResetCreditsRow"
                                             Padding="16,10"
                                             ColumnSpacing="24">
                                             <Grid.ColumnDefinitions>
@@ -1265,23 +1265,23 @@
                                                 <ColumnDefinition Width="80" />
                                             </Grid.ColumnDefinitions>
                                             <StackPanel VerticalAlignment="Center" Spacing="3">
-                                                <TextBlock FontWeight="SemiBold" Text="Codex reset credits" />
+                                                <TextBlock FontWeight="SemiBold" Text="Reset credits" />
                                                 <TextBlock
                                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                     Style="{StaticResource CaptionTextBlockStyle}"
-                                                    Text="Notify when Codex grants one or more new limit resets."
+                                                    Text="Notify when this provider grants one or more new limit resets."
                                                     TextWrapping="Wrap" />
                                             </StackPanel>
                                             <ToggleSwitch
-                                                x:Name="CodexResetCreditsToggle"
+                                                x:Name="ResetCreditsToggle"
                                                 Grid.Column="1"
                                                 MinWidth="0"
                                                 HorizontalAlignment="Right"
                                                 VerticalAlignment="Center"
-                                                AutomationProperties.Name="Notify when Codex grants reset credits"
+                                                AutomationProperties.Name="Notify when this provider grants reset credits"
                                                 OffContent=""
                                                 OnContent=""
-                                                Toggled="CodexResetCreditsToggle_Toggled" />
+                                                Toggled="ResetCreditsToggle_Toggled" />
                                         </Grid>
                                     </StackPanel>
                                 </Border>

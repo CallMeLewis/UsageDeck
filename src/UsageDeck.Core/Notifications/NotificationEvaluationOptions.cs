@@ -5,7 +5,7 @@ public sealed record NotificationEvaluationOptions
     public NotificationEvaluationOptions(
         IEnumerable<int>? remainingThresholds = null,
         bool notifyLimitResets = true,
-        bool notifyCodexResetCredits = true,
+        bool notifyResetCredits = true,
         bool notifyProviderStatusChanges = true,
         bool notifyProviderConnectionChanges = true)
     {
@@ -22,7 +22,7 @@ public sealed record NotificationEvaluationOptions
 
         this.RemainingThresholds = thresholds;
         this.NotifyLimitResets = notifyLimitResets;
-        this.NotifyCodexResetCredits = notifyCodexResetCredits;
+        this.NotifyResetCredits = notifyResetCredits;
         this.NotifyProviderStatusChanges = notifyProviderStatusChanges;
         this.NotifyProviderConnectionChanges = notifyProviderConnectionChanges;
     }
@@ -31,7 +31,7 @@ public sealed record NotificationEvaluationOptions
 
     public bool NotifyLimitResets { get; }
 
-    public bool NotifyCodexResetCredits { get; }
+    public bool NotifyResetCredits { get; }
 
     public bool NotifyProviderStatusChanges { get; }
 

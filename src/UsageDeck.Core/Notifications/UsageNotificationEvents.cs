@@ -21,7 +21,7 @@ public sealed record UsageWindowResetNotification(
     string WindowDisplayName,
     double UsedPercent) : UsageNotificationEvent(ProviderId, ProviderDisplayName);
 
-public sealed record CodexResetCreditGrantedNotification(
+public sealed record ResetCreditGrantedNotification(
     ProviderId ProviderId,
     string ProviderDisplayName,
     long GrantedCount,

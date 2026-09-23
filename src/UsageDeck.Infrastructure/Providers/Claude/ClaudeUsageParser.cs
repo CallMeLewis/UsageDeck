@@ -1,34 +1,91 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 using UsageDeck.Core.Providers;
+using UsageDeck.Infrastructure.Processes;
 
 namespace UsageDeck.Infrastructure.Providers.Claude;
 
 public static partial class ClaudeUsageParser
 {
+    /// <summary>
+    /// The size UsageDeck gives Claude Code's pseudo-terminal. It is far taller than a real
+    /// window so the whole /usage panel fits: Claude Code cannot repaint rows that have scrolled
+    /// out of view, which on a short terminal loses the per-model weekly label when the limits
+    /// refresh while the panel is open.
+    /// </summary>
+    public const int ScreenColumns = 120;
+
+    /// <inheritdoc cref="ScreenColumns"/>
+    public const int ScreenRows = 200;
+
     public static IReadOnlyList<UsageWindow> Parse(string terminalOutput, DateTimeOffset now)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(terminalOutput);
 
         string clean = StripTerminalSequences(terminalOutput);
+        ThrowIfQuotaUnavailable(clean);
+
+        // Limits that refresh while the panel is open are repainted cell by cell, so a row such as
+        // the per-model weekly limit may never appear in the stream as readable text. Read what
+        // ended up on screen first, and fall back to the stripped stream for captures whose
+        // layout the replay cannot follow.
+        string screen = TerminalScreen.Render(terminalOutput, ScreenColumns, ScreenRows);
+        return ReadRequiredWindows(HasSessionLabel(screen) ? screen : clean, now);
+    }
+
+    /// <summary>
+    /// Parses what <c>claude -p /usage</c> prints: the same limits as the interactive panel, one
+    /// plain line each, such as "Current session: 7% used · resets Sep 23, 11:29pm (Europe/London)".
+    /// </summary>
+    public static IReadOnlyList<UsageWindow> ParsePrinted(string output, DateTimeOffset now)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(output);
+
+        string clean = StripTerminalSequences(output);
+        ThrowIfQuotaUnavailable(clean);
+        return ReadRequiredWindows(clean, now);
+    }
+
+    private static void ThrowIfQuotaUnavailable(string clean)
+    {
         if (IsQuotaUnavailable(clean))
         {
             throw new ProviderException(
                 ProviderErrorCategory.Unavailable,
                 "Claude did not expose subscription quota windows for this account.");
         }
+    }
 
-        MatchCollection labels = UsageLabelRegex().Matches(clean);
-        if (labels.Count == 0 || !labels.Any(match => IsSessionLabel(match.Value)))
+    private static IReadOnlyList<UsageWindow> ReadRequiredWindows(string source, DateTimeOffset now)
+    {
+        if (!HasSessionLabel(source))
         {
             throw new ProviderException(
                 ProviderErrorCategory.InvalidResponse,
                 "Claude opened, but its usage panel could not be read.");
         }
 
-        // Claude Code repaints the /usage panel while it is open, and cursor-movement sequences
-        // are stripped rather than replayed, so an overwritten frame survives in the capture as
-        // extra text. Keep one window per limit, taking the last (most settled) frame's values.
+        IReadOnlyList<UsageWindow> windows = ReadWindows(source, now);
+        if (!windows.Any(window => window.Id == "session"))
+        {
+            throw new ProviderException(
+                ProviderErrorCategory.InvalidResponse,
+                "Claude opened, but its session usage value could not be read.");
+        }
+
+        return windows;
+    }
+
+    private static bool HasSessionLabel(string text) =>
+        UsageLabelRegex().Matches(text).Any(match => IsSessionLabel(match.Value));
+
+    private static List<UsageWindow> ReadWindows(string clean, DateTimeOffset now)
+    {
+        MatchCollection labels = UsageLabelRegex().Matches(clean);
+
+        // Claude Code repaints the /usage panel while it is open, and a stripped stream keeps an
+        // overwritten frame as extra text. Keep one window per limit, taking the last (most
+        // settled) frame's values.
         List<UsageWindow> windows = [];
         Dictionary<string, int> windowIndicesById = new(StringComparer.Ordinal);
         for (int index = 0; index < labels.Count; index++)
@@ -67,13 +124,6 @@ public static partial class ClaudeUsageParser
             }
         }
 
-        if (!windows.Any(window => window.Id == "session"))
-        {
-            throw new ProviderException(
-                ProviderErrorCategory.InvalidResponse,
-                "Claude opened, but its session usage value could not be read.");
-        }
-
         return windows;
     }
 
@@ -92,15 +142,20 @@ public static partial class ClaudeUsageParser
     public static string Compact(string value) =>
         WhitespaceRegex().Replace(value, string.Empty);
 
+    // Both the subscription notice and a cost summary also head output that goes on to list the
+    // limits, so either only means there is no quota when no session limit follows.
     private static bool IsQuotaUnavailable(string clean)
     {
         string compact = Compact(clean);
-        bool subscriptionNotice = compact.Contains(
-            "currentlyusingyoursubscriptiontopoweryourclaudecodeusage",
-            StringComparison.OrdinalIgnoreCase);
-        bool costOnly = compact.Contains("totalcost:", StringComparison.OrdinalIgnoreCase)
-            && !compact.Contains("currentsession", StringComparison.OrdinalIgnoreCase);
-        return subscriptionNotice || costOnly;
+        if (compact.Contains("currentsession", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return compact.Contains(
+                "currentlyusingyoursubscriptiontopoweryourclaudecodeusage",
+                StringComparison.OrdinalIgnoreCase)
+            || compact.Contains("totalcost:", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsSessionLabel(string label) =>

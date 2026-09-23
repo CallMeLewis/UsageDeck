@@ -66,6 +66,111 @@ public sealed class ClaudeUsageProviderTests
     }
 
     [Fact]
+    public async Task FetchAsksTheUsageApiForLimitResetsAsTheInstalledClaudeCode()
+    {
+        const string response = """
+            {
+              "limits": [ { "kind": "session", "percent": 7, "resets_at": "2026-07-16T17:00:00+00:00" } ],
+              "cedar_ember": {
+                "eligible": true,
+                "grants": [ { "id": "grant", "resets_left": 1, "ends_at": "2026-08-15T16:00:00+00:00" } ]
+              }
+            }
+            """;
+        StubHttpHandler handler = new(HttpStatusCode.OK, response);
+        ClaudeUsageProvider provider = new(
+            new FakePtySessionFactory(new FakePtySession("unused")),
+            new StubExecutableLocator("C:\\tools\\claude.exe"),
+            new ImmediateTimeProvider(TestNow),
+            new StubCliVersionReader("2.1.280"),
+            httpClient: new HttpClient(handler),
+            credentialsReader: new StubCredentialsReader(new ClaudeCredentials("token-value", TestNow.AddHours(8))),
+            useUsageApi: () => true);
+
+        ProviderSnapshot snapshot = await provider.FetchAsync(CancellationToken.None);
+
+        Assert.Equal("?cedar_ember=1&skip_spend=1", handler.RequestUri?.Query);
+        Assert.Equal("claude-cli/2.1.280 (external, cli)", handler.UserAgentHeader);
+        Assert.Equal(1, snapshot.ResetCredits?.AvailableCount);
+        Assert.Equal(
+            new DateTimeOffset(2026, 8, 15, 16, 0, 0, TimeSpan.Zero),
+            Assert.Single(snapshot.ResetCredits!.Credits).ExpiresAt);
+    }
+
+    [Fact]
+    public async Task FetchRunsUsageInPrintModeWithoutStartingATerminalSession()
+    {
+        FakePtySessionFactory sessions = new(new FakePtySession("unused"));
+        StubProcessRunner runner = new(0, "Current session: 7% used · resets 4pm (Europe/London)\n");
+        ClaudeUsageProvider provider = new(
+            sessions,
+            new StubExecutableLocator("C:\\tools\\claude.exe"),
+            new ImmediateTimeProvider(TestNow),
+            new StubCliVersionReader("2.1.280"),
+            processRunner: runner);
+
+        ProviderSnapshot snapshot = await provider.FetchAsync(CancellationToken.None);
+
+        Assert.Equal("Claude CLI", snapshot.SourceDescription);
+        Assert.Equal(7, Assert.Single(snapshot.UsageWindows).UsedPercent);
+        Assert.Null(sessions.StartSpec);
+        Assert.Equal(
+            ["-p", "/usage", "--no-session-persistence", "--strict-mcp-config", "--tools", ""],
+            runner.Spec?.Arguments);
+    }
+
+    [Fact]
+    public async Task FetchKeepsOlderClaudeCodeOnTheTerminalSession()
+    {
+        FakePtySessionFactory sessions = new(new FakePtySession("""
+            Current session
+            25% used
+            Resets 4pm
+            """));
+        StubProcessRunner runner = new(0, "unused");
+        ClaudeUsageProvider provider = new(
+            sessions,
+            new StubExecutableLocator("C:\\tools\\claude.exe"),
+            new ImmediateTimeProvider(TestNow),
+            new StubCliVersionReader("2.1.177"),
+            processRunner: runner);
+
+        ProviderSnapshot snapshot = await provider.FetchAsync(CancellationToken.None);
+
+        Assert.Equal(25, Assert.Single(snapshot.UsageWindows).UsedPercent);
+        Assert.NotNull(sessions.StartSpec);
+        Assert.Null(runner.Spec);
+    }
+
+    [Fact]
+    public async Task FetchReportsAFailedPrintModeRunWithoutReadingItsOutput()
+    {
+        ClaudeUsageProvider provider = new(
+            new FakePtySessionFactory(new FakePtySession("unused")),
+            new StubExecutableLocator("C:\\tools\\claude.exe"),
+            new ImmediateTimeProvider(TestNow),
+            new StubCliVersionReader("2.1.280"),
+            processRunner: new StubProcessRunner(1, "Current session: 7% used"));
+
+        ProviderException failure = await Assert.ThrowsAsync<ProviderException>(
+            () => provider.FetchAsync(CancellationToken.None));
+
+        Assert.Equal(ProviderErrorCategory.Unavailable, failure.Category);
+    }
+
+    [Theory]
+    [InlineData("2.1.280", true)]
+    [InlineData("3.0.0-beta.1", true)]
+    [InlineData("2.1.178", true)]
+    [InlineData("2.1.177", false)]
+    [InlineData(null, false)]
+    [InlineData("not a version", false)]
+    public void PrintedUsageRequiresAClaudeCodeReleaseThatSupportsIt(string? version, bool expected)
+    {
+        Assert.Equal(expected, ClaudeUsageProvider.SupportsPrintedUsage(version));
+    }
+
+    [Fact]
     public async Task FetchReadsTheCliWithoutCallingTheUsageApiUnlessOptedIn()
     {
         FakePtySessionFactory sessions = new(new FakePtySession("""
@@ -287,6 +392,30 @@ public sealed class ClaudeUsageProviderTests
             $"Expected the capture to settle shortly after the panel painted, but it took {time.Elapsed}.");
     }
 
+    [Fact]
+    public async Task FetchKeepsReadingPastTheSessionCostSectionOfASubscriptionPanel()
+    {
+        // Claude Code 2.1.278 opens the panel with "Total cost:" for subscription accounts too,
+        // then paints cached limits and, after refreshing, the per-model weekly row.
+        ScriptedPtySession session = new() { Respond = EchoCommand };
+        ScriptedTimeProvider time = new(TestNow, session);
+        time.Schedule(TimeSpan.FromSeconds(1), MainPrompt);
+        time.Schedule(
+            TimeSpan.FromSeconds(3),
+            "Session\nTotal cost: $0.0000\nCurrent session\n50% used (Resets 2:50pm)\n"
+            + "Current week (all models)\n12% used (Resets Sep 23, 4am)\nRefreshing…\n");
+        time.Schedule(TimeSpan.FromSeconds(3.4), "Current week (Fable)\n22% used (Resets Sep 23, 4am)\n");
+        ClaudeUsageProvider provider = new(
+            new FakePtySessionFactory(session),
+            new StubExecutableLocator("C:\\tools\\claude.exe"),
+            time);
+
+        ProviderSnapshot snapshot = await provider.FetchAsync(CancellationToken.None);
+
+        Assert.False(session.ReleaseTimedOut);
+        Assert.Equal(["session", "weekly", "weekly-fable"], snapshot.UsageWindows.Select(window => window.Id));
+    }
+
     private static string? EchoCommand(string written) => written == "/usage" ? CommandEcho : null;
 
     [Fact]
@@ -385,6 +514,27 @@ public sealed class ClaudeUsageProviderTests
         public string? FindExecutable(string executableName) => path;
     }
 
+    private sealed class StubProcessRunner(int exitCode, string standardOutput) : IBoundedProcessRunner
+    {
+        public ProcessStartSpec? Spec { get; private set; }
+
+        public Task<ProcessRunResult> RunAsync(
+            ProcessStartSpec spec,
+            int maximumStandardOutputBytes,
+            int maximumStandardErrorBytes,
+            CancellationToken cancellationToken)
+        {
+            this.Spec = spec;
+            return Task.FromResult(new ProcessRunResult(Encoding.UTF8.GetBytes(standardOutput), exitCode, string.Empty));
+        }
+    }
+
+    private sealed class StubCliVersionReader(string version) : ICliVersionReader
+    {
+        public Task<string?> ReadAsync(ProcessStartSpec spec, CancellationToken cancellationToken) =>
+            Task.FromResult<string?>(version);
+    }
+
     private sealed class StubCredentialsReader(ClaudeCredentials? credentials) : IClaudeCredentialsReader
     {
         public ClaudeCredentials? Read() => credentials;
@@ -398,6 +548,10 @@ public sealed class ClaudeUsageProviderTests
 
         public string? AnthropicBetaHeader { get; private set; }
 
+        public string? UserAgentHeader { get; private set; }
+
+        public Uri? RequestUri { get; private set; }
+
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             CancellationToken cancellationToken)
@@ -409,6 +563,8 @@ public sealed class ClaudeUsageProviderTests
             this.AnthropicBetaHeader = request.Headers.TryGetValues("anthropic-beta", out IEnumerable<string>? beta)
                 ? string.Join(" ", beta)
                 : null;
+            this.UserAgentHeader = request.Headers.UserAgent.Count == 0 ? null : request.Headers.UserAgent.ToString();
+            this.RequestUri = request.RequestUri;
             return Task.FromResult(new HttpResponseMessage(statusCode)
             {
                 Content = new StringContent(body),

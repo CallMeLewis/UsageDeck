@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Text;
 using System.Text.RegularExpressions;
 using UsageDeck.Core.Providers;
@@ -13,9 +14,20 @@ public sealed partial class ClaudeUsageProvider(
     ICliVersionReader? cliVersionReader = null,
     HttpClient? httpClient = null,
     IClaudeCredentialsReader? credentialsReader = null,
-    Func<bool>? useUsageApi = null) : IUsageProvider, ICliVersionProvider
+    Func<bool>? useUsageApi = null,
+    IBoundedProcessRunner? processRunner = null) : IUsageProvider, ICliVersionProvider
 {
-    private static readonly Uri UsageEndpoint = new("https://api.anthropic.com/api/oauth/usage");
+    // The first release whose print mode answers /usage with the plan limits. Releases from
+    // 2.1.118 print only the session cost, and earlier ones send /usage to the model as a prompt,
+    // which would spend the very quota UsageDeck is reporting.
+    private static readonly Version MinimumPrintedUsageVersion = new(2, 1, 178);
+    private static readonly TimeSpan PrintedUsageTimeout = TimeSpan.FromSeconds(30);
+    private const int MaximumPrintedUsageBytes = 262_144;
+    private const int MaximumPrintedUsageErrorBytes = 16_384;
+
+    // The same query Claude Code sends when it checks for limit resets. Without it the endpoint
+    // leaves the resets block empty; skip_spend drops spend figures UsageDeck does not read.
+    private static readonly Uri UsageEndpoint = new("https://api.anthropic.com/api/oauth/usage?cedar_ember=1&skip_spend=1");
     private static readonly TimeSpan ApiTimeout = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan PromptBudget = TimeSpan.FromSeconds(12);
     private static readonly TimeSpan PromptQuietPeriod = TimeSpan.FromSeconds(1);
@@ -84,14 +96,23 @@ public sealed partial class ClaudeUsageProvider(
         AccountIdentity? identity,
         CancellationToken cancellationToken)
     {
-        using HttpRequestMessage request = new(HttpMethod.Get, UsageEndpoint);
-        request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {accessToken}");
-        request.Headers.TryAddWithoutValidation("anthropic-beta", "oauth-2025-04-20");
         using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(ApiTimeout);
 
         try
         {
+            using HttpRequestMessage request = new(HttpMethod.Get, UsageEndpoint);
+            request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {accessToken}");
+            request.Headers.TryAddWithoutValidation("anthropic-beta", "oauth-2025-04-20");
+
+            // Anthropic only reports limit resets to a current Claude Code CLI, so the request
+            // carries the installed CLI's own identifier. Usage limits are returned either way.
+            string? cliVersion = await this.ReadCliVersionAsync(timeout.Token).ConfigureAwait(false);
+            if (cliVersion is not null)
+            {
+                request.Headers.TryAddWithoutValidation("User-Agent", $"claude-cli/{cliVersion} (external, cli)");
+            }
+
             using HttpResponseMessage response = await httpClient!.SendAsync(
                 request, HttpCompletionOption.ResponseHeadersRead, timeout.Token).ConfigureAwait(false);
             UsageRetryBackoff.ThrowIfRequested(response, this.DisplayName, this._timeProvider.GetUtcNow());
@@ -110,7 +131,8 @@ public sealed partial class ClaudeUsageProvider(
                 this._timeProvider.GetUtcNow(),
                 UsageDataState.Fresh,
                 windows,
-                identity);
+                identity,
+                resetCredits: ClaudeApiUsageParser.ParseResetCredits(json));
         }
         catch (ProviderException exception) when (exception.RetryNotBeforeUtc is not null)
         {
@@ -178,6 +200,13 @@ public sealed partial class ClaudeUsageProvider(
             "ClaudeProbe");
         Directory.CreateDirectory(workingDirectory);
 
+        if (processRunner is not null
+            && SupportsPrintedUsage(await this.ReadCliVersionAsync(cancellationToken).ConfigureAwait(false)))
+        {
+            return await this.FetchPrintedUsageAsync(
+                processRunner, executablePath, workingDirectory, identity, cancellationToken).ConfigureAwait(false);
+        }
+
         PtyStartSpec spec = new(
             executablePath,
             ["--allowedTools", "", "--permission-mode", "plan"],
@@ -186,7 +215,9 @@ public sealed partial class ClaudeUsageProvider(
             {
                 ["CLAUDE_CODE_DISABLE_TERMINAL_TITLE"] = "1",
                 ["DISABLE_AUTOUPDATER"] = "1",
-            });
+            },
+            ClaudeUsageParser.ScreenColumns,
+            ClaudeUsageParser.ScreenRows);
 
         using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromSeconds(45));
@@ -236,15 +267,15 @@ public sealed partial class ClaudeUsageProvider(
                 string markers = ClaudeUsageParser.Compact(
                     ClaudeUsageParser.StripTerminalSequences(current));
 
-                if (markers.Contains("totalcost:", StringComparison.OrdinalIgnoreCase)
-                    || markers.Contains("currentlyusingyoursubscription", StringComparison.OrdinalIgnoreCase))
-                {
-                    break;
-                }
-
-                if (quietSince is not null
-                    && this._timeProvider.GetUtcNow() - quietSince.Value >= QuietPeriod
-                    && markers.Contains("currentsession", StringComparison.OrdinalIgnoreCase))
+                // "Total cost:" is not a reason to stop straight away: subscription panels open with
+                // a session cost section too, and the limits, above all the per-model weekly row,
+                // are painted a moment after it.
+                bool hasPanel = markers.Contains("currentsession", StringComparison.OrdinalIgnoreCase)
+                    || markers.Contains("totalcost:", StringComparison.OrdinalIgnoreCase)
+                    || markers.Contains("currentlyusingyoursubscription", StringComparison.OrdinalIgnoreCase);
+                if (hasPanel
+                    && quietSince is not null
+                    && this._timeProvider.GetUtcNow() - quietSince.Value >= QuietPeriod)
                 {
                     break;
                 }
@@ -283,6 +314,70 @@ public sealed partial class ClaudeUsageProvider(
         {
             throw new ProviderException(ProviderErrorCategory.Unavailable, "Claude usage could not be read.", exception);
         }
+    }
+
+    internal static bool SupportsPrintedUsage(string? cliVersion)
+    {
+        string? release = cliVersion?.Split('-', '+')[0];
+        return Version.TryParse(release, out Version? version) && version >= MinimumPrintedUsageVersion;
+    }
+
+    /// <summary>
+    /// Runs /usage once in print mode. Claude Code answers it locally, without a model request,
+    /// and prints the limits as plain lines once they have loaded, so there is no terminal to
+    /// drive and no repaint to wait out. MCP servers and tools are left off because the command
+    /// needs neither, and session persistence is off so refreshes do not fill Claude Code's
+    /// history.
+    /// </summary>
+    private async Task<ProviderSnapshot> FetchPrintedUsageAsync(
+        IBoundedProcessRunner runner,
+        string executablePath,
+        string workingDirectory,
+        AccountIdentity? identity,
+        CancellationToken cancellationToken)
+    {
+        ProcessStartSpec spec = new(
+            executablePath,
+            ["-p", "/usage", "--no-session-persistence", "--strict-mcp-config", "--tools", ""],
+            workingDirectory,
+            new Dictionary<string, string?> { ["DISABLE_AUTOUPDATER"] = "1" });
+
+        using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(PrintedUsageTimeout);
+
+        ProcessRunResult result;
+        try
+        {
+            result = await runner.RunAsync(
+                spec, MaximumPrintedUsageBytes, MaximumPrintedUsageErrorBytes, timeout.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new ProviderException(ProviderErrorCategory.Transient, "Claude did not return usage data in time.", exception);
+        }
+        catch (Exception exception) when (exception is IOException or InvalidOperationException or Win32Exception)
+        {
+            throw new ProviderException(ProviderErrorCategory.Unavailable, "Claude usage could not be read.", exception);
+        }
+
+        // Standard error is not surfaced: Claude Code may echo account details there.
+        string output = Encoding.UTF8.GetString(result.StandardOutput);
+        if (result.ExitCode != 0 || string.IsNullOrWhiteSpace(output))
+        {
+            throw new ProviderException(
+                ProviderErrorCategory.Unavailable,
+                $"Claude Code could not show usage (exit code {result.ExitCode}).");
+        }
+
+        DateTimeOffset capturedAt = this._timeProvider.GetUtcNow();
+        return new ProviderSnapshot(
+            this.Id,
+            this.DisplayName,
+            "Claude CLI",
+            capturedAt,
+            UsageDataState.Fresh,
+            ClaudeUsageParser.ParsePrinted(output, capturedAt),
+            identity);
     }
 
     /// <summary>

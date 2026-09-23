@@ -316,7 +316,7 @@ public sealed class NotificationEvaluatorTests
     }
 
     [Fact]
-    public void IncreasedCodexResetCreditCountNotifies()
+    public void IncreasedResetCreditCountNotifies()
     {
         NotificationEvaluator evaluator = new();
         NotificationEvaluationOptions options = new();
@@ -326,8 +326,8 @@ public sealed class NotificationEvaluatorTests
             Snapshot(capturedAt: Now.AddMinutes(5), resetCreditCount: 3),
             options));
 
-        CodexResetCreditGrantedNotification credits =
-            Assert.IsType<CodexResetCreditGrantedNotification>(notification);
+        ResetCreditGrantedNotification credits =
+            Assert.IsType<ResetCreditGrantedNotification>(notification);
         Assert.Equal(2, credits.GrantedCount);
         Assert.Equal(3, credits.AvailableCount);
     }

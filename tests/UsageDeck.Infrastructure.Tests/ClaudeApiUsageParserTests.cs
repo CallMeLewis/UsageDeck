@@ -144,4 +144,69 @@ public sealed class ClaudeApiUsageParserTests
 
         Assert.Equal(ProviderErrorCategory.InvalidResponse, exception.Category);
     }
+
+    // Trimmed from a real resets block, returned when the request asks for cedar_ember and
+    // identifies as a current Claude Code CLI. Opaque ids are replaced.
+    private const string ResetsResponse = """
+        {
+          "limits": [ { "kind": "session", "percent": 7, "resets_at": "2026-09-23T20:00:00+00:00" } ],
+          "cedar_ember": {
+            "eligible": true,
+            "ineligible_reason": null,
+            "at_limit": false,
+            "exhausted": [],
+            "grants": [
+              {
+                "id": "grant-a",
+                "resets_total": 2,
+                "resets_left": 2,
+                "starts_at": "2026-09-22T16:00:00+00:00",
+                "ends_at": "2026-10-22T16:00:00+00:00",
+                "clears": ["five_hour", "seven_day", "seven_day_overage_included"],
+                "paused": false,
+                "usable_now": true,
+                "use_requires_limit": false
+              },
+              { "id": "grant-b", "resets_total": 1, "resets_left": 0, "ends_at": "2026-10-01T00:00:00+00:00" },
+              { "id": "grant-c", "resets_total": 1, "resets_left": 1, "ends_at": null }
+            ],
+            "next_grant_id": "grant-a",
+            "weekly_resets_at": "2026-09-30T03:00:00+00:00",
+            "cooldown_until": null
+          }
+        }
+        """;
+
+    [Fact]
+    public void ParseResetCreditsListsEachRemainingResetWithItsDeadline()
+    {
+        RateLimitResetCredits? credits = ClaudeApiUsageParser.ParseResetCredits(ResetsResponse);
+
+        Assert.NotNull(credits);
+        Assert.Equal(3, credits.AvailableCount);
+        DateTimeOffset deadline = new(2026, 10, 22, 16, 0, 0, TimeSpan.Zero);
+        Assert.Equal([deadline, deadline, null], credits.Credits.Select(credit => credit.ExpiresAt));
+    }
+
+    [Fact]
+    public void ParseResetCreditsReportsNoneWhenAnEligibleAccountHasUsedEveryReset()
+    {
+        const string json = """
+            { "limits": [], "cedar_ember": { "eligible": true, "grants": [ { "id": "a", "resets_left": 0 } ] } }
+            """;
+
+        RateLimitResetCredits? credits = ClaudeApiUsageParser.ParseResetCredits(json);
+
+        Assert.Equal(0, credits?.AvailableCount);
+    }
+
+    [Theory]
+    [InlineData("""{ "limits": [] }""")]
+    [InlineData("""{ "limits": [], "cedar_ember": null }""")]
+    [InlineData("""{ "limits": [], "cedar_ember": { "eligible": false, "ineligible_reason": "surface", "grants": [] } }""")]
+    [InlineData("""{ "limits": [], "cedar_ember": { "eligible": true } }""")]
+    public void ParseResetCreditsIsUnknownWhenTheAccountIsIneligibleOrTheBlockIsMissing(string json)
+    {
+        Assert.Null(ClaudeApiUsageParser.ParseResetCredits(json));
+    }
 }

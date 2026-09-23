@@ -22,10 +22,10 @@ internal static class NotificationMessageFormatter
             $"{reset.ProviderDisplayName} limit reset",
             $"The {reset.WindowDisplayName} allowance has reset. {FormatAvailable(reset.UsedPercent)}",
             reset.ProviderId),
-        CodexResetCreditGrantedNotification credits => new NotificationMessage(
+        ResetCreditGrantedNotification credits => new NotificationMessage(
             credits.GrantedCount == 1
-                ? "You received a Codex limit reset"
-                : $"You received {credits.GrantedCount} Codex limit resets",
+                ? $"You received a {credits.ProviderDisplayName} limit reset"
+                : $"You received {credits.GrantedCount} {credits.ProviderDisplayName} limit resets",
             credits.AvailableCount == 1
                 ? "1 reset is now available."
                 : $"{credits.AvailableCount} resets are now available.",

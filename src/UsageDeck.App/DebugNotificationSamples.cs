@@ -41,7 +41,7 @@ internal static class DebugNotificationSamples
             "five-hour",
             "5-hour",
             UsedPercent: 2),
-        DebugNotificationScenario.CodexResetCredit => new CodexResetCreditGrantedNotification(
+        DebugNotificationScenario.CodexResetCredit => new ResetCreditGrantedNotification(
             ProviderId.Codex,
             "OpenAI Codex",
             GrantedCount: 1,

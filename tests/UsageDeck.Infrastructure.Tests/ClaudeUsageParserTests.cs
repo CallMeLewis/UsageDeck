@@ -8,6 +8,34 @@ public sealed class ClaudeUsageParserTests
     private static readonly DateTimeOffset Now = new(2026, 7, 16, 10, 0, 0, TimeSpan.Zero);
 
     [Fact]
+    public void ParseReadsAPerModelLimitThatWasPaintedOverTheRowsBelowIt()
+    {
+        // Seen with Claude Code 2.1.278: cached limits are painted first, then the refreshed panel
+        // inserts the per-model row by overwriting the rows beneath it. Only changed cells are
+        // resent, so the new "used" arrives as "us" and "d" around an "e" that was already there,
+        // and the stream never contains that row as readable text.
+        const string output =
+            "Current session\r\n"
+            + "50% used\r\n"
+            + "Resets 2:50pm (Europe/London)\r\n"
+            + "Current week (all models)\r\n"
+            + "12% used\r\n"
+            + "Resets Sep 23, 4am (Europe/London)\r\n"
+            + "What's contributing to your limits usage?\r\n"
+            + "Include everything on this machine\r\n"
+            + "\u001b[5;1H13"
+            + "\u001b[7;1HCurrent week (Fable)\u001b[K"
+            + "\u001b[8;1H23% us\u001b[1Cd\u001b[K"
+            + "\u001b[9;1HResets Sep 23, 4am (Europe/London)";
+
+        IReadOnlyList<UsageWindow> windows = ClaudeUsageParser.Parse(output, Now);
+
+        Assert.Equal(["session", "weekly", "weekly-fable"], windows.Select(window => window.Id));
+        Assert.Equal([50d, 13d, 23d], windows.Select(window => window.UsedPercent));
+        Assert.All(windows, window => Assert.NotNull(window.ResetsAt));
+    }
+
+    [Fact]
     public void ParseMapsUsedAndRemainingQuotaWindows()
     {
         const string output = """
@@ -166,6 +194,45 @@ public sealed class ClaudeUsageParserTests
         UsageWindow window = Assert.Single(ClaudeUsageParser.Parse(output, Now));
 
         Assert.Equal(80, window.UsedPercent);
+    }
+
+    [Fact]
+    public void ParsePrintedReadsTheLimitsThatPrintModeListsOnePerLine()
+    {
+        // Captured from `claude -p /usage` on Claude Code 2.1.280.
+        const string output = """
+            You are currently using your subscription to power your Claude Code usage
+
+            Current session: 7% used · resets Jul 16, 11:29pm (Europe/London)
+            Current week (all models): 2% used · resets Jul 22, 3:59am (Europe/London)
+            Current week (Fable): 0% used · resets Jul 22, 4am (Europe/London)
+
+            What's contributing to your limits usage?
+            Last 7d · 1413 requests · 22 sessions
+              70% of your usage was at >150k context
+            """;
+
+        IReadOnlyList<UsageWindow> windows = ClaudeUsageParser.ParsePrinted(output, Now);
+
+        Assert.Equal(["session", "weekly", "weekly-fable"], windows.Select(window => window.Id));
+        Assert.Equal([7d, 2d, 0d], windows.Select(window => window.UsedPercent));
+        Assert.Equal(
+            [new DateTime(2026, 7, 16, 23, 29, 0), new DateTime(2026, 7, 22, 3, 59, 0), new DateTime(2026, 7, 22, 4, 0, 0)],
+            windows.Select(window => window.ResetsAt!.Value.DateTime));
+    }
+
+    [Fact]
+    public void ParsePrintedClassifiesACostOnlySummaryAsQuotaUnavailable()
+    {
+        const string output = """
+            Total cost:            $0.0000
+            Total duration (API):  0s
+            """;
+
+        ProviderException exception = Assert.Throws<ProviderException>(
+            () => ClaudeUsageParser.ParsePrinted(output, Now));
+
+        Assert.Equal(ProviderErrorCategory.Unavailable, exception.Category);
     }
 
     [Theory]

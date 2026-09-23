@@ -114,7 +114,8 @@ public partial class App : Application, IDisposable
                 executableLocator,
                 cliVersionReader: cliVersionReader,
                 httpClient: this._httpClient,
-                useUsageApi: () => this.CurrentSettings.UseClaudeUsageApi),
+                useUsageApi: () => this.CurrentSettings.UseClaudeUsageApi,
+                processRunner: processSessionFactory),
             new AntigravityUsageProvider(ptySessionFactory, executableLocator, cliVersionReader: cliVersionReader),
             new CopilotUsageProvider(processSessionFactory, executableLocator, cliVersionReader: cliVersionReader),
             new KiroUsageProvider(
@@ -597,7 +598,7 @@ public partial class App : Application, IDisposable
             return new NotificationEvaluationOptions(
                 [],
                 notifyLimitResets: false,
-                notifyCodexResetCredits: false,
+                notifyResetCredits: false,
                 notifyProviderStatusChanges: false,
                 notifyProviderConnectionChanges: false);
         }

@@ -46,6 +46,49 @@ public static partial class ClaudeApiUsageParser
         return windows;
     }
 
+    /// <summary>
+    /// Reads the limit resets Claude Code offers through its /limit-reset command. The endpoint
+    /// only fills in the <c>cedar_ember</c> block when asked for it, and reports the account as
+    /// ineligible unless the request identifies as a current Claude Code CLI. Returns null when
+    /// the block is missing, malformed, or the account is not eligible, so the resets section
+    /// stays hidden rather than claiming there are none.
+    /// </summary>
+    public static RateLimitResetCredits? ParseResetCredits(string json)
+    {
+        ArgumentNullException.ThrowIfNull(json);
+
+        using JsonDocument document = ParseDocument(json);
+        if (document.RootElement.ValueKind != JsonValueKind.Object
+            || !document.RootElement.TryGetProperty("cedar_ember", out JsonElement status)
+            || status.ValueKind != JsonValueKind.Object
+            || !status.TryGetProperty("eligible", out JsonElement eligible)
+            || eligible.ValueKind != JsonValueKind.True
+            || !status.TryGetProperty("grants", out JsonElement grants)
+            || grants.ValueKind != JsonValueKind.Array)
+        {
+            return null;
+        }
+
+        // A grant can hold several resets that share one deadline, so each remaining reset is
+        // listed on its own to match how Codex reports them.
+        List<RateLimitResetCredit> credits = [];
+        foreach (JsonElement grant in grants.EnumerateArray())
+        {
+            if (grant.ValueKind != JsonValueKind.Object
+                || !grant.TryGetProperty("resets_left", out JsonElement resetsLeft)
+                || !resetsLeft.TryGetInt32(out int count)
+                || count <= 0)
+            {
+                continue;
+            }
+
+            DateTimeOffset? endsAt = ReadTimestamp(grant, "ends_at");
+            credits.AddRange(Enumerable.Repeat(new RateLimitResetCredit(endsAt), count));
+        }
+
+        return new RateLimitResetCredits(credits.Count, credits);
+    }
+
     private static JsonDocument ParseDocument(string json)
     {
         try
@@ -74,7 +117,7 @@ public static partial class ClaudeApiUsageParser
 
         string kind = kindElement.GetString()!;
         double percent = Math.Clamp(percentElement.GetDouble(), 0, 100);
-        DateTimeOffset? resetsAt = ReadResetsAt(limit);
+        DateTimeOffset? resetsAt = ReadTimestamp(limit, "resets_at");
 
         (string Id, string DisplayName)? identity = kind switch
         {
@@ -121,12 +164,12 @@ public static partial class ClaudeApiUsageParser
             : ($"weekly-{slug}", $"{model} weekly");
     }
 
-    private static DateTimeOffset? ReadResetsAt(JsonElement limit)
+    private static DateTimeOffset? ReadTimestamp(JsonElement container, string propertyName)
     {
-        if (!limit.TryGetProperty("resets_at", out JsonElement resetsAt)
-            || resetsAt.ValueKind != JsonValueKind.String
+        if (!container.TryGetProperty(propertyName, out JsonElement value)
+            || value.ValueKind != JsonValueKind.String
             || !DateTimeOffset.TryParse(
-                resetsAt.GetString(),
+                value.GetString(),
                 CultureInfo.InvariantCulture,
                 DateTimeStyles.RoundtripKind,
                 out DateTimeOffset parsed))

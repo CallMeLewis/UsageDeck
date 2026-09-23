@@ -397,8 +397,7 @@ public sealed class NotificationEvaluator
         NotificationEvaluationOptions options,
         List<UsageNotificationEvent> notifications)
     {
-        if (!options.NotifyCodexResetCredits
-            || current.ProviderId != ProviderId.Codex
+        if (!options.NotifyResetCredits
             || previous.ResetCredits is null
             || current.ResetCredits is null
             || current.ResetCredits.AvailableCount <= previous.ResetCredits.AvailableCount)
@@ -406,7 +405,7 @@ public sealed class NotificationEvaluator
             return;
         }
 
-        notifications.Add(new CodexResetCreditGrantedNotification(
+        notifications.Add(new ResetCreditGrantedNotification(
             current.ProviderId,
             current.DisplayName,
             current.ResetCredits.AvailableCount - previous.ResetCredits.AvailableCount,

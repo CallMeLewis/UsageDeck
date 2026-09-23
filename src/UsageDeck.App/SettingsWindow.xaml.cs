@@ -489,11 +489,11 @@ public sealed partial class SettingsWindow : Window, IDisposable
         }
     }
 
-    private async void CodexResetCreditsToggle_Toggled(object sender, RoutedEventArgs e)
+    private async void ResetCreditsToggle_Toggled(object sender, RoutedEventArgs e)
     {
         if (!this._isApplyingSettings)
         {
-            bool notifyResetCredits = this.CodexResetCreditsToggle.IsOn;
+            bool notifyResetCredits = this.ResetCreditsToggle.IsOn;
             await this.SaveSelectedProviderNotificationsAsync(
                 notifications => notifications with { NotifyResetCredits = notifyResetCredits });
         }
@@ -637,8 +637,8 @@ public sealed partial class SettingsWindow : Window, IDisposable
             this.ThresholdExhaustedCheckBox.IsChecked = notifications.LimitThresholds.HasFlag(
                 LimitNotificationThresholds.Exhausted);
             this.LimitResetsToggle.IsOn = notifications.NotifyLimitResets;
-            this.CodexResetCreditsToggle.IsOn = notifications.NotifyResetCredits;
-            this.CodexResetCreditsRow.Visibility = selectedProvider == ProviderId.Codex
+            this.ResetCreditsToggle.IsOn = notifications.NotifyResetCredits;
+            this.ResetCreditsRow.Visibility = selectedProvider == ProviderId.Codex || selectedProvider == ProviderId.Claude
                 ? Visibility.Visible
                 : Visibility.Collapsed;
             this.ProviderStatusNotificationsToggle.IsOn = notifications.NotifyStatusChanges;
