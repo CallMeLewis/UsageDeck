@@ -5,6 +5,27 @@ namespace UsageDeck.App.Tests;
 public sealed class MainPageLayoutTests
 {
     [Fact]
+    public void SelectedProviderUsageMetersStayOutOfRecyclingContainers()
+    {
+        string sourcePath = Path.Combine(
+            AppContext.BaseDirectory,
+            "SourceUnderTest",
+            "MainPage.xaml");
+        XDocument xaml = XDocument.Load(sourcePath);
+        XNamespace presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+        XElement usageCards = Assert.Single(
+            xaml.Descendants(),
+            element => (string?)element.Attribute("ItemsSource")
+                == "{Binding SelectedProvider.UsageWindows}");
+
+        // A recycled, zero-sized card can make a near-full meter resize until layout fails.
+        Assert.NotEmpty(usageCards.Descendants(presentation + "ProgressBar"));
+        Assert.DoesNotContain(
+            usageCards.Descendants(presentation + "ProgressBar"),
+            meter => meter.Ancestors().Any(element => element.Name == presentation + "ItemsRepeater"));
+    }
+
+    [Fact]
     public void ProviderTabsUseTheListViewVirtualisingPanel()
     {
         string sourcePath = Path.Combine(

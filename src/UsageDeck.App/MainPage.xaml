@@ -416,8 +416,16 @@
                         Text="{Binding SelectedProvider.LimitsSummaryText}" />
                 </Grid>
 
-                <ItemsRepeater ItemsSource="{Binding SelectedProvider.UsageWindows}">
-                    <ItemsRepeater.ItemTemplate>
+                <!-- Keep these small lists out of the recycling pool when switching providers. -->
+                <ItemsControl
+                    HorizontalContentAlignment="Stretch"
+                    ItemsSource="{Binding SelectedProvider.UsageWindows}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="local:UsageWindowViewModel">
                             <Border
                                 Margin="0,0,0,10"
@@ -466,8 +474,8 @@
                                 </StackPanel>
                             </Border>
                         </DataTemplate>
-                    </ItemsRepeater.ItemTemplate>
-                </ItemsRepeater>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
 
                 <StackPanel
                     Spacing="10"
