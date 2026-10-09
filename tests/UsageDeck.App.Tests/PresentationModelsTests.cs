@@ -86,7 +86,7 @@ public sealed class PresentationModelsTests
     [Fact]
     public void FirstRunProviderOptionPresentsDiscoveryWithoutAPath()
     {
-        FirstRunProviderOption option = new(ProviderSettingsPresentation.All[ProviderId.Codex]);
+        FirstRunProviderOption option = new(ProviderSettingsPresentation.All[ProviderId.Codex], showDivider: false);
 
         option.ApplyDiscovery(new ProviderDiscoveryResult(
             ProviderId.Codex,
@@ -101,7 +101,8 @@ public sealed class PresentationModelsTests
     public void FirstRunProviderOptionPresentsCredentialProbeFailureAsUnavailable()
     {
         FirstRunProviderOption option = new(
-            ProviderSettingsPresentation.All[ProviderId.TheClawBay]);
+            ProviderSettingsPresentation.All[ProviderId.TheClawBay],
+            showDivider: false);
 
         option.ApplyDiscovery(new ProviderDiscoveryResult(
             ProviderId.TheClawBay,
@@ -116,7 +117,8 @@ public sealed class PresentationModelsTests
     public void FirstRunProviderOptionRetainsDetectedApiKeyStorage()
     {
         FirstRunProviderOption option = new(
-            ProviderSettingsPresentation.All[ProviderId.TheClawBay]);
+            ProviderSettingsPresentation.All[ProviderId.TheClawBay],
+            showDivider: false);
 
         option.ApplyDiscovery(new ProviderDiscoveryResult(
             ProviderId.TheClawBay,
@@ -254,7 +256,6 @@ public sealed class PresentationModelsTests
         Assert.Equal("Updated just now", model.SummaryUpdatedText);
         Assert.Equal("Pro 5x", model.PlanText);
         Assert.Equal("CLI 0.144.5", model.CliVersionText);
-        Assert.True(model.HasCliVersion);
         Assert.Equal("1 active limit", model.LimitsSummaryText);
         UsageWindowViewModel usage = Assert.Single(model.UsageWindows);
         Assert.Equal("42% used", usage.PercentText);

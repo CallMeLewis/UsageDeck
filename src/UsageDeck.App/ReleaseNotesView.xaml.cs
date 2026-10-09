@@ -21,13 +21,13 @@ public sealed partial class ReleaseNotesView : UserControl
         this.ContentPanel.Children.Clear();
         if (result.Document is not ReleaseNotesDocument document)
         {
-            this.ContentPanel.Children.Add(CreateUnavailableState(result.UnavailableMessage));
+            this.ContentPanel.Children.Add(this.CreateUnavailableState(result.UnavailableMessage));
             return;
         }
 
         foreach (string paragraph in document.Introduction)
         {
-            this.ContentPanel.Children.Add(CreateTextBlock(paragraph, isSecondary: false));
+            this.ContentPanel.Children.Add(this.CreateTextBlock(paragraph, isSecondary: false));
         }
 
         int shownItems = 0;
@@ -42,7 +42,7 @@ public sealed partial class ReleaseNotesView : UserControl
                 continue;
             }
 
-            TextBlock heading = CreateTextBlock(section.Heading, isSecondary: false);
+            TextBlock heading = this.CreateTextBlock(section.Heading, isSecondary: false);
             heading.Margin = new Thickness(0, shownItems == 0 ? 0 : 14, 0, 0);
             heading.FontWeight = FontWeights.SemiBold;
             heading.FontSize = 15;
@@ -51,7 +51,7 @@ public sealed partial class ReleaseNotesView : UserControl
 
             foreach (string item in visibleItems)
             {
-                this.ContentPanel.Children.Add(CreateBullet(item));
+                this.ContentPanel.Children.Add(this.CreateBullet(item));
                 shownItems++;
             }
         }
@@ -60,7 +60,7 @@ public sealed partial class ReleaseNotesView : UserControl
         {
             foreach (string note in document.ClosingNotes)
             {
-                TextBlock noteText = CreateTextBlock(note, isSecondary: true);
+                TextBlock noteText = this.CreateTextBlock(note, isSecondary: true);
                 noteText.Margin = new Thickness(0, 6, 0, 0);
                 this.ContentPanel.Children.Add(noteText);
             }
@@ -68,7 +68,7 @@ public sealed partial class ReleaseNotesView : UserControl
         else if (document.Sections.Sum(section => section.Items.Count) > shownItems
             || document.ClosingNotes.Count > 0)
         {
-            TextBlock moreText = CreateTextBlock(
+            TextBlock moreText = this.CreateTextBlock(
                 "More details are available in Settings.",
                 isSecondary: true);
             moreText.Margin = new Thickness(0, 2, 0, 0);
@@ -76,7 +76,7 @@ public sealed partial class ReleaseNotesView : UserControl
         }
     }
 
-    private static Grid CreateUnavailableState(string message)
+    private Grid CreateUnavailableState(string message)
     {
         Grid grid = new() { ColumnSpacing = 10 };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -86,18 +86,18 @@ public sealed partial class ReleaseNotesView : UserControl
         {
             FontSize = 16,
             Glyph = "\uE946",
-            Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+            Style = (Style)this.Resources["SecondaryIconStyle"],
         };
         Grid.SetColumn(icon, 0);
 
-        TextBlock text = CreateTextBlock(message, isSecondary: true);
+        TextBlock text = this.CreateTextBlock(message, isSecondary: true);
         Grid.SetColumn(text, 1);
         grid.Children.Add(icon);
         grid.Children.Add(text);
         return grid;
     }
 
-    private static Grid CreateBullet(string markdown)
+    private Grid CreateBullet(string markdown)
     {
         Grid grid = new() { ColumnSpacing = 10 };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -109,18 +109,18 @@ public sealed partial class ReleaseNotesView : UserControl
             Height = 5,
             Margin = new Thickness(1, 7, 0, 0),
             VerticalAlignment = VerticalAlignment.Top,
-            Fill = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+            Style = (Style)this.Resources["BulletMarkerStyle"],
         };
         Grid.SetColumn(marker, 0);
 
-        TextBlock text = CreateTextBlock(markdown, isSecondary: false);
+        TextBlock text = this.CreateTextBlock(markdown, isSecondary: false);
         Grid.SetColumn(text, 1);
         grid.Children.Add(marker);
         grid.Children.Add(text);
         return grid;
     }
 
-    private static TextBlock CreateTextBlock(string markdown, bool isSecondary)
+    private TextBlock CreateTextBlock(string markdown, bool isSecondary)
     {
         TextBlock text = new()
         {
@@ -131,7 +131,7 @@ public sealed partial class ReleaseNotesView : UserControl
         };
         if (isSecondary)
         {
-            text.Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"];
+            text.Style = (Style)this.Resources["SecondaryTextStyle"];
         }
 
         AddInlines(text, markdown);

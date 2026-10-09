@@ -194,16 +194,8 @@ public sealed class ProviderTabViewModel : INotifyPropertyChanged
     public string CliVersionText
     {
         get => this._cliVersionText;
-        private set
-        {
-            if (this.SetField(ref this._cliVersionText, value))
-            {
-                this.OnPropertyChanged(nameof(this.HasCliVersion));
-            }
-        }
+        private set => this.SetField(ref this._cliVersionText, value);
     }
-
-    public bool HasCliVersion => !string.IsNullOrEmpty(this.CliVersionText);
 
     public string CreditsText
     {
@@ -838,9 +830,14 @@ public sealed class InverseBooleanToVisibilityConverter : IValueConverter
 public sealed class UsageLevelBrushConverter : IValueConverter
 {
     private static readonly UISettings SystemColours = new();
-    private static readonly SolidColorBrush HealthyBrush = new(Windows.UI.Color.FromArgb(255, 34, 197, 94));
-    private static readonly SolidColorBrush WatchBrush = new(Windows.UI.Color.FromArgb(255, 245, 158, 11));
-    private static readonly SolidColorBrush LowBrush = new(Windows.UI.Color.FromArgb(255, 239, 68, 68));
+    private static readonly SolidColorBrush DarkThemeHealthyBrush = new(Windows.UI.Color.FromArgb(255, 34, 197, 94));
+    private static readonly SolidColorBrush DarkThemeWatchBrush = new(Windows.UI.Color.FromArgb(255, 245, 158, 11));
+    private static readonly SolidColorBrush DarkThemeLowBrush = new(Windows.UI.Color.FromArgb(255, 239, 68, 68));
+
+    // Darker shades keep at least 3:1 contrast against light cards.
+    private static readonly SolidColorBrush LightThemeHealthyBrush = new(Windows.UI.Color.FromArgb(255, 22, 163, 74));
+    private static readonly SolidColorBrush LightThemeWatchBrush = new(Windows.UI.Color.FromArgb(255, 217, 119, 6));
+    private static readonly SolidColorBrush LightThemeLowBrush = new(Windows.UI.Color.FromArgb(255, 220, 38, 38));
 
     public object Convert(object value, Type targetType, object parameter, string language)
     {
@@ -851,11 +848,12 @@ public sealed class UsageLevelBrushConverter : IValueConverter
 
         double usedPercent = value is double percent ? percent : 0;
         double remainingPercent = 100 - Math.Clamp(usedPercent, 0, 100);
+        bool isDark = ProviderStatusBrushConverter.UsesDarkTheme();
         return remainingPercent switch
         {
-            > 50 => HealthyBrush,
-            > 20 => WatchBrush,
-            _ => LowBrush,
+            > 50 => isDark ? DarkThemeHealthyBrush : LightThemeHealthyBrush,
+            > 20 => isDark ? DarkThemeWatchBrush : LightThemeWatchBrush,
+            _ => isDark ? DarkThemeLowBrush : LightThemeLowBrush,
         };
     }
 
@@ -887,13 +885,7 @@ public sealed class ProviderStatusBrushConverter : IValueConverter
             return new SolidColorBrush(foreground);
         }
 
-        bool isDark = ((App)Application.Current).CurrentSettings.Theme switch
-        {
-            AppThemePreference.Dark => true,
-            AppThemePreference.Light => false,
-            _ => SystemColours.GetColorValue(UIColorType.Background) is Windows.UI.Color background
-                && background.R + background.G + background.B < 384,
-        };
+        bool isDark = UsesDarkTheme();
         return level switch
         {
             ProviderStatusVisualLevel.Success => isDark ? DarkThemeSuccessBrush : LightThemeSuccessBrush,
@@ -904,4 +896,12 @@ public sealed class ProviderStatusBrushConverter : IValueConverter
 
     public object ConvertBack(object value, Type targetType, object parameter, string language) =>
         throw new NotSupportedException();
+
+    internal static bool UsesDarkTheme() => ((App)Application.Current).CurrentSettings.Theme switch
+    {
+        AppThemePreference.Dark => true,
+        AppThemePreference.Light => false,
+        _ => SystemColours.GetColorValue(UIColorType.Background) is Windows.UI.Color background
+            && background.R + background.G + background.B < 384,
+    };
 }

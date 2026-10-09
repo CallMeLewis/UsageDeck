@@ -48,6 +48,23 @@
             ScrollViewer.HorizontalScrollBarVisibility="Hidden"
             ScrollViewer.HorizontalScrollMode="Enabled"
             ScrollViewer.VerticalScrollMode="Disabled">
+            <ListView.Resources>
+                <!-- The accent underline marks selection; high contrast keeps the system selection fill. -->
+                <ResourceDictionary>
+                    <ResourceDictionary.ThemeDictionaries>
+                        <ResourceDictionary x:Key="Default">
+                            <StaticResource x:Key="ListViewItemBackgroundSelected" ResourceKey="SubtleFillColorTransparentBrush" />
+                            <StaticResource x:Key="ListViewItemBackgroundSelectedPointerOver" ResourceKey="SubtleFillColorSecondaryBrush" />
+                            <StaticResource x:Key="ListViewItemBackgroundSelectedPressed" ResourceKey="SubtleFillColorTertiaryBrush" />
+                        </ResourceDictionary>
+                        <ResourceDictionary x:Key="Light">
+                            <StaticResource x:Key="ListViewItemBackgroundSelected" ResourceKey="SubtleFillColorTransparentBrush" />
+                            <StaticResource x:Key="ListViewItemBackgroundSelectedPointerOver" ResourceKey="SubtleFillColorSecondaryBrush" />
+                            <StaticResource x:Key="ListViewItemBackgroundSelectedPressed" ResourceKey="SubtleFillColorTertiaryBrush" />
+                        </ResourceDictionary>
+                    </ResourceDictionary.ThemeDictionaries>
+                </ResourceDictionary>
+            </ListView.Resources>
             <ListView.ItemsPanel>
                 <ItemsPanelTemplate>
                     <ItemsStackPanel Orientation="Horizontal" />
@@ -150,15 +167,14 @@
                                                 Grid.Column="1"
                                                 VerticalAlignment="Center"
                                                 Spacing="1">
-                                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                                    <TextBlock FontWeight="SemiBold" Text="{x:Bind DisplayName}" />
-                                                    <TextBlock
-                                                        VerticalAlignment="Center"
+                                                <TextBlock FontWeight="SemiBold" TextWrapping="Wrap">
+                                                    <Run Text="{x:Bind DisplayName}" />
+                                                    <Run
+                                                        FontSize="12"
+                                                        FontWeight="Normal"
                                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                        Style="{StaticResource CaptionTextBlockStyle}"
-                                                        Text="{x:Bind CliVersionText, Mode=OneWay}"
-                                                        Visibility="{x:Bind HasCliVersion, Converter={StaticResource BooleanToVisibilityConverter}, Mode=OneWay}" />
-                                                </StackPanel>
+                                                        Text="{x:Bind CliVersionText, Mode=OneWay}" />
+                                                </TextBlock>
                                                 <TextBlock
                                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                     Style="{StaticResource CaptionTextBlockStyle}"
@@ -235,7 +251,7 @@
                                                                 Height="6"
                                                                 Background="{ThemeResource UsageProgressTrackBrush}"
                                                                 CornerRadius="3"
-                                                                Foreground="{x:Bind UsedPercent, Converter={StaticResource UsageLevelBrushConverter}}"
+                                                                Foreground="{x:Bind UsedPercent, Converter={StaticResource UsageLevelBrushConverter}, Mode=OneWay}"
                                                                 Maximum="100"
                                                                 MinHeight="6"
                                                                 Visibility="{x:Bind HasUsageMeter, Converter={StaticResource BooleanToVisibilityConverter}}"
@@ -273,17 +289,15 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock
-                                Style="{StaticResource SubtitleTextBlockStyle}"
-                                Text="{Binding SelectedProvider.DisplayName}" />
-                            <TextBlock
-                                VerticalAlignment="Center"
+                        <!-- One text line keeps the version caption on the provider name's baseline. -->
+                        <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="Wrap">
+                            <Run Text="{Binding SelectedProvider.DisplayName}" />
+                            <Run
+                                FontSize="12"
+                                FontWeight="Normal"
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="{Binding SelectedProvider.CliVersionText}"
-                                Visibility="{Binding SelectedProvider.HasCliVersion, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                        </StackPanel>
+                                Text="{Binding SelectedProvider.CliVersionText}" />
+                        </TextBlock>
                         <TextBlock
                             Grid.Row="1"
                             AutomationProperties.LiveSetting="Polite"
@@ -326,7 +340,7 @@
                             Padding="8,2"
                             AutomationProperties.Name="Open the provider's official service status"
                             Click="OfficialStatusLink_Click"
-                            Content="Status page"
+                            Content="Open status page"
                             FontSize="12"
                             Tag="{Binding SelectedProvider.OfficialStatusUri}" />
                     </InfoBar.ActionButton>
@@ -411,6 +425,7 @@
                     <TextBlock FontWeight="SemiBold" Text="Rate limits" />
                     <TextBlock
                         Grid.Column="1"
+                        VerticalAlignment="Bottom"
                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                         Style="{StaticResource CaptionTextBlockStyle}"
                         Text="{Binding SelectedProvider.LimitsSummaryText}" />
@@ -450,7 +465,7 @@
                                         Background="{ThemeResource UsageProgressTrackBrush}"
                                         CornerRadius="3"
                                         Height="6"
-                                        Foreground="{x:Bind UsedPercent, Converter={StaticResource UsageLevelBrushConverter}}"
+                                        Foreground="{x:Bind UsedPercent, Converter={StaticResource UsageLevelBrushConverter}, Mode=OneWay}"
                                         Maximum="100"
                                         MinHeight="6"
                                         Visibility="{x:Bind HasUsageMeter, Converter={StaticResource BooleanToVisibilityConverter}}"
@@ -488,6 +503,7 @@
                         <TextBlock FontWeight="SemiBold" Text="Limit resets" />
                         <TextBlock
                             Grid.Column="1"
+                            VerticalAlignment="Bottom"
                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                             Style="{StaticResource CaptionTextBlockStyle}"
                             Text="{Binding SelectedProvider.ResetCreditsSummaryText}" />
@@ -567,27 +583,28 @@
                     </Grid>
 
                     <Border
-                        Height="102"
                         Padding="16"
                         AutomationProperties.AccessibilityView="Raw"
                         Style="{StaticResource ElevatedCardBorderStyle}"
                         Translation="0,0,8">
-                        <StackPanel Spacing="14">
+                        <StackPanel Spacing="11">
                             <Rectangle
                                 Width="126"
                                 Height="14"
+                                Margin="0,3"
                                 HorizontalAlignment="Left"
                                 Fill="{StaticResource SkeletonShimmerBrush}"
                                 RadiusX="7"
                                 RadiusY="7" />
                             <Rectangle
-                                Height="4"
+                                Height="6"
                                 Fill="{StaticResource SkeletonShimmerBrush}"
-                                RadiusX="2"
-                                RadiusY="2" />
+                                RadiusX="3"
+                                RadiusY="3" />
                             <Rectangle
                                 Width="92"
                                 Height="10"
+                                Margin="0,3"
                                 HorizontalAlignment="Left"
                                 Fill="{StaticResource SkeletonShimmerBrush}"
                                 RadiusX="5"
@@ -596,27 +613,28 @@
                     </Border>
 
                     <Border
-                        Height="102"
                         Padding="16"
                         AutomationProperties.AccessibilityView="Raw"
                         Style="{StaticResource ElevatedCardBorderStyle}"
                         Translation="0,0,8">
-                        <StackPanel Spacing="14">
+                        <StackPanel Spacing="11">
                             <Rectangle
                                 Width="174"
                                 Height="14"
+                                Margin="0,3"
                                 HorizontalAlignment="Left"
                                 Fill="{StaticResource SkeletonShimmerBrush}"
                                 RadiusX="7"
                                 RadiusY="7" />
                             <Rectangle
-                                Height="4"
+                                Height="6"
                                 Fill="{StaticResource SkeletonShimmerBrush}"
-                                RadiusX="2"
-                                RadiusY="2" />
+                                RadiusX="3"
+                                RadiusY="3" />
                             <Rectangle
                                 Width="108"
                                 Height="10"
+                                Margin="0,3"
                                 HorizontalAlignment="Left"
                                 Fill="{StaticResource SkeletonShimmerBrush}"
                                 RadiusX="5"
@@ -783,7 +801,7 @@
                                                                 Margin="-8,0,0,0"
                                                                 HorizontalAlignment="Left"
                                                                 Click="OfficialStatusLink_Click"
-                                                                Content="Open official status"
+                                                                Content="Open status page"
                                                                 FontSize="12"
                                                                 Tag="{x:Bind OfficialStatusUri, Mode=OneWay}"
                                                                 Visibility="{x:Bind ShowServiceStatusLink, Converter={StaticResource BooleanToVisibilityConverter}, Mode=OneWay}" />
@@ -866,7 +884,7 @@
                         <FontIcon
                             x:Name="UpdateActionButtonGlyph"
                             FontSize="16"
-                            Glyph="&#xE895;"
+                            Glyph="&#xE896;"
                             RenderTransformOrigin="0.5,0.5"
                             IsTextScaleFactorEnabled="False">
                             <FontIcon.RenderTransform>

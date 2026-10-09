@@ -183,12 +183,12 @@
                             <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="General" />
                             <TextBlock
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                Text="Choose how UsageDeck starts, refreshes usage, monitors provider status, and opens the usage window."
+                                Text="Choose how UsageDeck starts, refreshes usage, monitors provider status and opens the usage window."
                                 TextWrapping="Wrap" />
                         </StackPanel>
 
                         <StackPanel Spacing="8">
-                            <TextBlock FontWeight="SemiBold" Text="Background activity" />
+                            <TextBlock FontWeight="SemiBold" Text="Background activity" TextWrapping="Wrap" />
                             <Border Style="{StaticResource SettingsGroupBorderStyle}">
                                 <StackPanel>
                                     <Border
@@ -201,7 +201,7 @@
                                                 <ColumnDefinition Width="160" />
                                             </Grid.ColumnDefinitions>
                                             <StackPanel VerticalAlignment="Center" Spacing="3">
-                                                <TextBlock FontWeight="SemiBold" Text="Automatic refresh" />
+                                                <TextBlock FontWeight="SemiBold" Text="Automatic refresh" TextWrapping="Wrap" />
                                                 <TextBlock
                                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                     Style="{StaticResource CaptionTextBlockStyle}"
@@ -229,10 +229,10 @@
                                         <Grid ColumnSpacing="24">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="160" />
+                                                <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
                                             <StackPanel VerticalAlignment="Center" Spacing="3">
-                                                <TextBlock FontWeight="SemiBold" Text="Monitor provider status" />
+                                                <TextBlock FontWeight="SemiBold" Text="Monitor provider status" TextWrapping="Wrap" />
                                                 <TextBlock
                                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                     Style="{StaticResource CaptionTextBlockStyle}"
@@ -254,10 +254,10 @@
                                     <Grid Padding="16" ColumnSpacing="24">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="160" />
+                                            <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <StackPanel VerticalAlignment="Center" Spacing="3">
-                                            <TextBlock FontWeight="SemiBold" Text="Start UsageDeck when I sign in" />
+                                            <TextBlock FontWeight="SemiBold" Text="Start UsageDeck when I sign in" TextWrapping="Wrap" />
                                             <TextBlock
                                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                 Style="{StaticResource CaptionTextBlockStyle}"
@@ -280,7 +280,7 @@
                         </StackPanel>
 
                         <StackPanel Spacing="8">
-                            <TextBlock FontWeight="SemiBold" Text="Usage window" />
+                            <TextBlock FontWeight="SemiBold" Text="Usage window" TextWrapping="Wrap" />
                             <Border Style="{StaticResource SettingsGroupBorderStyle}">
                                 <StackPanel>
                                     <Border
@@ -293,7 +293,7 @@
                                                 <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
                                             <StackPanel VerticalAlignment="Center" Spacing="3">
-                                                <TextBlock FontWeight="SemiBold" Text="All providers tab" />
+                                                <TextBlock FontWeight="SemiBold" Text="All providers tab" TextWrapping="Wrap" />
                                                 <TextBlock
                                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                     Style="{StaticResource CaptionTextBlockStyle}"
@@ -315,10 +315,10 @@
                                     <Grid Padding="16" ColumnSpacing="24">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="160" />
                                         </Grid.ColumnDefinitions>
                                         <StackPanel VerticalAlignment="Center" Spacing="3">
-                                            <TextBlock FontWeight="SemiBold" Text="Default tab" />
+                                            <TextBlock FontWeight="SemiBold" Text="Default tab" TextWrapping="Wrap" />
                                             <TextBlock
                                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                 Style="{StaticResource CaptionTextBlockStyle}"
@@ -328,7 +328,8 @@
                                         <ComboBox
                                             x:Name="DefaultProviderComboBox"
                                             Grid.Column="1"
-                                            MinWidth="170"
+                                            MinWidth="160"
+                                            VerticalAlignment="Center"
                                             AutomationProperties.HelpText="Only enabled providers are available."
                                             AutomationProperties.Name="Default provider tab"
                                             SelectionChanged="DefaultProviderComboBox_SelectionChanged">
@@ -368,7 +369,7 @@
                         </StackPanel>
 
                         <StackPanel Spacing="8">
-                            <TextBlock FontWeight="SemiBold" Text="Interface" />
+                            <TextBlock FontWeight="SemiBold" Text="Interface" TextWrapping="Wrap" />
                             <Border Style="{StaticResource SettingsGroupBorderStyle}">
                                 <StackPanel>
                                     <Border
@@ -381,7 +382,7 @@
                                                 <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
                                             <StackPanel VerticalAlignment="Center" Spacing="3">
-                                                <TextBlock FontWeight="SemiBold" Text="Theme" />
+                                                <TextBlock FontWeight="SemiBold" Text="Theme" TextWrapping="Wrap" />
                                                 <TextBlock
                                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                     Style="{StaticResource CaptionTextBlockStyle}"
@@ -404,10 +405,10 @@
                                     <Grid Padding="16" ColumnSpacing="24">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="160" />
+                                            <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <StackPanel VerticalAlignment="Center" Spacing="3">
-                                            <TextBlock FontWeight="SemiBold" Text="Translucent background" />
+                                            <TextBlock FontWeight="SemiBold" Text="Translucent background" TextWrapping="Wrap" />
                                             <TextBlock
                                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                 Style="{StaticResource CaptionTextBlockStyle}"
@@ -430,7 +431,7 @@
                         </StackPanel>
 
                         <StackPanel Spacing="8">
-                            <TextBlock FontWeight="SemiBold" Text="Usage display" />
+                            <TextBlock FontWeight="SemiBold" Text="Usage display" TextWrapping="Wrap" />
                             <Border Style="{StaticResource SettingsGroupBorderStyle}">
                                 <StackPanel>
                                     <Border
@@ -443,7 +444,7 @@
                                                 <ColumnDefinition Width="160" />
                                             </Grid.ColumnDefinitions>
                                             <StackPanel VerticalAlignment="Center" Spacing="3">
-                                                <TextBlock FontWeight="SemiBold" Text="Usage amount" />
+                                                <TextBlock FontWeight="SemiBold" Text="Usage amount" TextWrapping="Wrap" />
                                                 <TextBlock
                                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                     Style="{StaticResource CaptionTextBlockStyle}"
@@ -468,7 +469,7 @@
                                             <ColumnDefinition Width="160" />
                                         </Grid.ColumnDefinitions>
                                         <StackPanel VerticalAlignment="Center" Spacing="3">
-                                            <TextBlock FontWeight="SemiBold" Text="Reset time" />
+                                            <TextBlock FontWeight="SemiBold" Text="Reset time" TextWrapping="Wrap" />
                                             <TextBlock
                                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                 Style="{StaticResource CaptionTextBlockStyle}"
@@ -518,10 +519,10 @@
                                     <Grid ColumnSpacing="24">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="160" />
+                                            <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <StackPanel VerticalAlignment="Center" Spacing="3">
-                                            <TextBlock FontWeight="SemiBold" Text="Allow notifications" />
+                                            <TextBlock FontWeight="SemiBold" Text="Allow notifications" TextWrapping="Wrap" />
                                             <TextBlock
                                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                 Style="{StaticResource CaptionTextBlockStyle}"
@@ -546,7 +547,7 @@
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
                                     <StackPanel VerticalAlignment="Center" Spacing="3">
-                                        <TextBlock FontWeight="SemiBold" Text="Pause notifications" />
+                                        <TextBlock FontWeight="SemiBold" Text="Pause notifications" TextWrapping="Wrap" />
                                         <TextBlock
                                             x:Name="NotificationPauseDescription"
                                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
@@ -593,11 +594,11 @@
                         </Border>
 
                         <StackPanel Spacing="8">
-                            <TextBlock FontWeight="SemiBold" Text="Windows delivery" />
+                            <TextBlock FontWeight="SemiBold" Text="Windows delivery" TextWrapping="Wrap" />
                             <Border Style="{StaticResource SettingsGroupBorderStyle}">
                                 <StackPanel>
                                     <Border
-                                        Padding="16,10"
+                                        Padding="16"
                                         BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
                                         BorderThickness="0,0,0,1">
                                         <Grid ColumnSpacing="24">
@@ -633,17 +634,17 @@
                                                 Content="Send test notification" />
                                         </Grid>
                                     </Border>
-                                    <Grid Padding="16,10" ColumnSpacing="24">
+                                    <Grid Padding="16" ColumnSpacing="24">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <StackPanel VerticalAlignment="Center" Spacing="3">
-                                            <TextBlock FontWeight="SemiBold" Text="Windows notification settings" />
+                                            <TextBlock FontWeight="SemiBold" Text="Windows notification settings" TextWrapping="Wrap" />
                                             <TextBlock
                                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                 Style="{StaticResource CaptionTextBlockStyle}"
-                                                Text="Control banners, sounds, and Do not disturb in Windows."
+                                                Text="Control banners, sounds and Do not disturb in Windows."
                                                 TextWrapping="Wrap" />
                                         </StackPanel>
                                         <Button
@@ -680,7 +681,7 @@
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="80" />
+                                            <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <local:ProviderLogo
                                             x:Name="SelectedProviderLogo"
@@ -713,7 +714,7 @@
                                             <ColumnDefinition Width="150" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock FontWeight="SemiBold" Text="Usage source" />
+                                        <TextBlock FontWeight="SemiBold" Text="Usage source" TextWrapping="Wrap" />
                                         <TextBlock
                                             x:Name="SelectedProviderSource"
                                             Grid.Column="1"
@@ -731,7 +732,7 @@
                                             <ColumnDefinition Width="150" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock FontWeight="SemiBold" Text="Detected version" />
+                                        <TextBlock FontWeight="SemiBold" Text="Detected version" TextWrapping="Wrap" />
                                         <TextBlock
                                             x:Name="SelectedProviderVersion"
                                             Grid.Column="1"
@@ -745,7 +746,7 @@
                                             <ColumnDefinition Width="150" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock FontWeight="SemiBold" Text="Authentication" />
+                                        <TextBlock FontWeight="SemiBold" Text="Authentication" TextWrapping="Wrap" />
                                         <TextBlock
                                             x:Name="SelectedProviderAuthentication"
                                             Grid.Column="1"
@@ -758,9 +759,9 @@
 
                         <StackPanel
                             x:Name="OpenCodeGoConfigurationPanel"
-                            Spacing="10"
+                            Spacing="8"
                             Visibility="Collapsed">
-                            <TextBlock FontWeight="SemiBold" Text="OpenCode Console organisation billing" />
+                            <TextBlock FontWeight="SemiBold" Text="OpenCode Console organisation billing" TextWrapping="Wrap" />
                             <Border Style="{StaticResource SettingsGroupBorderStyle}">
                                 <StackPanel>
                                     <Border
@@ -768,7 +769,7 @@
                                         BorderThickness="0,0,0,1"
                                         Padding="16">
                                         <StackPanel Spacing="6">
-                                            <TextBlock FontWeight="SemiBold" Text="Service-account key required" />
+                                            <TextBlock FontWeight="SemiBold" Text="Service-account key required" TextWrapping="Wrap" />
                                             <TextBlock
                                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                 Style="{StaticResource CaptionTextBlockStyle}"
@@ -791,7 +792,7 @@
                                                 <ColumnDefinition Width="*" />
                                             </Grid.ColumnDefinitions>
                                             <StackPanel VerticalAlignment="Center" Spacing="3">
-                                                <TextBlock FontWeight="SemiBold" Text="Billing history" />
+                                                <TextBlock FontWeight="SemiBold" Text="Billing history" TextWrapping="Wrap" />
                                                 <TextBlock
                                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                     Style="{StaticResource CaptionTextBlockStyle}"
@@ -802,6 +803,7 @@
                                                 x:Name="OpenCodeGoUsageRangeComboBox"
                                                 Grid.Column="1"
                                                 HorizontalAlignment="Stretch"
+                                                VerticalAlignment="Center"
                                                 AutomationProperties.Name="OpenCode API billing history range"
                                                 SelectionChanged="OpenCodeGoUsageRangeComboBox_SelectionChanged">
                                                 <ComboBoxItem Content="1 day · 5-hour estimate" Tag="OneDay" />
@@ -820,7 +822,7 @@
                                                 <ColumnDefinition Width="*" />
                                             </Grid.ColumnDefinitions>
                                             <StackPanel VerticalAlignment="Center" Spacing="3">
-                                                <TextBlock FontWeight="SemiBold" Text="API key storage" />
+                                                <TextBlock FontWeight="SemiBold" Text="API key storage" TextWrapping="Wrap" />
                                                 <TextBlock
                                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                     Style="{StaticResource CaptionTextBlockStyle}"
@@ -831,6 +833,8 @@
                                                 x:Name="OpenCodeGoApiKeyStorageComboBox"
                                                 Grid.Column="1"
                                                 HorizontalAlignment="Stretch"
+                                                VerticalAlignment="Center"
+                                                AutomationProperties.Name="OpenCode API key storage"
                                                 SelectionChanged="OpenCodeGoApiKeyStorageComboBox_SelectionChanged">
                                                 <ComboBoxItem Content="Windows Credential Manager (recommended)" Tag="WindowsCredentialManager" />
                                                 <ComboBoxItem Content="Environment variable" Tag="EnvironmentVariable" />
@@ -841,22 +845,29 @@
                                     <Border Padding="16">
                                         <StackPanel Spacing="10">
                                             <StackPanel x:Name="OpenCodeGoManagedKeyPanel" Spacing="8">
-                                                <TextBlock FontWeight="SemiBold" Text="Service-account API key" />
+                                                <TextBlock FontWeight="SemiBold" Text="Service-account API key" TextWrapping="Wrap" />
                                                 <PasswordBox
                                                     x:Name="OpenCodeGoApiKeyBox"
+                                                    AutomationProperties.Name="OpenCode service-account API key"
                                                     MaxLength="1024"
                                                     PasswordRevealMode="Peek"
                                                     PlaceholderText="oc_sk_…" />
                                                 <StackPanel Orientation="Horizontal" Spacing="8">
-                                                    <Button Click="SaveOpenCodeGoApiKey_Click" Content="Save or replace" />
-                                                    <Button Click="RemoveOpenCodeGoApiKey_Click" Content="Remove" />
+                                                    <Button
+                                                        AutomationProperties.Name="Save or replace OpenCode service-account API key"
+                                                        Click="SaveOpenCodeGoApiKey_Click"
+                                                        Content="Save or replace" />
+                                                    <Button
+                                                        AutomationProperties.Name="Remove OpenCode service-account API key"
+                                                        Click="RemoveOpenCodeGoApiKey_Click"
+                                                        Content="Remove" />
                                                 </StackPanel>
                                             </StackPanel>
                                             <StackPanel
                                                 x:Name="OpenCodeGoEnvironmentPanel"
                                                 Spacing="4"
                                                 Visibility="Collapsed">
-                                                <TextBlock FontWeight="SemiBold" Text="Environment variable" />
+                                                <TextBlock FontWeight="SemiBold" Text="Environment variable" TextWrapping="Wrap" />
                                                 <TextBlock
                                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                     Text="Set OPENCODE_CONSOLE_SERVICE_API_KEY outside UsageDeck, then restart the app. UsageDeck reads this variable but does not change it."
@@ -875,9 +886,9 @@
 
                         <StackPanel
                             x:Name="ZaiConfigurationPanel"
-                            Spacing="10"
+                            Spacing="8"
                             Visibility="Collapsed">
-                            <TextBlock FontWeight="SemiBold" Text="Z.AI API access" />
+                            <TextBlock FontWeight="SemiBold" Text="Z.AI API access" TextWrapping="Wrap" />
                             <Border Style="{StaticResource SettingsGroupBorderStyle}">
                                 <StackPanel>
                                     <Border
@@ -890,7 +901,7 @@
                                                 <ColumnDefinition Width="*" />
                                             </Grid.ColumnDefinitions>
                                             <StackPanel VerticalAlignment="Center" Spacing="3">
-                                                <TextBlock FontWeight="SemiBold" Text="API region" />
+                                                <TextBlock FontWeight="SemiBold" Text="API region" TextWrapping="Wrap" />
                                                 <TextBlock
                                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                     Style="{StaticResource CaptionTextBlockStyle}"
@@ -901,6 +912,8 @@
                                                 x:Name="ZaiRegionComboBox"
                                                 Grid.Column="1"
                                                 HorizontalAlignment="Stretch"
+                                                VerticalAlignment="Center"
+                                                AutomationProperties.Name="Z.AI API region"
                                                 SelectionChanged="ZaiRegionComboBox_SelectionChanged">
                                                 <ComboBoxItem Content="Global (api.z.ai)" Tag="Global" />
                                                 <ComboBoxItem Content="China (open.bigmodel.cn)" Tag="BigModelChina" />
@@ -917,7 +930,7 @@
                                                 <ColumnDefinition Width="*" />
                                             </Grid.ColumnDefinitions>
                                             <StackPanel VerticalAlignment="Center" Spacing="3">
-                                                <TextBlock FontWeight="SemiBold" Text="API key storage" />
+                                                <TextBlock FontWeight="SemiBold" Text="API key storage" TextWrapping="Wrap" />
                                                 <TextBlock
                                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                     Style="{StaticResource CaptionTextBlockStyle}"
@@ -928,6 +941,8 @@
                                                 x:Name="ZaiApiKeyStorageComboBox"
                                                 Grid.Column="1"
                                                 HorizontalAlignment="Stretch"
+                                                VerticalAlignment="Center"
+                                                AutomationProperties.Name="Z.AI API key storage"
                                                 SelectionChanged="ZaiApiKeyStorageComboBox_SelectionChanged">
                                                 <ComboBoxItem Content="Windows Credential Manager (recommended)" Tag="WindowsCredentialManager" />
                                                 <ComboBoxItem Content="Environment variable" Tag="EnvironmentVariable" />
@@ -938,22 +953,29 @@
                                     <Border Padding="16">
                                         <StackPanel Spacing="10">
                                             <StackPanel x:Name="ZaiManagedKeyPanel" Spacing="8">
-                                                <TextBlock FontWeight="SemiBold" Text="API key" />
+                                                <TextBlock FontWeight="SemiBold" Text="API key" TextWrapping="Wrap" />
                                                 <PasswordBox
                                                     x:Name="ZaiApiKeyBox"
+                                                    AutomationProperties.Name="Z.AI API key"
                                                     MaxLength="1024"
                                                     PasswordRevealMode="Peek"
                                                     PlaceholderText="Enter your Z.AI API key" />
                                                 <StackPanel Orientation="Horizontal" Spacing="8">
-                                                    <Button Click="SaveZaiApiKey_Click" Content="Save or replace" />
-                                                    <Button Click="RemoveZaiApiKey_Click" Content="Remove" />
+                                                    <Button
+                                                        AutomationProperties.Name="Save or replace Z.AI API key"
+                                                        Click="SaveZaiApiKey_Click"
+                                                        Content="Save or replace" />
+                                                    <Button
+                                                        AutomationProperties.Name="Remove Z.AI API key"
+                                                        Click="RemoveZaiApiKey_Click"
+                                                        Content="Remove" />
                                                 </StackPanel>
                                             </StackPanel>
                                             <StackPanel
                                                 x:Name="ZaiEnvironmentPanel"
                                                 Spacing="4"
                                                 Visibility="Collapsed">
-                                                <TextBlock FontWeight="SemiBold" Text="Environment variable" />
+                                                <TextBlock FontWeight="SemiBold" Text="Environment variable" TextWrapping="Wrap" />
                                                 <TextBlock
                                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                     Text="Set Z_AI_API_KEY outside UsageDeck, then restart the app. UsageDeck reads this variable but does not change it."
@@ -972,9 +994,9 @@
 
                         <StackPanel
                             x:Name="TheClawBayConfigurationPanel"
-                            Spacing="10"
+                            Spacing="8"
                             Visibility="Collapsed">
-                            <TextBlock FontWeight="SemiBold" Text="TheClawBay usage access" />
+                            <TextBlock FontWeight="SemiBold" Text="TheClawBay usage access" TextWrapping="Wrap" />
                             <Border Style="{StaticResource SettingsGroupBorderStyle}">
                                 <StackPanel>
                                     <Border
@@ -987,14 +1009,14 @@
                                                 <ColumnDefinition Width="*" />
                                             </Grid.ColumnDefinitions>
                                             <StackPanel VerticalAlignment="Center" Spacing="3">
-                                                <TextBlock FontWeight="SemiBold" Text="Usage source" />
+                                                <TextBlock FontWeight="SemiBold" Text="Preferred source" TextWrapping="Wrap" />
                                                 <TextBlock
                                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                     Style="{StaticResource CaptionTextBlockStyle}"
                                                     Text="Automatic checks for an API key first, then uses the provider-owned CLI."
                                                     TextWrapping="Wrap" />
                                             </StackPanel>
-                                            <StackPanel Grid.Column="1" Spacing="5">
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="5">
                                                 <ComboBox
                                                     x:Name="TheClawBayUsageSourceComboBox"
                                                     HorizontalAlignment="Stretch"
@@ -1027,7 +1049,7 @@
                                                     <ColumnDefinition Width="*" />
                                                 </Grid.ColumnDefinitions>
                                                 <StackPanel VerticalAlignment="Center" Spacing="3">
-                                                    <TextBlock FontWeight="SemiBold" Text="API key storage" />
+                                                    <TextBlock FontWeight="SemiBold" Text="API key storage" TextWrapping="Wrap" />
                                                     <TextBlock
                                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                         Style="{StaticResource CaptionTextBlockStyle}"
@@ -1038,6 +1060,7 @@
                                                     x:Name="TheClawBayApiKeyStorageComboBox"
                                                     Grid.Column="1"
                                                     HorizontalAlignment="Stretch"
+                                                    VerticalAlignment="Center"
                                                     AutomationProperties.Name="TheClawBay API key storage"
                                                     SelectionChanged="TheClawBayApiKeyStorageComboBox_SelectionChanged">
                                                     <ComboBoxItem Content="Windows Credential Manager (recommended)" Tag="WindowsCredentialManager" />
@@ -1049,7 +1072,7 @@
                                         <Border Padding="16">
                                             <StackPanel Spacing="10">
                                                 <StackPanel x:Name="TheClawBayManagedKeyPanel" Spacing="8">
-                                                    <TextBlock FontWeight="SemiBold" Text="API key" />
+                                                    <TextBlock FontWeight="SemiBold" Text="API key" TextWrapping="Wrap" />
                                                     <PasswordBox
                                                         x:Name="TheClawBayApiKeyBox"
                                                         AutomationProperties.Name="TheClawBay API key"
@@ -1071,7 +1094,7 @@
                                                     x:Name="TheClawBayEnvironmentPanel"
                                                     Spacing="4"
                                                     Visibility="Collapsed">
-                                                    <TextBlock FontWeight="SemiBold" Text="Environment variable" />
+                                                    <TextBlock FontWeight="SemiBold" Text="Environment variable" TextWrapping="Wrap" />
                                                     <TextBlock
                                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                         Text="Set THECLAWBAY_API_KEY outside UsageDeck, then restart the app. UsageDeck reads this variable but does not change it."
@@ -1090,8 +1113,74 @@
                             </Border>
                         </StackPanel>
 
-                        <StackPanel Spacing="10">
-                            <TextBlock FontWeight="SemiBold" Text="Service status" />
+                        <StackPanel
+                            x:Name="CodexConfigurationPanel"
+                            Spacing="8"
+                            Visibility="Collapsed">
+                            <TextBlock FontWeight="SemiBold" Text="Usage cards" TextWrapping="Wrap" />
+                            <Border Style="{StaticResource SettingsGroupBorderStyle}">
+                                <Grid Padding="16" ColumnSpacing="24">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel VerticalAlignment="Center" Spacing="3">
+                                        <TextBlock FontWeight="SemiBold" Text="GPT-5.3 Spark" TextWrapping="Wrap" />
+                                        <TextBlock
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Style="{StaticResource CaptionTextBlockStyle}"
+                                            Text="Show a separate Spark rate-limit card when Codex reports one."
+                                            TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <ToggleSwitch
+                                        x:Name="CodexSparkCardToggle"
+                                        Grid.Column="1"
+                                        MinWidth="0"
+                                        VerticalAlignment="Center"
+                                        HorizontalAlignment="Right"
+                                        AutomationProperties.Name="Show the GPT-5.3 Spark usage card"
+                                        OffContent=""
+                                        OnContent=""
+                                        Toggled="CodexSparkCardToggle_Toggled" />
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+
+                        <StackPanel
+                            x:Name="ClaudeConfigurationPanel"
+                            Spacing="8"
+                            Visibility="Collapsed">
+                            <TextBlock FontWeight="SemiBold" Text="Usage check" TextWrapping="Wrap" />
+                            <Border Style="{StaticResource SettingsGroupBorderStyle}">
+                                <Grid Padding="16" ColumnSpacing="24">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel VerticalAlignment="Center" Spacing="3">
+                                        <TextBlock FontWeight="SemiBold" Text="Faster direct usage check" TextWrapping="Wrap" />
+                                        <TextBlock
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Style="{StaticResource CaptionTextBlockStyle}"
+                                            Text="Ask Anthropic's usage service directly with your Claude Code sign-in instead of opening the Claude Code usage screen. Anthropic does not document or officially support this for other apps."
+                                            TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <ToggleSwitch
+                                        x:Name="ClaudeUsageApiToggle"
+                                        Grid.Column="1"
+                                        MinWidth="0"
+                                        VerticalAlignment="Center"
+                                        HorizontalAlignment="Right"
+                                        AutomationProperties.Name="Use the faster direct Claude usage check"
+                                        OffContent=""
+                                        OnContent=""
+                                        Toggled="ClaudeUsageApiToggle_Toggled" />
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+
+                        <StackPanel Spacing="8">
+                            <TextBlock FontWeight="SemiBold" Text="Service status" TextWrapping="Wrap" />
                             <Border Style="{StaticResource SettingsGroupBorderStyle}">
                                 <StackPanel>
                                     <Border
@@ -1103,7 +1192,7 @@
                                                 <ColumnDefinition Width="150" />
                                                 <ColumnDefinition Width="*" />
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock FontWeight="SemiBold" Text="Current status" />
+                                            <TextBlock FontWeight="SemiBold" Text="Current status" TextWrapping="Wrap" />
                                             <StackPanel Grid.Column="1" Spacing="4">
                                                 <StackPanel Orientation="Horizontal" Spacing="7">
                                                     <FontIcon
@@ -1136,7 +1225,7 @@
                                             <ColumnDefinition Width="150" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock FontWeight="SemiBold" Text="Status page" />
+                                        <TextBlock FontWeight="SemiBold" Text="Status page" TextWrapping="Wrap" />
                                         <StackPanel Grid.Column="1">
                                             <HyperlinkButton
                                                 x:Name="SelectedProviderStatusSourceLink"
@@ -1161,7 +1250,7 @@
                             IsTabStop="False">
                             <StackPanel Spacing="20">
                             <StackPanel Spacing="5">
-                                <TextBlock FontWeight="SemiBold" Text="Notifications" />
+                                <TextBlock FontWeight="SemiBold" Text="Notifications" TextWrapping="Wrap" />
                                 <TextBlock
                                     x:Name="ProviderNotificationsSummary"
                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
@@ -1171,7 +1260,7 @@
                             </StackPanel>
 
                             <StackPanel Spacing="8">
-                                <TextBlock FontWeight="SemiBold" Text="Limits and resets" />
+                                <TextBlock FontWeight="SemiBold" Text="Limits and resets" TextWrapping="Wrap" />
                                 <Border Style="{StaticResource SettingsGroupBorderStyle}">
                                     <StackPanel>
                                         <Border
@@ -1180,7 +1269,7 @@
                                             BorderThickness="0,0,0,1">
                                             <StackPanel Spacing="10">
                                                 <StackPanel Spacing="3">
-                                                    <TextBlock FontWeight="SemiBold" Text="Limit warnings" />
+                                                    <TextBlock FontWeight="SemiBold" Text="Limit warnings" TextWrapping="Wrap" />
                                                     <TextBlock
                                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                         Style="{StaticResource CaptionTextBlockStyle}"
@@ -1228,16 +1317,16 @@
                                             </StackPanel>
                                         </Border>
                                         <Border
-                                            Padding="16,10"
+                                            Padding="16"
                                             BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
                                             BorderThickness="0,0,0,1">
                                             <Grid ColumnSpacing="24">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="80" />
+                                                    <ColumnDefinition Width="Auto" />
                                                 </Grid.ColumnDefinitions>
                                                 <StackPanel VerticalAlignment="Center" Spacing="3">
-                                                    <TextBlock FontWeight="SemiBold" Text="Limit resets" />
+                                                    <TextBlock FontWeight="SemiBold" Text="Usage window resets" TextWrapping="Wrap" />
                                                     <TextBlock
                                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                         Style="{StaticResource CaptionTextBlockStyle}"
@@ -1250,7 +1339,7 @@
                                                     MinWidth="0"
                                                     HorizontalAlignment="Right"
                                                     VerticalAlignment="Center"
-                                                    AutomationProperties.Name="Notify when usage limits reset"
+                                                    AutomationProperties.Name="Notify when usage windows reset"
                                                     OffContent=""
                                                     OnContent=""
                                                     Toggled="LimitResetsToggle_Toggled" />
@@ -1258,14 +1347,14 @@
                                         </Border>
                                         <Grid
                                             x:Name="ResetCreditsRow"
-                                            Padding="16,10"
+                                            Padding="16"
                                             ColumnSpacing="24">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="80" />
+                                                <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
                                             <StackPanel VerticalAlignment="Center" Spacing="3">
-                                                <TextBlock FontWeight="SemiBold" Text="Reset credits" />
+                                                <TextBlock FontWeight="SemiBold" Text="Limit resets" TextWrapping="Wrap" />
                                                 <TextBlock
                                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                     Style="{StaticResource CaptionTextBlockStyle}"
@@ -1278,7 +1367,7 @@
                                                 MinWidth="0"
                                                 HorizontalAlignment="Right"
                                                 VerticalAlignment="Center"
-                                                AutomationProperties.Name="Notify when this provider grants reset credits"
+                                                AutomationProperties.Name="Notify when this provider grants limit resets"
                                                 OffContent=""
                                                 OnContent=""
                                                 Toggled="ResetCreditsToggle_Toggled" />
@@ -1288,20 +1377,20 @@
                             </StackPanel>
 
                             <StackPanel Spacing="8">
-                                <TextBlock FontWeight="SemiBold" Text="Provider health" />
+                                <TextBlock FontWeight="SemiBold" Text="Provider health" TextWrapping="Wrap" />
                                 <Border Style="{StaticResource SettingsGroupBorderStyle}">
                                     <StackPanel>
                                         <Border
-                                            Padding="16,10"
+                                            Padding="16"
                                             BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
                                             BorderThickness="0,0,0,1">
                                             <Grid ColumnSpacing="24">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="80" />
+                                                    <ColumnDefinition Width="Auto" />
                                                 </Grid.ColumnDefinitions>
                                                 <StackPanel VerticalAlignment="Center" Spacing="3">
-                                                    <TextBlock FontWeight="SemiBold" Text="Service incidents" />
+                                                    <TextBlock FontWeight="SemiBold" Text="Service incidents" TextWrapping="Wrap" />
                                                     <TextBlock
                                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                         Style="{StaticResource CaptionTextBlockStyle}"
@@ -1320,13 +1409,13 @@
                                                     Toggled="ProviderStatusNotificationsToggle_Toggled" />
                                             </Grid>
                                         </Border>
-                                        <Grid Padding="16,10" ColumnSpacing="24">
+                                        <Grid Padding="16" ColumnSpacing="24">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="80" />
+                                                <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
                                             <StackPanel VerticalAlignment="Center" Spacing="3">
-                                                <TextBlock FontWeight="SemiBold" Text="Usage connection" />
+                                                <TextBlock FontWeight="SemiBold" Text="Usage connection" TextWrapping="Wrap" />
                                                 <TextBlock
                                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                     Style="{StaticResource CaptionTextBlockStyle}"
@@ -1350,72 +1439,6 @@
                             </StackPanel>
                         </ContentControl>
 
-                        <StackPanel
-                            x:Name="CodexConfigurationPanel"
-                            Spacing="10"
-                            Visibility="Collapsed">
-                            <TextBlock FontWeight="SemiBold" Text="Usage cards" />
-                            <Border Style="{StaticResource SettingsGroupBorderStyle}">
-                                <Grid Padding="16" ColumnSpacing="24">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="80" />
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel VerticalAlignment="Center" Spacing="3">
-                                        <TextBlock FontWeight="SemiBold" Text="GPT-5.3 Spark" />
-                                        <TextBlock
-                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                            Style="{StaticResource CaptionTextBlockStyle}"
-                                            Text="Show a separate Spark rate-limit card when Codex reports one."
-                                            TextWrapping="Wrap" />
-                                    </StackPanel>
-                                    <ToggleSwitch
-                                        x:Name="CodexSparkCardToggle"
-                                        Grid.Column="1"
-                                        MinWidth="0"
-                                        VerticalAlignment="Center"
-                                        HorizontalAlignment="Right"
-                                        AutomationProperties.Name="Show the GPT-5.3 Spark usage card"
-                                        OffContent=""
-                                        OnContent=""
-                                        Toggled="CodexSparkCardToggle_Toggled" />
-                                </Grid>
-                            </Border>
-                        </StackPanel>
-
-                        <StackPanel
-                            x:Name="ClaudeConfigurationPanel"
-                            Spacing="10"
-                            Visibility="Collapsed">
-                            <TextBlock FontWeight="SemiBold" Text="Usage source" />
-                            <Border Style="{StaticResource SettingsGroupBorderStyle}">
-                                <Grid Padding="16" ColumnSpacing="24">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="80" />
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel VerticalAlignment="Center" Spacing="3">
-                                        <TextBlock FontWeight="SemiBold" Text="Faster direct usage check" />
-                                        <TextBlock
-                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                            Style="{StaticResource CaptionTextBlockStyle}"
-                                            Text="Ask Anthropic's usage service directly with your Claude Code sign-in instead of opening the Claude Code usage screen. Anthropic does not document or officially support this for other apps."
-                                            TextWrapping="Wrap" />
-                                    </StackPanel>
-                                    <ToggleSwitch
-                                        x:Name="ClaudeUsageApiToggle"
-                                        Grid.Column="1"
-                                        MinWidth="0"
-                                        VerticalAlignment="Center"
-                                        HorizontalAlignment="Right"
-                                        AutomationProperties.Name="Use the faster direct Claude usage check"
-                                        OffContent=""
-                                        OnContent=""
-                                        Toggled="ClaudeUsageApiToggle_Toggled" />
-                                </Grid>
-                            </Border>
-                        </StackPanel>
-
                     </StackPanel>
                 </ScrollViewer>
 
@@ -1437,7 +1460,7 @@
                         </StackPanel>
 
                         <StackPanel Spacing="8">
-                            <TextBlock FontWeight="SemiBold" Text="Notification delivery" />
+                            <TextBlock FontWeight="SemiBold" Text="Notification delivery" TextWrapping="Wrap" />
                             <Border Style="{StaticResource SettingsGroupBorderStyle}">
                                 <StackPanel>
                                     <Border
@@ -1450,7 +1473,7 @@
                                                 <ColumnDefinition Width="240" />
                                             </Grid.ColumnDefinitions>
                                             <StackPanel VerticalAlignment="Center" Spacing="3">
-                                                <TextBlock FontWeight="SemiBold" Text="Scenario" />
+                                                <TextBlock FontWeight="SemiBold" Text="Scenario" TextWrapping="Wrap" />
                                                 <TextBlock
                                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                     Style="{StaticResource CaptionTextBlockStyle}"
@@ -1508,7 +1531,7 @@
                     HorizontalScrollBarVisibility="Disabled"
                     Padding="0,8,12,0"
                     Visibility="Collapsed">
-                    <StackPanel MaxWidth="620" HorizontalAlignment="Stretch" Spacing="24">
+                    <StackPanel MaxWidth="620" HorizontalAlignment="Stretch" Spacing="20">
                         <StackPanel Spacing="5">
                             <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="About" />
                             <TextBlock
@@ -1580,22 +1603,23 @@
                         </Expander>
 
                         <StackPanel Spacing="8">
-                            <TextBlock FontWeight="SemiBold" Text="Updates" />
+                            <TextBlock FontWeight="SemiBold" Text="Updates" TextWrapping="Wrap" />
                             <Border Style="{StaticResource SettingsGroupBorderStyle}">
                                 <StackPanel>
                                     <Border
-                                        Padding="16,10"
+                                        Padding="16"
                                         BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
                                         BorderThickness="0,0,0,1">
                                         <Grid ColumnSpacing="24">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="160" />
+                                                <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
                                             <TextBlock
                                                 VerticalAlignment="Center"
                                                 FontWeight="SemiBold"
-                                                Text="Check for updates automatically" />
+                                                Text="Check for updates automatically"
+                                                TextWrapping="Wrap" />
                                             <ToggleSwitch
                                                 x:Name="AutomaticUpdatesToggle"
                                                 Grid.Column="1"
@@ -1610,7 +1634,7 @@
                                     </Border>
 
                                     <Border
-                                        Padding="16,10"
+                                        Padding="16"
                                         BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
                                         BorderThickness="0,0,0,1">
                                         <Grid ColumnSpacing="24">
@@ -1619,7 +1643,7 @@
                                                 <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
                                             <StackPanel VerticalAlignment="Center" Spacing="3">
-                                                <TextBlock FontWeight="SemiBold" Text="Update channel" />
+                                                <TextBlock FontWeight="SemiBold" Text="Update channel" TextWrapping="Wrap" />
                                                 <TextBlock
                                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                     Style="{StaticResource CaptionTextBlockStyle}"
@@ -1639,7 +1663,7 @@
                                         </Grid>
                                     </Border>
 
-                                    <Grid Padding="16,10" ColumnSpacing="24">
+                                    <Grid Padding="16" ColumnSpacing="24">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />

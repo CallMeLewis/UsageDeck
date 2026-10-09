@@ -35,8 +35,9 @@ public sealed partial class FirstRunPage : Page, IDisposable
         this._providerDiscovery = providerDiscovery
             ?? throw new ArgumentNullException(nameof(providerDiscovery));
         this.ProviderOptions = new ObservableCollection<FirstRunProviderOption>(
-            ProviderId.Available.Select(providerId => new FirstRunProviderOption(
-                ProviderSettingsPresentation.All[providerId])));
+            ProviderId.Available.Select((providerId, index) => new FirstRunProviderOption(
+                ProviderSettingsPresentation.All[providerId],
+                showDivider: index > 0)));
 
         this.InitializeComponent();
         App app = (App)Application.Current;

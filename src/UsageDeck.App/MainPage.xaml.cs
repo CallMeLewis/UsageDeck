@@ -54,8 +54,6 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
     private Storyboard? _updateCheckStoryboard;
     private ProviderTabViewModel _selectedProvider = null!;
     private TimeDisplayPrecision _timeDisplayPrecision = TimeDisplayPrecision.Seconds;
-    private string _themeToggleGlyph = "\uE708";
-    private string _themeToggleLabel = "Switch to dark theme";
     private UsageValueDisplayMode _usageValueDisplay = UsageValueDisplayMode.Used;
 
     public MainPage()
@@ -98,36 +96,6 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
     public string AllSummaryText => this.Providers.Count == 1
         ? "1 enabled provider"
         : $"{this.Providers.Count} enabled providers";
-
-    public string ThemeToggleGlyph
-    {
-        get => this._themeToggleGlyph;
-        private set
-        {
-            if (this._themeToggleGlyph == value)
-            {
-                return;
-            }
-
-            this._themeToggleGlyph = value;
-            this.OnPropertyChanged();
-        }
-    }
-
-    public string ThemeToggleLabel
-    {
-        get => this._themeToggleLabel;
-        private set
-        {
-            if (this._themeToggleLabel == value)
-            {
-                return;
-            }
-
-            this._themeToggleLabel = value;
-            this.OnPropertyChanged();
-        }
-    }
 
     public ProviderTabViewModel SelectedProvider
     {
@@ -546,7 +514,6 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
 
     private void MainPage_ActualThemeChanged(FrameworkElement sender, object args)
     {
-        this.UpdateThemeToggleAppearance();
         this.RefreshProviderStatusPresentation();
         this.RefreshVisualStates();
     }
@@ -697,7 +664,6 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
             this.UpdateReleaseNotesFlyout.Hide();
         }
 
-        this.UpdateActionButtonGlyph.Glyph = hasUpdate ? "\uE896" : "\uE895";
         this.UpdateActionButton.IsEnabled = !this._isUpdateOperationInProgress;
         if (!this._isUpdateOperationInProgress)
         {
@@ -712,6 +678,8 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
     private void SetUpdateActionPresentation(string text, bool isInstall = false, bool isBusy = false, int? progress = null, bool isChecking = false)
     {
         this.StopUpdateCheckAnimation();
+        // A download arrow keeps the idle action distinct from Refresh; only an active check spins.
+        this.UpdateActionButtonGlyph.Glyph = isChecking ? "" : "";
         if (isChecking && this._uiSettings.AnimationsEnabled)
         {
             DoubleAnimation rotation = new()
@@ -869,15 +837,7 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
             ?? this.Tabs[0];
 
         this.OnPropertyChanged(nameof(this.AllSummaryText));
-        this.UpdateThemeToggleAppearance();
         this.RefreshProviderStatusPresentation();
-    }
-
-    private void UpdateThemeToggleAppearance()
-    {
-        bool isDark = this.ActualTheme == ElementTheme.Dark;
-        this.ThemeToggleGlyph = isDark ? "\uE706" : "\uE708";
-        this.ThemeToggleLabel = isDark ? "Switch to light theme" : "Switch to dark theme";
     }
 
     private async void App_SettingsChanged(AppSettings settings)

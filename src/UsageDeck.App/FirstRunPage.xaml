@@ -4,6 +4,9 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:UsageDeck.App">
+    <Page.Resources>
+        <local:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+    </Page.Resources>
     <Grid x:Name="RootLayout">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -20,8 +23,8 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <TextBlock
-                    FontSize="24"
-                    FontWeight="SemiBold"
+                    VerticalAlignment="Bottom"
+                    Style="{StaticResource BodyStrongTextBlockStyle}"
                     Text="Set up UsageDeck" />
                 <TextBlock
                     x:Name="StepText"
@@ -58,7 +61,7 @@
                 Grid.Row="1"
                 HorizontalScrollBarVisibility="Disabled"
                 VerticalScrollBarVisibility="Auto">
-                <StackPanel Padding="0,0,8,16" Spacing="14">
+                <StackPanel Padding="0,0,8,16" Spacing="18">
                     <StackPanel Spacing="4">
                         <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="Choose providers" />
                         <TextBlock
@@ -87,9 +90,12 @@
                         <ItemsControl ItemsSource="{x:Bind ProviderOptions, Mode=OneWay}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border
-                                        BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
-                                        BorderThickness="0,0,0,1">
+                                    <Grid>
+                                        <Rectangle
+                                            Height="1"
+                                            VerticalAlignment="Top"
+                                            Fill="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                            Visibility="{Binding ShowDivider, Converter={StaticResource BooleanToVisibilityConverter}}" />
                                         <CheckBox
                                             Margin="12,0,0,0"
                                             Padding="12,10"
@@ -112,12 +118,12 @@
                                                     VerticalAlignment="Center"
                                                     ProviderKey="{Binding ProviderKey}" />
                                                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                                                    <TextBlock FontWeight="SemiBold" Text="{Binding DisplayName}" />
+                                                    <TextBlock FontWeight="SemiBold" Text="{Binding DisplayName}" TextWrapping="Wrap" />
                                                     <TextBlock
                                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                         Style="{StaticResource CaptionTextBlockStyle}"
                                                         Text="{Binding UsageSource}"
-                                                        TextTrimming="CharacterEllipsis" />
+                                                        TextWrapping="Wrap" />
                                                 </StackPanel>
                                                 <TextBlock
                                                     Grid.Column="2"
@@ -130,7 +136,7 @@
                                                     TextWrapping="Wrap" />
                                             </Grid>
                                         </CheckBox>
-                                    </Border>
+                                    </Grid>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
@@ -161,17 +167,15 @@
                             TextWrapping="Wrap" />
                     </StackPanel>
 
-                    <Border Style="{StaticResource SettingsGroupBorderStyle}">
+                    <Border Padding="16,12" Style="{StaticResource SettingsGroupBorderStyle}">
                         <RadioButtons
                             x:Name="ThemeRadioButtons"
-                            Margin="12,0,0,8"
-                            Padding="16,12"
                             AutomationProperties.Name="App theme"
                             MaxColumns="1"
                             SelectionChanged="ThemeRadioButtons_SelectionChanged">
                             <RadioButton Tag="System">
                                 <StackPanel Margin="4,2" Spacing="2">
-                                    <TextBlock FontWeight="SemiBold" Text="Use system" />
+                                    <TextBlock FontWeight="SemiBold" Text="System" />
                                     <TextBlock
                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                         Style="{StaticResource CaptionTextBlockStyle}"
@@ -232,7 +236,7 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <StackPanel Spacing="4">
-                                <TextBlock FontWeight="SemiBold" Text="Important notifications" />
+                                <TextBlock FontWeight="SemiBold" Text="Allow notifications" TextWrapping="Wrap" />
                                 <TextBlock
                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                     Style="{StaticResource CaptionTextBlockStyle}"
@@ -249,9 +253,9 @@
                                 Grid.Column="1"
                                 MinWidth="0"
                                 VerticalAlignment="Center"
-                                AutomationProperties.Name="Allow important UsageDeck notifications"
-                                OffContent="Off"
-                                OnContent="On"
+                                AutomationProperties.Name="Allow UsageDeck notifications"
+                                OffContent=""
+                                OnContent=""
                                 Toggled="ImportantNotificationsToggle_Toggled" />
                         </Grid>
                     </Border>
@@ -260,7 +264,7 @@
                         <TextBlock FontWeight="SemiBold" Text="Windows delivery" />
                         <Border Style="{StaticResource SettingsGroupBorderStyle}">
                             <StackPanel>
-                                <Grid Padding="16,12" ColumnSpacing="16">
+                                <Grid Padding="16" ColumnSpacing="16">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
@@ -291,7 +295,7 @@
                                         Content="Send test notification" />
                                 </Grid>
                                 <Grid
-                                    Padding="16,10"
+                                    Padding="16"
                                     BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
                                     BorderThickness="0,1,0,0"
                                     ColumnSpacing="16">

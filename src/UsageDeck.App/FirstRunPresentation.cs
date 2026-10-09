@@ -12,9 +12,10 @@ public sealed class FirstRunProviderOption : INotifyPropertyChanged
     private string _discoveryText = "Checking…";
     private bool _isSelected;
 
-    public FirstRunProviderOption(ProviderSettingsPresentation provider)
+    public FirstRunProviderOption(ProviderSettingsPresentation provider, bool showDivider)
     {
         ArgumentNullException.ThrowIfNull(provider);
+        this.ShowDivider = showDivider;
         this.Id = provider.Id;
         this.DisplayName = provider.DisplayName;
         this.ProviderKey = provider.ProviderKey;
@@ -30,6 +31,11 @@ public sealed class FirstRunProviderOption : INotifyPropertyChanged
     public string ProviderKey { get; }
 
     public string UsageSource { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether a divider separates this option from the one above it.
+    /// </summary>
+    public bool ShowDivider { get; }
 
     public string DiscoveryText
     {
