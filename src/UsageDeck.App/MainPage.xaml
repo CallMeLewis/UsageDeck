@@ -276,6 +276,8 @@
                 <StackPanel
                     Spacing="14"
                     Visibility="{Binding SelectedProvider.IsAll, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                <!-- Refresh progress overlays the header divider so the cards below do not move. -->
+                <Grid>
                 <Border
                     Padding="2,0,2,12"
                     BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
@@ -316,6 +318,15 @@
                             Visibility="{Binding SelectedProvider.HasPlan, Converter={StaticResource BooleanToVisibilityConverter}}" />
                     </Grid>
                 </Border>
+                <ProgressBar
+                    x:Name="RequestedRefreshProgress"
+                    Height="3"
+                    MinHeight="3"
+                    VerticalAlignment="Bottom"
+                    AutomationProperties.Name="Refreshing usage"
+                    IsIndeterminate="True"
+                    Visibility="{Binding SelectedProvider.IsShowingRequestedRefresh, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                </Grid>
 
                 <InfoBar
                     x:Name="SettingsRecoveryInfoBar"

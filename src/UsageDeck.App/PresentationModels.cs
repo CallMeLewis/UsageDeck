@@ -136,6 +136,7 @@ public sealed class ProviderTabViewModel : INotifyPropertyChanged
     private bool _isLoading = true;
     private bool _isSelected;
     private string _planText = string.Empty;
+    private int _requestedRefreshes;
     private string _resetCreditsNoticeText = string.Empty;
     private string _resetCreditsSummaryText = string.Empty;
     private string _serviceStatusDetail = string.Empty;
@@ -357,8 +358,24 @@ public sealed class ProviderTabViewModel : INotifyPropertyChanged
             if (this.SetField(ref this._isLoading, value))
             {
                 this.OnPropertyChanged(nameof(this.HasNoUsageData));
+                this.OnPropertyChanged(nameof(this.IsShowingRequestedRefresh));
             }
         }
+    }
+
+    // Only refreshes the user asked for show progress; tab switches and background checks stay quiet.
+    public bool IsShowingRequestedRefresh => this._requestedRefreshes > 0 && this.IsLoading;
+
+    public void BeginRequestedRefresh()
+    {
+        this._requestedRefreshes++;
+        this.OnPropertyChanged(nameof(this.IsShowingRequestedRefresh));
+    }
+
+    public void EndRequestedRefresh()
+    {
+        this._requestedRefreshes = Math.Max(0, this._requestedRefreshes - 1);
+        this.OnPropertyChanged(nameof(this.IsShowingRequestedRefresh));
     }
 
     public bool HasLoaded { get; private set; }

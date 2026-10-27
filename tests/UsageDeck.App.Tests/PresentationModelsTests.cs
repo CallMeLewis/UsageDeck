@@ -646,4 +646,37 @@ public sealed class PresentationModelsTests
         Assert.Equal("Couldn’t refresh", model.ServiceStatusText);
         Assert.Equal(ProviderStatusVisualLevel.Warning, model.ServiceStatusVisualLevel);
     }
+
+    [Fact]
+    public void OnlyRequestedRefreshesShowProgress()
+    {
+        ProviderTabViewModel model = new(ProviderId.Codex, "OpenAI Codex");
+
+        model.IsLoading = true;
+        Assert.False(model.IsShowingRequestedRefresh);
+
+        model.BeginRequestedRefresh();
+        Assert.True(model.IsShowingRequestedRefresh);
+
+        model.IsLoading = false;
+        Assert.False(model.IsShowingRequestedRefresh);
+
+        model.EndRequestedRefresh();
+        model.IsLoading = true;
+        Assert.False(model.IsShowingRequestedRefresh);
+    }
+
+    [Fact]
+    public void OverlappingRequestedRefreshesKeepProgressUntilTheLastEnds()
+    {
+        ProviderTabViewModel model = new(ProviderId.Claude, "Claude") { IsLoading = true };
+
+        model.BeginRequestedRefresh();
+        model.BeginRequestedRefresh();
+        model.EndRequestedRefresh();
+        Assert.True(model.IsShowingRequestedRefresh);
+
+        model.EndRequestedRefresh();
+        Assert.False(model.IsShowingRequestedRefresh);
+    }
 }

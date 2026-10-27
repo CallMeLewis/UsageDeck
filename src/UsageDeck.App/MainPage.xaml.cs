@@ -115,7 +115,26 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
         }
     }
 
-    public Task RefreshAllAsync() => this.RefreshProvidersAsync(this.Providers);
+    public async Task RefreshAllAsync()
+    {
+        ProviderTabViewModel[] providers = [.. this.Providers];
+        foreach (ProviderTabViewModel provider in providers)
+        {
+            provider.BeginRequestedRefresh();
+        }
+
+        try
+        {
+            await this.RefreshProvidersAsync(providers);
+        }
+        finally
+        {
+            foreach (ProviderTabViewModel provider in providers)
+            {
+                provider.EndRequestedRefresh();
+            }
+        }
+    }
 
     internal void SelectProvider(ProviderId providerId)
     {
@@ -375,13 +394,16 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
             return;
         }
 
+        ProviderTabViewModel provider = this.SelectedProvider;
         retryButton.IsEnabled = false;
+        provider.BeginRequestedRefresh();
         try
         {
-            await this.RefreshProviderAsync(this.SelectedProvider);
+            await this.RefreshProviderAsync(provider);
         }
         finally
         {
+            provider.EndRequestedRefresh();
             retryButton.IsEnabled = true;
         }
     }
