@@ -311,7 +311,7 @@ public sealed partial class MainWindow : Window
         DateTimeOffset now = DateTimeOffset.UtcNow;
         bool isPaused = NotificationPause.IsActive(settings.NotificationsPausedUntilUtc, now);
         this.NotificationActionsMenuItem.Text = isPaused
-            ? "Notifications paused"
+            ? NotificationPause.FormatStatus(settings.NotificationsPausedUntilUtc!.Value, now, TimeZoneInfo.Local)
             : "Pause notifications";
         this.NotificationActionsMenuItem.IsEnabled = settings.AreNotificationsEnabled || isPaused;
         this.ResumeNotificationsMenuItem.IsEnabled = isPaused;
