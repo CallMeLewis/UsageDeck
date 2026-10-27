@@ -127,6 +127,7 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
         try
         {
             await this.RefreshProvidersAsync(providers);
+            this.AnnounceRequestedRefresh(providers);
         }
         finally
         {
@@ -135,6 +136,22 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
                 provider.EndRequestedRefresh();
             }
         }
+    }
+
+    // The ticking "Updated…" caption is not a live region, so requested refreshes announce once here.
+    private void AnnounceRequestedRefresh(ProviderTabViewModel[] providers)
+    {
+        if (providers.Length == 0 || this.XamlRoot?.IsHostVisible != true)
+        {
+            return;
+        }
+
+        // A Page has no automation peer, so the Refresh button raises the announcement.
+        FrameworkElementAutomationPeer.CreatePeerForElement(this.RefreshButton)?.RaiseNotificationEvent(
+            AutomationNotificationKind.ActionCompleted,
+            AutomationNotificationProcessing.ImportantMostRecent,
+            RefreshAnnouncement.Create(providers),
+            "RequestedRefresh");
     }
 
     internal void SelectProvider(ProviderId providerId)
@@ -401,6 +418,7 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
         try
         {
             await this.RefreshProviderAsync(provider);
+            this.AnnounceRequestedRefresh([provider]);
         }
         finally
         {
@@ -819,7 +837,7 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
         const string message = "UsageDeck is up to date";
         this.UpdateActionButtonGlyph.Glyph = "";
         AutomationProperties.SetName(this.UpdateActionButton, message);
-        FrameworkElementAutomationPeer.FromElement(this.UpdateActionButton)?.RaiseNotificationEvent(
+        FrameworkElementAutomationPeer.CreatePeerForElement(this.UpdateActionButton)?.RaiseNotificationEvent(
             AutomationNotificationKind.ActionCompleted,
             AutomationNotificationProcessing.ImportantMostRecent,
             message,

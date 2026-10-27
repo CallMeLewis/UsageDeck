@@ -314,7 +314,6 @@
                         </TextBlock>
                         <TextBlock
                             Grid.Row="1"
-                            AutomationProperties.LiveSetting="Polite"
                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                             Style="{StaticResource CaptionTextBlockStyle}"
                             Text="{Binding SelectedProvider.UpdatedText}"
@@ -694,6 +693,7 @@
                     <FontIcon FontSize="16" Glyph="&#xE713;" IsTextScaleFactorEnabled="False" />
                 </Button>
                 <Button
+                    x:Name="RefreshButton"
                     Grid.Column="1"
                     Width="40"
                     Height="40"
