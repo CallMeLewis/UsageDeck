@@ -39,6 +39,7 @@ public partial class App : Application, IDisposable
     private readonly DispatcherTimer _providerStatusTimer = new() { Interval = TimeSpan.FromMinutes(5) };
     private readonly UsageRefreshScheduler _usageRefreshScheduler;
     private readonly UsageFailureConfirmation _usageFailureConfirmation = new();
+    private readonly UsageResetRefresh _usageResetRefresh = new();
     private readonly DispatcherTimer _usageConfirmationTimer = new() { Interval = TimeSpan.FromSeconds(5) };
     private readonly DispatcherTimer _usageRefreshTimer = new() { Interval = TimeSpan.FromMinutes(5) };
     private readonly DispatcherTimer _updateCheckTimer = new() { Interval = AutomaticUpdateCheckInterval };
@@ -157,6 +158,7 @@ public partial class App : Application, IDisposable
 
                 ProviderSnapshot snapshot = await this.RefreshCoordinator.RefreshAsync(providerId, cancellationToken);
                 this._usageFailureConfirmation.Record(snapshot, DateTimeOffset.UtcNow);
+                this._usageResetRefresh.Record(snapshot, DateTimeOffset.UtcNow);
             },
             this._shutdown.Token);
         this._usageRefreshSettings = settings.Settings;
@@ -720,8 +722,13 @@ public partial class App : Application, IDisposable
 
     private async void UsageConfirmationTimer_Tick(object? sender, object e)
     {
-        IReadOnlyCollection<ProviderId> providers = this._usageFailureConfirmation.TakeDueProviders(
-            this.CurrentSettings.EnabledProviders, DateTimeOffset.UtcNow);
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        IReadOnlyList<ProviderId> enabledProviders = this.CurrentSettings.EnabledProviders;
+        ProviderId[] providers =
+        [
+            .. this._usageFailureConfirmation.TakeDueProviders(enabledProviders, now),
+            .. this._usageResetRefresh.TakeDueProviders(enabledProviders, now),
+        ];
         try
         {
             await this._usageRefreshScheduler.RefreshAutomaticallyAsync(providers, this._shutdown.Token);
