@@ -330,9 +330,31 @@ public sealed class MainPageLayoutTests
         Assert.True(returnAfterCheck > check);
         Assert.True(download > returnAfterCheck);
         Assert.Contains("if (!updater.CanCheckForUpdates)", method);
-        Assert.DoesNotContain("up to date", method);
         Assert.Contains("if (updater.AvailableUpdate is AppUpdateAvailability found)", method);
         Assert.Contains("UsageDeck could not check for updates.", method);
+    }
+
+    [Fact]
+    public void ManualChecksConfirmNoUpdateWithoutOpeningAFlyout()
+    {
+        string source = ReadMainPageSource();
+        string method = ReadMethod(
+            source,
+            "private async void UpdateActionButton_Click",
+            "private void MainPage_ActualThemeChanged");
+        int found = method.IndexOf("is AppUpdateAvailability found", StringComparison.Ordinal);
+        int noUpdate = method.IndexOf("else", found, StringComparison.Ordinal);
+        int end = method.IndexOf("return;", noUpdate, StringComparison.Ordinal);
+        string noUpdateBranch = method[noUpdate..end];
+        Assert.Contains("await this.ShowNoUpdateConfirmationAsync()", noUpdateBranch);
+        Assert.DoesNotContain("ShowAt", noUpdateBranch);
+
+        string confirmation = ReadMethod(
+            source,
+            "private async Task ShowNoUpdateConfirmationAsync",
+            "private void StopUpdateCheckAnimation");
+        Assert.Contains("RaiseNotificationEvent", confirmation);
+        Assert.DoesNotContain("ShowAt", confirmation);
     }
 
     [Fact]

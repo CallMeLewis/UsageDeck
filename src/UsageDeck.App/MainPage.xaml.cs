@@ -6,6 +6,7 @@ using UsageDeck.Core.Providers;
 using UsageDeck.Infrastructure.Settings;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
@@ -462,6 +463,10 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
                     this.UpdateCheckResultText.Text = $"Version {found.Version} is available. Select the download icon to download it.";
                     this.UpdateCheckResultFlyout.ShowAt(this.UpdateActionButton);
                 }
+                else
+                {
+                    await this.ShowNoUpdateConfirmationAsync();
+                }
 
                 return;
             }
@@ -769,6 +774,20 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
 
     private void UpdateReleaseNotesFlyout_Closed(object sender, object e) =>
         this._updateNotesHoverTimer.Stop();
+
+    // A brief check mark confirms a manual check without opening a flyout.
+    private async Task ShowNoUpdateConfirmationAsync()
+    {
+        const string message = "UsageDeck is up to date";
+        this.UpdateActionButtonGlyph.Glyph = "";
+        AutomationProperties.SetName(this.UpdateActionButton, message);
+        FrameworkElementAutomationPeer.FromElement(this.UpdateActionButton)?.RaiseNotificationEvent(
+            AutomationNotificationKind.ActionCompleted,
+            AutomationNotificationProcessing.ImportantMostRecent,
+            message,
+            "UpdateCheckResult");
+        await Task.Delay(TimeSpan.FromSeconds(2));
+    }
 
     private void StopUpdateCheckAnimation()
     {
