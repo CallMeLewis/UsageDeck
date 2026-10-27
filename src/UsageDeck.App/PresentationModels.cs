@@ -437,7 +437,8 @@ public sealed class ProviderTabViewModel : INotifyPropertyChanged
                 now,
                 precision,
                 resetTimeDisplay,
-                usageValueDisplay));
+                usageValueDisplay,
+                isSavedReading: snapshot.State == UsageDataState.Stale));
         }
 
         this.ResetCredits.Clear();
@@ -686,6 +687,7 @@ public sealed class ProviderTabViewModel : INotifyPropertyChanged
 public sealed class UsageWindowViewModel : INotifyPropertyChanged
 {
     private readonly DateTimeOffset? _resetsAt;
+    private readonly bool _isSavedReading;
     private readonly bool _isUnlimited;
     private readonly bool _usageKnown;
     private string _accessibleName = string.Empty;
@@ -698,9 +700,11 @@ public sealed class UsageWindowViewModel : INotifyPropertyChanged
         DateTimeOffset now,
         TimeDisplayPrecision precision,
         ResetTimeDisplayMode resetTimeDisplay = ResetTimeDisplayMode.Countdown,
-        UsageValueDisplayMode usageValueDisplay = UsageValueDisplayMode.Used)
+        UsageValueDisplayMode usageValueDisplay = UsageValueDisplayMode.Used,
+        bool isSavedReading = false)
     {
         this.DisplayName = window.DisplayName;
+        this._isSavedReading = isSavedReading;
         this.UsedPercent = window.UsedPercent;
         this.HasUsageMeter = window.UsageKnown && !window.IsUnlimited;
         this._resetsAt = window.ResetsAt;
@@ -801,7 +805,10 @@ public sealed class UsageWindowViewModel : INotifyPropertyChanged
         this.AlternateResetText = resetTimeDisplay == ResetTimeDisplayMode.ExactDateTime
             ? countdownResetText
             : this.ExactResetText;
-        this.AccessibleName = $"{this.DisplayName}, {this.PercentText}, {this.ResetText}";
+        // Cards can be reached without passing the header, so each one states when its reading is saved.
+        this.AccessibleName = this._isSavedReading
+            ? $"{this.DisplayName}, {this.PercentText}, {this.ResetText}, saved data"
+            : $"{this.DisplayName}, {this.PercentText}, {this.ResetText}";
     }
 
     public void RefreshVisualState() => this.OnPropertyChanged(nameof(this.UsedPercent));

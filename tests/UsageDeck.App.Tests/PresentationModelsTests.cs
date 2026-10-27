@@ -673,6 +673,29 @@ public sealed class PresentationModelsTests
     }
 
     [Fact]
+    public void SavedReadingsSayWhichCardsAreSavedData()
+    {
+        DateTimeOffset now = new(2026, 10, 27, 12, 0, 0, TimeSpan.Zero);
+        ProviderSnapshot fresh = new(
+            ProviderId.Codex,
+            "OpenAI Codex",
+            "Codex app server",
+            now,
+            UsageDataState.Fresh,
+            [new UsageWindow("five-hour", "5-hour", 45, now.AddHours(2))]);
+        ProviderTabViewModel model = new(ProviderId.Codex, "OpenAI Codex");
+
+        model.ApplySnapshot(fresh, now, TimeDisplayPrecision.ThirtySeconds);
+        Assert.Equal("5-hour, 45% used, Resets in 2h", Assert.Single(model.UsageWindows).AccessibleName);
+
+        model.ApplySnapshot(
+            fresh.WithFailure(UsageDataState.Stale, "Codex could not be reached.", ProviderErrorCategory.Transient),
+            now,
+            TimeDisplayPrecision.ThirtySeconds);
+        Assert.Equal("5-hour, 45% used, Resets in 2h, saved data", Assert.Single(model.UsageWindows).AccessibleName);
+    }
+
+    [Fact]
     public void OnlyRequestedRefreshesShowProgress()
     {
         ProviderTabViewModel model = new(ProviderId.Codex, "OpenAI Codex");
