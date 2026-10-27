@@ -53,7 +53,7 @@
             LeftClickCommand="{x:Bind ToggleWindowCommand}"
             MenuActivation="RightClick"
             NoLeftClickDelay="True"
-            ToolTipText="UsageDeck usage"
+            ToolTipText="UsageDeck"
             Visibility="Collapsed">
             <tb:TaskbarIcon.ContextFlyout>
                 <MenuFlyout Opening="TrayContextMenu_Opening">

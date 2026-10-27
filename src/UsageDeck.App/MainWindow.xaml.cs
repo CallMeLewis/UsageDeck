@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using System.Windows.Input;
 using UsageDeck.Core.Providers;
 using UsageDeck.Infrastructure.Settings;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.System;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -16,6 +17,7 @@ public sealed partial class MainWindow : Window
     private const double SetupMinimumHeight = 560;
     private const double SetupMinimumWidth = 520;
 
+    private readonly DispatcherQueueTimer _trayToolTipTimer;
     private bool _isFirstRun;
     private bool _isExiting;
     private double _minimumHeight;
@@ -56,6 +58,12 @@ public sealed partial class MainWindow : Window
         App.ApplyWindowAppearance(this, this.RootLayout, this.SolidBackground, app.CurrentSettings);
         this.RefreshNotificationPausePresentation(app.CurrentSettings);
         app.SettingsChanged += this.App_SettingsChanged;
+
+        // Reset countdowns in the tray tooltip age between refreshes.
+        this._trayToolTipTimer = this.DispatcherQueue.CreateTimer();
+        this._trayToolTipTimer.Interval = TimeSpan.FromSeconds(30);
+        this._trayToolTipTimer.Tick += this.TrayToolTipTimer_Tick;
+        app.RefreshCoordinator.SnapshotChanged += this.RefreshCoordinator_SnapshotChanged;
 
         this.ExtendsContentIntoTitleBar = true;
         this.SetTitleBar(this.WindowDragRegion);
@@ -119,6 +127,8 @@ public sealed partial class MainWindow : Window
             this._themeSettings.Changed -= this.ThemeSettings_Changed;
         }
 
+        this._trayToolTipTimer.Stop();
+        ((App)Application.Current).RefreshCoordinator.SnapshotChanged -= this.RefreshCoordinator_SnapshotChanged;
         this.TrayIcon.Dispose();
     }
 
@@ -186,6 +196,9 @@ public sealed partial class MainWindow : Window
         {
             this.TrayIcon.ForceCreate(enablesEfficiencyMode: false);
         }
+
+        this.RefreshTrayToolTip();
+        this._trayToolTipTimer.Start();
 
         if (providerId is ProviderId provider)
         {
@@ -337,6 +350,34 @@ public sealed partial class MainWindow : Window
     {
         this.RefreshAppearance(settings);
         this.RefreshNotificationPausePresentation(settings);
+        this.RefreshTrayToolTip();
+    }
+
+    private void RefreshCoordinator_SnapshotChanged(object? sender, ProviderSnapshot snapshot) =>
+        _ = this.DispatcherQueue.TryEnqueue(this.RefreshTrayToolTip);
+
+    private void TrayToolTipTimer_Tick(DispatcherQueueTimer sender, object args) =>
+        this.RefreshTrayToolTip();
+
+    private void RefreshTrayToolTip()
+    {
+        if (this._isExiting || this._isFirstRun)
+        {
+            return;
+        }
+
+        App app = (App)Application.Current;
+        AppSettings settings = app.CurrentSettings;
+        string text = TrayToolTipText.Create(
+            settings.EnabledProviders.Where(ProviderId.Available.Contains),
+            app.RefreshCoordinator.GetSnapshot,
+            DateTimeOffset.Now,
+            settings.UsageValueDisplay,
+            settings.ShowCodexSparkCard);
+        if (!string.Equals(this.TrayIcon.ToolTipText, text, StringComparison.Ordinal))
+        {
+            this.TrayIcon.ToolTipText = text;
+        }
     }
 
     private void RootLayout_ActualThemeChanged(FrameworkElement sender, object args) =>

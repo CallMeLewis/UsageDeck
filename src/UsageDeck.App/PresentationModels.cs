@@ -440,7 +440,7 @@ public sealed class ProviderTabViewModel : INotifyPropertyChanged
         this.UpdateTime(now, precision, resetTimeDisplay, usageValueDisplay);
     }
 
-    private static bool IsCodexSparkWindow(UsageWindow window) =>
+    internal static bool IsCodexSparkWindow(UsageWindow window) =>
         window.Id.Equals("codex-spark", StringComparison.OrdinalIgnoreCase)
         || window.Id.StartsWith("codex-spark-", StringComparison.OrdinalIgnoreCase)
         || window.DisplayName.Contains("spark", StringComparison.OrdinalIgnoreCase);
