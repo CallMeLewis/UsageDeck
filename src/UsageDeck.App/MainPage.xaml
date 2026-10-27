@@ -688,13 +688,18 @@
                     MinWidth="40"
                     MinHeight="40"
                     Padding="0"
+                    AutomationProperties.AcceleratorKey="F5"
+                    KeyboardAcceleratorPlacementMode="Hidden"
                     AutomationProperties.Name="Refresh all providers"
                     Click="RefreshButton_Click"
                     CornerRadius="20"
                     HorizontalContentAlignment="Center"
                     Style="{StaticResource SubtleButtonStyle}"
                     VerticalContentAlignment="Center"
-                    ToolTipService.ToolTip="Refresh all providers">
+                    ToolTipService.ToolTip="Refresh all providers (F5)">
+                    <Button.KeyboardAccelerators>
+                        <KeyboardAccelerator Key="F5" />
+                    </Button.KeyboardAccelerators>
                     <FontIcon FontSize="16" Glyph="&#xE72C;" IsTextScaleFactorEnabled="False" />
                 </Button>
                 <Button

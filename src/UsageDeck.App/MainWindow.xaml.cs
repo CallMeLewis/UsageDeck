@@ -6,7 +6,9 @@ using Microsoft.UI.Dispatching;
 using Microsoft.UI.System;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media.Animation;
+using VirtualKey = Windows.System.VirtualKey;
 
 namespace UsageDeck.App;
 
@@ -68,6 +70,7 @@ public sealed partial class MainWindow : Window
         this.ExtendsContentIntoTitleBar = true;
         this.SetTitleBar(this.WindowDragRegion);
         this.RootLayout.ActualThemeChanged += this.RootLayout_ActualThemeChanged;
+        this.RootLayout.KeyDown += this.RootLayout_KeyDown;
         App.ApplyCaptionButtonColours(this, this.RootLayout);
 
         if (this.AppWindow.Presenter is OverlappedPresenter presenter)
@@ -382,6 +385,19 @@ public sealed partial class MainWindow : Window
 
     private void RootLayout_ActualThemeChanged(FrameworkElement sender, object args) =>
         App.ApplyCaptionButtonColours(this, this.RootLayout);
+
+    // Escape hides the usage window to the notification area, like its close button. Open flyouts
+    // handle Escape themselves, and first-run setup keeps it so the app is not hidden mid-setup.
+    private void RootLayout_KeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Handled || e.Key != VirtualKey.Escape || this.RootFrame.Content is not MainPage)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        this.AppWindow.Hide();
+    }
 
     private void SetMinimumSize(double width, double height)
     {

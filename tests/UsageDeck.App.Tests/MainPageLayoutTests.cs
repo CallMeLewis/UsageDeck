@@ -398,6 +398,31 @@ public sealed class MainPageLayoutTests
         Assert.True(download > returnAfterConfirmation);
     }
 
+    [Fact]
+    public void RefreshButtonUsesF5()
+    {
+        XDocument xaml = XDocument.Load(Path.Combine(AppContext.BaseDirectory, "SourceUnderTest", "MainPage.xaml"));
+        XNamespace presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+        XElement refresh = Assert.Single(
+            xaml.Descendants(presentation + "Button"),
+            element => (string?)element.Attribute("Click") == "RefreshButton_Click");
+
+        XElement accelerator = Assert.Single(refresh.Descendants(presentation + "KeyboardAccelerator"));
+        Assert.Equal("F5", (string?)accelerator.Attribute("Key"));
+        Assert.Equal("Refresh all providers (F5)", (string?)refresh.Attribute("ToolTipService.ToolTip"));
+    }
+
+    [Fact]
+    public void EscapeHidesOnlyTheUsageWindow()
+    {
+        string source = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "SourceUnderTest", "MainWindow.xaml.cs"));
+        string method = ReadMethod(source, "private void RootLayout_KeyDown", "private void SetMinimumSize");
+
+        Assert.Contains("e.Key != VirtualKey.Escape", method);
+        Assert.Contains("this.RootFrame.Content is not MainPage", method);
+        Assert.Contains("this.AppWindow.Hide()", method);
+    }
+
     private static string ReadMainPageSource()
     {
         string sourcePath = Path.Combine(
