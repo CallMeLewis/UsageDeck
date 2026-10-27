@@ -27,6 +27,7 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
     private readonly UISettings _uiSettings = new();
     private readonly DispatcherTimer _updateNotesHoverTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private bool _showUpdateNotesOnTick;
+    private bool _isUpdateNotesPinned;
     private bool _hasCompletedInitialLoad;
     private bool _hasShownInitialContent;
     private bool _isUpdateOperationInProgress;
@@ -775,9 +776,21 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
                 ShowMode = FlyoutShowMode.Transient,
             });
         }
-        else
+        else if (!this._isUpdateNotesPinned)
         {
             this.UpdateReleaseNotesFlyout.Hide();
+        }
+    }
+
+    // Release notes otherwise open only on hover or Shift+F10, so the found-update flyout links to them.
+    private void UpdateCheckReleaseNotesButton_Click(object sender, RoutedEventArgs e)
+    {
+        this.UpdateCheckResultFlyout.Hide();
+        if (this.DisplayedUpdate is not null)
+        {
+            // Opened on request, so it stays until dismissed rather than following hover.
+            this._isUpdateNotesPinned = true;
+            this.UpdateReleaseNotesFlyout.ShowAt(this.UpdateActionButton);
         }
     }
 
@@ -794,8 +807,11 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
             ReleaseNotesReader.FromUpdate(available.Version, available.NotesMarkdown), isCompact: false);
     }
 
-    private void UpdateReleaseNotesFlyout_Closed(object sender, object e) =>
+    private void UpdateReleaseNotesFlyout_Closed(object sender, object e)
+    {
+        this._isUpdateNotesPinned = false;
         this._updateNotesHoverTimer.Stop();
+    }
 
     // A brief check mark confirms a manual check without opening a flyout.
     private async Task ShowNoUpdateConfirmationAsync()

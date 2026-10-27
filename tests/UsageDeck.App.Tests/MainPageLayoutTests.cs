@@ -399,6 +399,32 @@ public sealed class MainPageLayoutTests
     }
 
     [Fact]
+    public void FoundUpdateFlyoutLinksToPinnedReleaseNotes()
+    {
+        XDocument xaml = XDocument.Load(Path.Combine(AppContext.BaseDirectory, "SourceUnderTest", "MainPage.xaml"));
+        XNamespace presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+        XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
+        XElement resultFlyout = Assert.Single(
+            xaml.Descendants(presentation + "Flyout"),
+            element => (string?)element.Attribute(x + "Name") == "UpdateCheckResultFlyout");
+        XElement link = Assert.Single(resultFlyout.Descendants(presentation + "HyperlinkButton"));
+        Assert.Equal("View release notes", (string?)link.Attribute("Content"));
+
+        string source = ReadMainPageSource();
+        string click = ReadMethod(
+            source,
+            "private void UpdateCheckReleaseNotesButton_Click",
+            "private void UpdateReleaseNotesFlyout_Opening");
+        Assert.Contains("this._isUpdateNotesPinned = true;", click);
+        Assert.Contains("this.UpdateReleaseNotesFlyout.ShowAt(this.UpdateActionButton)", click);
+        string tick = ReadMethod(
+            source,
+            "private void UpdateNotesHoverTimer_Tick",
+            "private void UpdateCheckReleaseNotesButton_Click");
+        Assert.Contains("else if (!this._isUpdateNotesPinned)", tick);
+    }
+
+    [Fact]
     public void RefreshButtonUsesF5()
     {
         XDocument xaml = XDocument.Load(Path.Combine(AppContext.BaseDirectory, "SourceUnderTest", "MainPage.xaml"));

@@ -905,7 +905,14 @@
                     </Button.ContextFlyout>
                     <FlyoutBase.AttachedFlyout>
                         <Flyout x:Name="UpdateCheckResultFlyout">
-                            <TextBlock x:Name="UpdateCheckResultText" MaxWidth="280" TextWrapping="Wrap" />
+                            <StackPanel MaxWidth="280" Spacing="4">
+                                <TextBlock x:Name="UpdateCheckResultText" TextWrapping="Wrap" />
+                                <HyperlinkButton
+                                    x:Name="UpdateCheckReleaseNotesButton"
+                                    Margin="-12,0,0,0"
+                                    Click="UpdateCheckReleaseNotesButton_Click"
+                                    Content="View release notes" />
+                            </StackPanel>
                         </Flyout>
                     </FlyoutBase.AttachedFlyout>
                     <Grid Width="30" Height="30">
