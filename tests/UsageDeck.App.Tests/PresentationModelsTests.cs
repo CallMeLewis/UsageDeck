@@ -673,6 +673,17 @@ public sealed class PresentationModelsTests
     }
 
     [Fact]
+    public void EmptyStateSuggestsWhatToCheck()
+    {
+        ProviderTabViewModel model = new(ProviderId.Copilot, "GitHub Copilot");
+
+        Assert.Equal("No rate limits reported", model.EmptyStateTitle);
+        Assert.Equal(
+            "GitHub Copilot did not report any rate limits for your account. If you expect some, check that the right account is in use, then refresh.",
+            model.EmptyStateMessage);
+    }
+
+    [Fact]
     public void SavedReadingsSayWhichCardsAreSavedData()
     {
         DateTimeOffset now = new(2026, 10, 27, 12, 0, 0, TimeSpan.Zero);

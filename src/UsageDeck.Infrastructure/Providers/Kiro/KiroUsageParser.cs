@@ -70,7 +70,7 @@ public static partial class KiroUsageParser
         {
             throw new ProviderException(
                 ProviderErrorCategory.InvalidResponse,
-                "Kiro opened, but its usage details could not be read.");
+                "Kiro opened, but its usage details could not be read. Update `kiro-cli` and UsageDeck, then refresh.");
         }
 
         return new ProviderSnapshot(

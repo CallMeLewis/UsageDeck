@@ -62,7 +62,7 @@ public static partial class ClaudeUsageParser
         {
             throw new ProviderException(
                 ProviderErrorCategory.InvalidResponse,
-                "Claude opened, but its usage panel could not be read.");
+                "Claude opened, but its usage panel could not be read. Update Claude Code and UsageDeck, then refresh.");
         }
 
         IReadOnlyList<UsageWindow> windows = ReadWindows(source, now);
@@ -70,7 +70,7 @@ public static partial class ClaudeUsageParser
         {
             throw new ProviderException(
                 ProviderErrorCategory.InvalidResponse,
-                "Claude opened, but its session usage value could not be read.");
+                "Claude opened, but its session usage value could not be read. Update Claude Code and UsageDeck, then refresh.");
         }
 
         return windows;

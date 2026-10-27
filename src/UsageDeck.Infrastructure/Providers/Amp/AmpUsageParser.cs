@@ -85,7 +85,7 @@ public static partial class AmpUsageParser
         {
             throw new ProviderException(
                 ProviderErrorCategory.InvalidResponse,
-                "Amp opened, but its usage details could not be read.");
+                "Amp opened, but its usage details could not be read. Update `amp` and UsageDeck, then refresh.");
         }
 
         string? email = identityMatch.Success ? NonEmpty(identityMatch.Groups["email"].Value) : null;

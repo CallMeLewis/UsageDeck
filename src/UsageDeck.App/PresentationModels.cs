@@ -338,11 +338,11 @@ public sealed class ProviderTabViewModel : INotifyPropertyChanged
 
     public string EmptyStateTitle => this.Id == ProviderId.OpenCodeGo
         ? "No OpenCode Go usage found"
-        : "No rate-limit data reported";
+        : "No rate limits reported";
 
     public string EmptyStateMessage => this.Id == ProviderId.OpenCodeGo
         ? "No usage was found in this PC's local Go history or the configured, separate OpenCode Console organisation billing export."
-        : "This provider did not return any rate-limit windows.";
+        : $"{this.DisplayName} did not report any rate limits for your account. If you expect some, check that the right account is in use, then refresh.";
 
     public bool CanRetry
     {
