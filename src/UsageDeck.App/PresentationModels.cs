@@ -137,6 +137,7 @@ public sealed class ProviderTabViewModel : INotifyPropertyChanged
     private bool _isSelected;
     private string _planText = string.Empty;
     private int _requestedRefreshes;
+    private bool _isAuthenticationRequired;
     private string _resetCreditsNoticeText = string.Empty;
     private string _resetCreditsSummaryText = string.Empty;
     private string _serviceStatusDetail = string.Empty;
@@ -262,6 +263,9 @@ public sealed class ProviderTabViewModel : INotifyPropertyChanged
             {
                 this.OnPropertyChanged(nameof(this.HasStatusMessage));
                 this.OnPropertyChanged(nameof(this.HasNoUsageData));
+                this.OnPropertyChanged(nameof(this.AttentionText));
+                this.OnPropertyChanged(nameof(this.NeedsAttention));
+                this.OnPropertyChanged(nameof(this.TabLabel));
             }
         }
     }
@@ -421,6 +425,7 @@ public sealed class ProviderTabViewModel : INotifyPropertyChanged
         this.ResetCreditsNoticeText = FormatResetCreditsNotice(snapshot.ResetCredits);
         this.CanRetry = snapshot.SafeError is not null;
         this.StatusMessage = snapshot.SafeError ?? string.Empty;
+        this._isAuthenticationRequired = snapshot.State == UsageDataState.AuthenticationRequired;
 
         this.UsageWindows.Clear();
         foreach (UsageWindow window in snapshot.UsageWindows)
@@ -455,8 +460,24 @@ public sealed class ProviderTabViewModel : INotifyPropertyChanged
         this.OnPropertyChanged(nameof(this.LimitsSummaryText));
         this.OnPropertyChanged(nameof(this.HasUsageWindows));
         this.OnPropertyChanged(nameof(this.HasNoUsageData));
+        this.OnPropertyChanged(nameof(this.AttentionText));
+        this.OnPropertyChanged(nameof(this.NeedsAttention));
+        this.OnPropertyChanged(nameof(this.TabLabel));
         this.UpdateTime(now, precision, resetTimeDisplay, usageValueDisplay);
     }
+
+    // Tabs flag only states that need action, so a provider's problem is visible from any tab.
+    public string AttentionText =>
+        this._isAuthenticationRequired ? "Sign-in needed"
+        : this.HasStatusMessage ? "Couldn’t refresh"
+        : this.UsageWindows.Any(window => window.IsNearlyExhausted) ? "Nearly at limit"
+        : string.Empty;
+
+    public bool NeedsAttention => !string.IsNullOrEmpty(this.AttentionText);
+
+    public string TabLabel => this.NeedsAttention
+        ? $"{this.DisplayName}: {this.AttentionText}"
+        : this.DisplayName;
 
     internal static bool IsCodexSparkWindow(UsageWindow window) =>
         window.Id.Equals("codex-spark", StringComparison.OrdinalIgnoreCase)
@@ -735,6 +756,9 @@ public sealed class UsageWindowViewModel : INotifyPropertyChanged
             : "Usage unavailable";
 
     public bool HasUsageMeter { get; }
+
+    // Matches the red meter level: 20% or less remaining.
+    public bool IsNearlyExhausted => this.HasUsageMeter && this.UsedPercent >= 80;
 
     public string ResetText
     {

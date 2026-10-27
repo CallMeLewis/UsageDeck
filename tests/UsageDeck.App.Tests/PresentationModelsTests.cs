@@ -672,6 +672,63 @@ public sealed class PresentationModelsTests
         Assert.Equal(ProviderStatusVisualLevel.Warning, model.ServiceStatusVisualLevel);
     }
 
+    [Theory]
+    [InlineData(79, "")]
+    [InlineData(80, "Nearly at limit")]
+    public void TabsFlagLimitsWithTwentyPercentOrLessRemaining(double usedPercent, string expected)
+    {
+        DateTimeOffset now = new(2026, 10, 27, 12, 0, 0, TimeSpan.Zero);
+        ProviderTabViewModel model = new(ProviderId.Codex, "OpenAI Codex");
+
+        model.ApplySnapshot(
+            new ProviderSnapshot(
+                ProviderId.Codex,
+                "OpenAI Codex",
+                "Codex app server",
+                now,
+                UsageDataState.Fresh,
+                [new UsageWindow("five-hour", "5-hour", usedPercent, now.AddHours(1))]),
+            now,
+            TimeDisplayPrecision.ThirtySeconds);
+
+        Assert.Equal(expected, model.AttentionText);
+        Assert.Equal(expected.Length > 0, model.NeedsAttention);
+        Assert.Equal(expected.Length > 0 ? $"OpenAI Codex: {expected}" : "OpenAI Codex", model.TabLabel);
+    }
+
+    [Fact]
+    public void TabsFlagSignInBeforeOtherProblems()
+    {
+        DateTimeOffset now = new(2026, 10, 27, 12, 0, 0, TimeSpan.Zero);
+        ProviderTabViewModel model = new(ProviderId.Claude, "Claude");
+
+        model.ApplySnapshot(
+            new ProviderSnapshot(
+                ProviderId.Claude,
+                "Claude",
+                "Claude Code CLI",
+                now,
+                UsageDataState.AuthenticationRequired,
+                safeError: "Sign in to Claude Code, then refresh.",
+                errorCategory: ProviderErrorCategory.AuthenticationRequired),
+            now,
+            TimeDisplayPrecision.ThirtySeconds);
+        Assert.Equal("Claude: Sign-in needed", model.TabLabel);
+
+        model.ApplySnapshot(
+            new ProviderSnapshot(
+                ProviderId.Claude,
+                "Claude",
+                "Claude Code CLI",
+                now,
+                UsageDataState.Unavailable,
+                safeError: "Claude usage could not be read.",
+                errorCategory: ProviderErrorCategory.Unavailable),
+            now,
+            TimeDisplayPrecision.ThirtySeconds);
+        Assert.Equal("Claude: Couldn’t refresh", model.TabLabel);
+    }
+
     [Fact]
     public void EmptyStateSuggestsWhatToCheck()
     {
