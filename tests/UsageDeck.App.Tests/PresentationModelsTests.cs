@@ -84,6 +84,31 @@ public sealed class PresentationModelsTests
     }
 
     [Fact]
+    public void FirstRunDefaultsKeepTheProvidersDetectedOnThisPc()
+    {
+        AppSettings current = AppSettings.Default with { Theme = AppThemePreference.Dark };
+
+        AppSettings result = FirstRunSettings.CreateDefaults(
+            current,
+            [ProviderId.Copilot, ProviderId.OpenCodeGo],
+            detectedTheClawBayApiKeyStorage: null);
+
+        Assert.Equal([ProviderId.Copilot], result.EnabledProviders);
+        Assert.Equal(ProviderId.Copilot, result.DefaultProvider);
+        Assert.Equal(AppThemePreference.System, result.Theme);
+        Assert.True(result.AreNotificationsEnabled);
+    }
+
+    [Fact]
+    public void FirstRunDefaultsOpenTheAllTabForSeveralProviders()
+    {
+        AppSettings result = FirstRunSettings.CreateDefaults(AppSettings.Default, []);
+
+        Assert.Equal(AppSettings.Default.EnabledProviders, result.EnabledProviders);
+        Assert.Equal(ProviderId.All, result.DefaultProvider);
+    }
+
+    [Fact]
     public void FirstRunProviderOptionPresentsDiscoveryWithoutAPath()
     {
         FirstRunProviderOption option = new(ProviderSettingsPresentation.All[ProviderId.Codex], showDivider: false);

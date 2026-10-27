@@ -16,6 +16,7 @@ public sealed partial class FirstRunPage : Page, IDisposable
 
     private readonly ProviderDiscoveryService _providerDiscovery;
     private readonly CancellationTokenSource _lifetimeCancellation = new();
+    private readonly Task _providerDiscoveryTask;
     private bool _hasUserChangedProviderSelection;
     private bool _isApplyingProviderSelection;
     private bool _isApplyingTheme;
@@ -47,7 +48,7 @@ public sealed partial class FirstRunPage : Page, IDisposable
         this._isInitialising = false;
         this.RefreshNotificationStatus();
         this.UpdateStepPresentation();
-        _ = this.DiscoverProvidersAsync();
+        this._providerDiscoveryTask = this.DiscoverProvidersAsync();
     }
 
     public ObservableCollection<FirstRunProviderOption> ProviderOptions { get; }
@@ -290,8 +291,22 @@ public sealed partial class FirstRunPage : Page, IDisposable
             return;
         }
 
+        // Wait for the local check so defaults use the providers found on this PC.
+        this.SetSavingState(true);
+        await Task.WhenAny(this._providerDiscoveryTask);
+        if (this._isDisposed)
+        {
+            return;
+        }
+
+        FirstRunProviderOption[] detectedProviders = this.ProviderOptions
+            .Where(option => option.DiscoveryState == ProviderDiscoveryState.Detected)
+            .ToArray();
         App app = (App)Application.Current;
-        await this.SaveAndFinishAsync(FirstRunSettings.CreateDefaults(app.CurrentSettings));
+        await this.SaveAndFinishAsync(FirstRunSettings.CreateDefaults(
+            app.CurrentSettings,
+            detectedProviders.Select(option => option.Id),
+            detectedProviders.SingleOrDefault(option => option.Id == ProviderId.TheClawBay)?.DetectedApiKeyStorage));
     }
 
     private async Task SaveAndFinishAsync(AppSettings settings)

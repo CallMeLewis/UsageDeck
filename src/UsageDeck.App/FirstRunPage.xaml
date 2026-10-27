@@ -360,8 +360,10 @@
                 x:Name="UseDefaultsButton"
                 Grid.Column="2"
                 MinWidth="116"
+                AutomationProperties.HelpText="Finish setup with the providers found on this PC, the System theme and notifications allowed."
                 Click="UseDefaultsButton_Click"
-                Content="Use defaults" />
+                Content="Use defaults"
+                ToolTipService.ToolTip="Finish setup with the providers found on this PC, the System theme and notifications allowed." />
             <Button
                 x:Name="ContinueButton"
                 Grid.Column="3"

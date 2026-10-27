@@ -150,9 +150,20 @@ internal static class FirstRunSettings
         };
     }
 
-    public static AppSettings CreateDefaults(AppSettings current)
+    // Defaults keep the providers found on this PC, so skipping setup never swaps them for ones that are not installed.
+    public static AppSettings CreateDefaults(
+        AppSettings current,
+        IEnumerable<ProviderId>? detectedProviders = null,
+        ApiKeyStorageMode? detectedTheClawBayApiKeyStorage = null)
     {
         ArgumentNullException.ThrowIfNull(current);
-        return AppSettings.Default with { UpdateChannel = current.UpdateChannel };
+        AppSettings defaults = AppSettings.Default with { UpdateChannel = current.UpdateChannel };
+        ProviderId[] detected = detectedProviders?.Where(ProviderId.Available.Contains).ToArray() ?? [];
+        return Create(
+            defaults,
+            detected.Length > 0 ? detected : defaults.EnabledProviders,
+            defaults.Theme,
+            defaults.AreNotificationsEnabled,
+            detectedTheClawBayApiKeyStorage);
     }
 }
