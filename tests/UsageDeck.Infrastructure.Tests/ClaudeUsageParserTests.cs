@@ -222,6 +222,31 @@ public sealed class ClaudeUsageParserTests
     }
 
     [Fact]
+    public void ParsePrintedReadsAPlanWithoutASessionLimit()
+    {
+        // Captured from `claude -p /usage` on Claude Code 2.1.316 with an Ultra plan, which has no
+        // 5-hour session limit.
+        const string output = """
+            You are currently using your subscription to power your Claude Code usage
+
+            Current week (all models): 19% used · resets Nov 4, 3am (Europe/London)
+            Current week (Fable): 0% used · resets Nov 4, 3am (Europe/London)
+
+            What's contributing to your usage?
+            Approximate · sessions on this machine only · shares overlap
+
+            Last 24h · 1500 requests · 50 sessions
+              79%  Start fresh when you switch tasks · run /clear
+            """;
+
+        IReadOnlyList<UsageWindow> windows = ClaudeUsageParser.ParsePrinted(output, Now);
+
+        Assert.Equal(["weekly", "weekly-fable"], windows.Select(window => window.Id));
+        Assert.Equal([19d, 0d], windows.Select(window => window.UsedPercent));
+        Assert.All(windows, window => Assert.Equal(new DateTime(2026, 11, 4, 3, 0, 0), window.ResetsAt!.Value.DateTime));
+    }
+
+    [Fact]
     public void ParsePrintedClassifiesACostOnlySummaryAsQuotaUnavailable()
     {
         const string output = """

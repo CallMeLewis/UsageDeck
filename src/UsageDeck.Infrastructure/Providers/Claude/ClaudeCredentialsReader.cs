@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 namespace UsageDeck.Infrastructure.Providers.Claude;
 
 /// <param name="Plan">
-/// The subscription tier Claude Code recorded at sign-in, such as "max 5x", or null when the
+/// The subscription tier Claude Code recorded at sign-in, such as "ultra", or null when the
 /// CLI did not record one.
 /// </param>
 public sealed record ClaudeCredentials(string AccessToken, DateTimeOffset ExpiresAt, string? Plan = null);
@@ -65,8 +65,10 @@ public sealed partial class ClaudeCredentialsReader(string? credentialsPath = nu
     }
 
     /// <summary>
-    /// Combines the subscription type with the usage multiplier that only the rate limit tier
-    /// carries, so "max" with "default_claude_max_5x" becomes "max 5x".
+    /// Names the plan from the subscription type and the rate limit tier. Anthropic renamed the
+    /// two Max tiers to Max and Ultra but Claude Code still records them as "max" with
+    /// "default_claude_max_5x" or "default_claude_max_20x", so those map to the current names.
+    /// Any other tier with a usage multiplier keeps it, so "team" with a 5x tier becomes "team 5x".
     /// </summary>
     internal static string? DescribePlan(string? subscriptionType, string? rateLimitTier)
     {
@@ -75,10 +77,26 @@ public sealed partial class ClaudeCredentialsReader(string? credentialsPath = nu
             return null;
         }
 
+        string type = subscriptionType.Trim();
         Match multiplier = TierMultiplierRegex().Match(rateLimitTier ?? string.Empty);
-        return multiplier.Success
-            ? $"{subscriptionType.Trim()} {multiplier.Groups["multiplier"].Value}"
-            : subscriptionType.Trim();
+        if (!multiplier.Success)
+        {
+            return type;
+        }
+
+        string usage = multiplier.Groups["multiplier"].Value.ToLowerInvariant();
+        if (type.Equals("max", StringComparison.OrdinalIgnoreCase))
+        {
+            switch (usage)
+            {
+                case "20x":
+                    return "ultra";
+                case "5x":
+                    return "max";
+            }
+        }
+
+        return $"{type} {usage}";
     }
 
     private static string? GetString(JsonElement element, string propertyName) =>

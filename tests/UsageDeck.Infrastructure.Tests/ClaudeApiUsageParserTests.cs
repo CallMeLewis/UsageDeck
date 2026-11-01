@@ -133,12 +133,30 @@ public sealed class ClaudeApiUsageParserTests
         Assert.Null(window.ResetsAt);
     }
 
+    [Fact]
+    public void ParseAcceptsAPlanWithoutASessionLimit()
+    {
+        const string json = """
+            {
+              "limits": [
+                { "kind": "weekly_all", "percent": 19, "resets_at": "2026-11-04T03:00:00+00:00" },
+                { "kind": "weekly_scoped", "percent": 0, "scope": { "model": { "display_name": "Fable" } } }
+              ]
+            }
+            """;
+
+        IReadOnlyList<UsageWindow> windows = ClaudeApiUsageParser.Parse(json);
+
+        Assert.Equal(["weekly", "weekly-fable"], windows.Select(window => window.Id));
+        Assert.Equal([19d, 0d], windows.Select(window => window.UsedPercent));
+    }
+
     [Theory]
     [InlineData("""{ "five_hour": { "utilization": 1.0 } }""")]
     [InlineData("""{ "limits": [] }""")]
-    [InlineData("""{ "limits": [ { "kind": "weekly_all", "percent": 3 } ] }""")]
+    [InlineData("""{ "limits": [ { "kind": "something_new", "percent": 3 } ] }""")]
     [InlineData("not json at all")]
-    public void ParseRejectsResponsesWithoutASessionLimit(string json)
+    public void ParseRejectsResponsesWithoutARecognisedLimit(string json)
     {
         ProviderException exception = Assert.Throws<ProviderException>(() => ClaudeApiUsageParser.Parse(json));
 

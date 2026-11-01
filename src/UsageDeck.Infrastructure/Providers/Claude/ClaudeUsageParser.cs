@@ -30,7 +30,7 @@ public static partial class ClaudeUsageParser
         // ended up on screen first, and fall back to the stripped stream for captures whose
         // layout the replay cannot follow.
         string screen = TerminalScreen.Render(terminalOutput, ScreenColumns, ScreenRows);
-        return ReadRequiredWindows(HasSessionLabel(screen) ? screen : clean, now);
+        return ReadRequiredWindows(HasUsageLabel(screen) ? screen : clean, now);
     }
 
     /// <summary>
@@ -56,28 +56,29 @@ public static partial class ClaudeUsageParser
         }
     }
 
-    private static IReadOnlyList<UsageWindow> ReadRequiredWindows(string source, DateTimeOffset now)
+    // Ultra has no 5-hour session limit, so its panel lists only the weekly limits. Any limit
+    // row is enough; a session row is read whenever the plan has one.
+    private static List<UsageWindow> ReadRequiredWindows(string source, DateTimeOffset now)
     {
-        if (!HasSessionLabel(source))
+        if (!HasUsageLabel(source))
         {
             throw new ProviderException(
                 ProviderErrorCategory.InvalidResponse,
                 "Claude opened, but its usage panel could not be read. Update Claude Code and UsageDeck, then refresh.");
         }
 
-        IReadOnlyList<UsageWindow> windows = ReadWindows(source, now);
-        if (!windows.Any(window => window.Id == "session"))
+        List<UsageWindow> windows = ReadWindows(source, now);
+        if (windows.Count == 0)
         {
             throw new ProviderException(
                 ProviderErrorCategory.InvalidResponse,
-                "Claude opened, but its session usage value could not be read. Update Claude Code and UsageDeck, then refresh.");
+                "Claude opened, but its usage values could not be read. Update Claude Code and UsageDeck, then refresh.");
         }
 
         return windows;
     }
 
-    private static bool HasSessionLabel(string text) =>
-        UsageLabelRegex().Matches(text).Any(match => IsSessionLabel(match.Value));
+    private static bool HasUsageLabel(string text) => UsageLabelRegex().IsMatch(text);
 
     private static List<UsageWindow> ReadWindows(string clean, DateTimeOffset now)
     {
@@ -143,11 +144,12 @@ public static partial class ClaudeUsageParser
         WhitespaceRegex().Replace(value, string.Empty);
 
     // Both the subscription notice and a cost summary also head output that goes on to list the
-    // limits, so either only means there is no quota when no session limit follows.
+    // limits, so either only means there is no quota when no limit row follows.
     private static bool IsQuotaUnavailable(string clean)
     {
         string compact = Compact(clean);
-        if (compact.Contains("currentsession", StringComparison.OrdinalIgnoreCase))
+        if (compact.Contains("currentsession", StringComparison.OrdinalIgnoreCase)
+            || compact.Contains("currentweek", StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }

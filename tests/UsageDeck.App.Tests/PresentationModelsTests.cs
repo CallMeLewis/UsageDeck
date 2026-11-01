@@ -331,8 +331,8 @@ public sealed class PresentationModelsTests
     }
 
     [Theory]
-    [InlineData("max 5x", "Max 5x")]
-    [InlineData("max 20x", "Max 20x")]
+    [InlineData("team 5x", "Team 5x")]
+    [InlineData("ultra", "Ultra")]
     [InlineData("max", "Max")]
     public void ApplySnapshotKeepsClaudeUsageMultipliersLowercase(string plan, string expected)
     {

@@ -271,6 +271,7 @@ public sealed partial class ClaudeUsageProvider(
                 // a session cost section too, and the limits, above all the per-model weekly row,
                 // are painted a moment after it.
                 bool hasPanel = markers.Contains("currentsession", StringComparison.OrdinalIgnoreCase)
+                    || markers.Contains("currentweek", StringComparison.OrdinalIgnoreCase)
                     || markers.Contains("totalcost:", StringComparison.OrdinalIgnoreCase)
                     || markers.Contains("currentlyusingyoursubscription", StringComparison.OrdinalIgnoreCase);
                 if (hasPanel

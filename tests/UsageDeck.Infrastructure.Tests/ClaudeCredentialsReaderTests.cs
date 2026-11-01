@@ -32,13 +32,15 @@ public sealed class ClaudeCredentialsReaderTests : IDisposable
     }
 
     [Theory]
-    [InlineData("max", "default_claude_max_5x", "max 5x")]
-    [InlineData("max", "default_claude_max_20x", "max 20x")]
+    [InlineData("max", "default_claude_max_5x", "max")]
+    [InlineData("max", "default_claude_max_20x", "ultra")]
+    [InlineData("max", null, "max")]
+    [InlineData("team", "default_claude_max_5x", "team 5x")]
     [InlineData("pro", "default_claude_ai", "pro")]
     [InlineData("pro", null, "pro")]
     [InlineData(null, "default_claude_max_5x", null)]
     [InlineData(" ", "default_claude_max_5x", null)]
-    public void DescribePlanAddsTheUsageMultiplierFromTheRateLimitTier(
+    public void DescribePlanUsesTheCurrentPlanNameForTheRateLimitTier(
         string? subscriptionType,
         string? rateLimitTier,
         string? expected)

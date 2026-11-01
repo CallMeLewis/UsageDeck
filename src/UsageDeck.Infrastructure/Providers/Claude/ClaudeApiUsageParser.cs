@@ -36,11 +36,12 @@ public static partial class ClaudeApiUsageParser
             }
         }
 
-        if (!windows.Any(window => window.Id == "session"))
+        // Ultra has no 5-hour session limit, so a response with only weekly limits is complete.
+        if (windows.Count == 0)
         {
             throw new ProviderException(
                 ProviderErrorCategory.InvalidResponse,
-                "Claude's usage API did not include a session limit.");
+                "Claude's usage API did not include any usage limits it recognised.");
         }
 
         return windows;
