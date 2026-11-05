@@ -27,6 +27,7 @@ public sealed class ExecutableLocatorTests : IDisposable
     [InlineData("gh", "programs", "GitHub CLI/gh.exe")]
     [InlineData("kiro-cli", "programs", "Kiro-Cli/kiro-cli.exe")]
     [InlineData("amp", "user", ".amp/bin/amp.exe")]
+    [InlineData("kimi", "user", ".kimi-code/bin/kimi.exe")]
     [InlineData("opencode", "user", ".opencode/bin/opencode.exe")]
     public void FindExecutableChecksKnownWindowsInstallLocations(
         string executableName,

@@ -35,6 +35,7 @@ public sealed partial class ProviderLogo : UserControl
         this.CopilotMark.Visibility = Visibility.Collapsed;
         this.KiroMark.Visibility = Visibility.Collapsed;
         this.AmpMark.Visibility = Visibility.Collapsed;
+        this.KimiCodeMark.Visibility = Visibility.Collapsed;
         this.OpenCodeGoMark.Visibility = Visibility.Collapsed;
         this.ZaiMark.Visibility = Visibility.Collapsed;
         this.TheClawBayMark.Visibility = Visibility.Collapsed;
@@ -47,6 +48,7 @@ public sealed partial class ProviderLogo : UserControl
             "copilot" => this.CopilotMark,
             "kiro" => this.KiroMark,
             "amp" => this.AmpMark,
+            "kimi-code" => this.KimiCodeMark,
             "opencode-go" => this.OpenCodeGoMark,
             "zai" => this.ZaiMark,
             "theclawbay" => this.TheClawBayMark,

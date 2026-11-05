@@ -9,12 +9,13 @@ public readonly record struct ProviderId
     public static readonly ProviderId Copilot = new("copilot");
     public static readonly ProviderId Kiro = new("kiro");
     public static readonly ProviderId Amp = new("amp");
+    public static readonly ProviderId KimiCode = new("kimi-code");
     public static readonly ProviderId OpenCodeGo = new("opencode-go");
     public static readonly ProviderId Zai = new("zai");
     public static readonly ProviderId TheClawBay = new("theclawbay");
 
     public static IReadOnlyList<ProviderId> Supported { get; } =
-        [Codex, Claude, Antigravity, Copilot, Kiro, Amp, OpenCodeGo, Zai, TheClawBay];
+        [Codex, Claude, Antigravity, Copilot, Kiro, Amp, KimiCode, OpenCodeGo, Zai, TheClawBay];
 
     // OpenCode Go remains implemented but is unavailable until it has a safe, authoritative usage source.
     public static IReadOnlyList<ProviderId> Available { get; } =
@@ -44,6 +45,7 @@ public readonly record struct ProviderId
         "copilot" => "GitHub Copilot",
         "kiro" => "Kiro",
         "amp" => "Amp",
+        "kimi-code" => "Kimi Code",
         "opencode-go" => "OpenCode Go",
         "zai" => "Z.AI",
         "theclawbay" => "TheClawBay",

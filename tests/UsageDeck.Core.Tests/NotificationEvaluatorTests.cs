@@ -426,6 +426,42 @@ public sealed class NotificationEvaluatorTests
     }
 
     [Fact]
+    public void InactiveProviderNeverNotifiesAndResetsTheFailureCount()
+    {
+        NotificationEvaluator evaluator = new();
+        NotificationEvaluationOptions options = new();
+        Assert.Empty(evaluator.EvaluateUsage(
+            Snapshot(state: UsageDataState.Unavailable, errorCategory: ProviderErrorCategory.Inactive),
+            options));
+        evaluator.EvaluateUsage(Snapshot(capturedAt: Now.AddMinutes(5)), options);
+
+        // Two failures, then an inactive reading, then two more: without the reset this would be
+        // the fourth consecutive failure and notify.
+        ProviderErrorCategory[] sequence =
+        [
+            ProviderErrorCategory.Transient,
+            ProviderErrorCategory.Transient,
+            ProviderErrorCategory.Inactive,
+            ProviderErrorCategory.Transient,
+            ProviderErrorCategory.Transient,
+            ProviderErrorCategory.Inactive,
+            ProviderErrorCategory.Inactive,
+            ProviderErrorCategory.Inactive,
+        ];
+        for (int index = 0; index < sequence.Length; index++)
+        {
+            Assert.Empty(evaluator.EvaluateUsage(
+                Snapshot(
+                    capturedAt: Now.AddMinutes((index + 2) * 5),
+                    state: UsageDataState.Stale,
+                    errorCategory: sequence[index]),
+                options));
+        }
+
+        Assert.Empty(evaluator.EvaluateUsage(Snapshot(capturedAt: Now.AddHours(1)), options));
+    }
+
+    [Fact]
     public void ProviderIncidentStartAndResolutionNotify()
     {
         NotificationEvaluator evaluator = new();

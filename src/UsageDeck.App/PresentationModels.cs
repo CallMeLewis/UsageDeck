@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Media;
 using UsageDeck.Core.Formatting;
@@ -92,6 +93,15 @@ public sealed record ProviderSettingsPresentation(
                 true,
                 "Managed by the Amp CLI",
                 "UsageDeck uses the provider-owned sign-in and does not store credentials from the Amp CLI."),
+            [ProviderId.KimiCode] = new(
+                ProviderId.KimiCode,
+                "Shows plan limits for the account signed in to the Kimi Code CLI.",
+                "Kimi Code usage service",
+                "Command-line tool",
+                "kimi",
+                true,
+                "Managed by the Kimi Code CLI",
+                "UsageDeck uses the sign-in Kimi Code keeps on this PC and sends it only to Kimi Code's own usage and sign-in services. When that sign-in has lapsed because Kimi Code isn't running, UsageDeck renews it and saves the result back for Kimi Code, the way a second Kimi Code window would."),
             [ProviderId.OpenCodeGo] = new(
                 ProviderId.OpenCodeGo,
                 "Shows a device-only OpenCode Go estimate, or separate organisation billing from OpenCode Console.",
@@ -138,6 +148,7 @@ public sealed class ProviderTabViewModel : INotifyPropertyChanged
     private string _planText = string.Empty;
     private int _requestedRefreshes;
     private bool _isAuthenticationRequired;
+    private bool _isStatusInformational;
     private string _resetCreditsNoticeText = string.Empty;
     private string _resetCreditsSummaryText = string.Empty;
     private string _serviceStatusDetail = string.Empty;
@@ -271,6 +282,32 @@ public sealed class ProviderTabViewModel : INotifyPropertyChanged
     }
 
     public bool HasStatusMessage => !string.IsNullOrEmpty(this.StatusMessage);
+
+    /// <summary>
+    /// True when the status message explains an expected pause, such as a provider waiting for
+    /// its own tool to run again, rather than a failure that needs attention.
+    /// </summary>
+    public bool IsStatusInformational
+    {
+        get => this._isStatusInformational;
+        private set
+        {
+            if (this.SetField(ref this._isStatusInformational, value))
+            {
+                this.OnPropertyChanged(nameof(this.StatusSeverity));
+                this.OnPropertyChanged(nameof(this.StatusGlyph));
+                this.OnPropertyChanged(nameof(this.AttentionText));
+                this.OnPropertyChanged(nameof(this.NeedsAttention));
+                this.OnPropertyChanged(nameof(this.TabLabel));
+            }
+        }
+    }
+
+    public InfoBarSeverity StatusSeverity => this.IsStatusInformational
+        ? InfoBarSeverity.Informational
+        : InfoBarSeverity.Warning;
+
+    public string StatusGlyph => this.IsStatusInformational ? "" : "";
 
     public string ServiceStatusText
     {
@@ -424,6 +461,7 @@ public sealed class ProviderTabViewModel : INotifyPropertyChanged
         this.ResetCreditsSummaryText = FormatResetCreditsSummary(snapshot.ResetCredits);
         this.ResetCreditsNoticeText = FormatResetCreditsNotice(snapshot.ResetCredits);
         this.CanRetry = snapshot.SafeError is not null;
+        this.IsStatusInformational = snapshot.ErrorCategory == ProviderErrorCategory.Inactive;
         this.StatusMessage = snapshot.SafeError ?? string.Empty;
         this._isAuthenticationRequired = snapshot.State == UsageDataState.AuthenticationRequired;
 
@@ -469,7 +507,7 @@ public sealed class ProviderTabViewModel : INotifyPropertyChanged
     // Tabs flag only states that need action, so a provider's problem is visible from any tab.
     public string AttentionText =>
         this._isAuthenticationRequired ? "Sign-in needed"
-        : this.HasStatusMessage ? "Couldn’t refresh"
+        : this.HasStatusMessage && !this.IsStatusInformational ? "Couldn’t refresh"
         : this.UsageWindows.Any(window => window.IsNearlyExhausted) ? "Nearly at limit"
         : string.Empty;
 
@@ -487,6 +525,7 @@ public sealed class ProviderTabViewModel : INotifyPropertyChanged
     public void ShowWarning(string message)
     {
         this.CanRetry = false;
+        this.IsStatusInformational = false;
         this.StatusMessage = message;
     }
 

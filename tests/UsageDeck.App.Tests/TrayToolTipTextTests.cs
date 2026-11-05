@@ -5,6 +5,8 @@ namespace UsageDeck.App.Tests;
 
 public sealed class TrayToolTipTextTests
 {
+    private const string KimiCodeMessage = "Kimi Code usage updates while you're using Kimi Code.";
+
     private static readonly DateTimeOffset Now = new(2026, 10, 27, 12, 0, 0, TimeSpan.Zero);
 
     [Fact]
@@ -83,6 +85,50 @@ public sealed class TrayToolTipTextTests
         string text = Create([ProviderId.Codex], stale);
 
         Assert.Equal("UsageDeck\nOpenAI Codex: 30% used, resets in 2h (saved data)", text);
+    }
+
+    [Fact]
+    public void InactiveProvidersKeepSavedReadingsWithoutBeingTreatedAsProblems()
+    {
+        ProviderSnapshot kimi = CreateSnapshot(
+            ProviderId.KimiCode,
+            new UsageWindow("5-hour", "5-hour limit", 40, Now.AddHours(2)))
+            .WithFailure(UsageDataState.Stale, KimiCodeMessage, ProviderErrorCategory.Inactive);
+        ProviderSnapshot kimiWithoutReading = new(
+            ProviderId.KimiCode,
+            "Kimi Code",
+            "No source",
+            DateTimeOffset.MinValue,
+            UsageDataState.Unavailable,
+            safeError: KimiCodeMessage,
+            errorCategory: ProviderErrorCategory.Inactive);
+
+        Assert.Equal("UsageDeck\nKimi Code: 40% used, resets in 2h (saved data)", Create([ProviderId.KimiCode], kimi));
+        Assert.Equal("UsageDeck\nKimi Code: no data yet", Create([ProviderId.KimiCode], kimiWithoutReading));
+
+        // When lines must be dropped, a failed refresh outranks a provider that is simply inactive.
+        ProviderId[] providers =
+        [
+            ProviderId.KimiCode,
+            ProviderId.Codex,
+            ProviderId.Claude,
+            ProviderId.Antigravity,
+            ProviderId.Copilot,
+            ProviderId.Amp,
+        ];
+        Dictionary<ProviderId, ProviderSnapshot> snapshots = providers.ToDictionary(
+            provider => provider,
+            provider => CreateSnapshot(provider, new UsageWindow("weekly", "Weekly", 10, Now.AddDays(1))));
+        snapshots[ProviderId.KimiCode] = snapshots[ProviderId.KimiCode]
+            .WithFailure(UsageDataState.Stale, KimiCodeMessage, ProviderErrorCategory.Inactive);
+        snapshots[ProviderId.Amp] = snapshots[ProviderId.Amp]
+            .WithFailure(UsageDataState.Stale, "Amp could not be reached.", ProviderErrorCategory.Transient);
+
+        string[] lines = TrayToolTipText.Create(providers, snapshots.GetValueOrDefault, Now, UsageValueDisplayMode.Used)
+            .Split('\n');
+
+        Assert.StartsWith("Amp: 10% used", lines[1], StringComparison.Ordinal);
+        Assert.StartsWith("Kimi Code: 10% used", lines[2], StringComparison.Ordinal);
     }
 
     [Fact]

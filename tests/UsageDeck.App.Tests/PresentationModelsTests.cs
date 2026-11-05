@@ -1,3 +1,4 @@
+using Microsoft.UI.Xaml.Controls;
 using UsageDeck.App;
 using UsageDeck.Core.Formatting;
 using UsageDeck.Core.Providers;
@@ -194,6 +195,7 @@ public sealed class PresentationModelsTests
     [InlineData("copilot", "gh")]
     [InlineData("kiro", "kiro-cli")]
     [InlineData("amp", "amp")]
+    [InlineData("kimi-code", "kimi")]
     [InlineData("opencode-go", "https://console.opencode.ai/api/v1/usage/export")]
     [InlineData("zai", "https://api.z.ai/api/monitor/usage/quota/limit")]
     [InlineData("theclawbay", "https://theclawbay.com/api/codex-auth/v1/quota")]
@@ -694,6 +696,38 @@ public sealed class PresentationModelsTests
         Assert.Equal(expected, model.AttentionText);
         Assert.Equal(expected.Length > 0, model.NeedsAttention);
         Assert.Equal(expected.Length > 0 ? $"OpenAI Codex: {expected}" : "OpenAI Codex", model.TabLabel);
+    }
+
+    [Theory]
+    [InlineData(ProviderErrorCategory.Transient, "Couldn’t refresh", InfoBarSeverity.Warning)]
+    [InlineData(ProviderErrorCategory.Inactive, "", InfoBarSeverity.Informational)]
+    public void InactiveProvidersExplainSavedDataWithoutFlaggingTheTab(
+        ProviderErrorCategory category,
+        string expectedAttention,
+        InfoBarSeverity expectedSeverity)
+    {
+        DateTimeOffset now = new(2026, 11, 5, 12, 0, 0, TimeSpan.Zero);
+        ProviderTabViewModel model = new(ProviderId.KimiCode, "Kimi Code");
+        ProviderSnapshot snapshot = new ProviderSnapshot(
+            ProviderId.KimiCode,
+            "Kimi Code",
+            "Kimi Code usage service",
+            now.AddMinutes(-20),
+            UsageDataState.Fresh,
+            [new UsageWindow("5-hour", "5-hour limit", 40, now.AddHours(2))])
+            .WithFailure(UsageDataState.Stale, "Kimi Code usage updates while you're using Kimi Code.", category);
+
+        model.ApplySnapshot(snapshot, now, TimeDisplayPrecision.ThirtySeconds);
+
+        Assert.Equal("Kimi Code usage updates while you're using Kimi Code.", model.StatusMessage);
+        Assert.StartsWith("Showing saved data", model.UpdatedText, StringComparison.Ordinal);
+        Assert.Equal(expectedAttention, model.AttentionText);
+        Assert.Equal(expectedSeverity, model.StatusSeverity);
+        Assert.Equal(category == ProviderErrorCategory.Inactive, model.IsStatusInformational);
+
+        model.ShowWarning("Something went wrong.");
+        Assert.Equal(InfoBarSeverity.Warning, model.StatusSeverity);
+        Assert.Equal("Couldn’t refresh", model.AttentionText);
     }
 
     [Fact]

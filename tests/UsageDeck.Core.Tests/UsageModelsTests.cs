@@ -42,7 +42,7 @@ public sealed class UsageModelsTests
     public void SupportedProvidersHaveUserFacingNames()
     {
         Assert.Equal(
-            ["OpenAI Codex", "Claude", "Antigravity", "GitHub Copilot", "Kiro", "Amp", "OpenCode Go", "Z.AI", "TheClawBay"],
+            ["OpenAI Codex", "Claude", "Antigravity", "GitHub Copilot", "Kiro", "Amp", "Kimi Code", "OpenCode Go", "Z.AI", "TheClawBay"],
             ProviderId.Supported.Select(provider => provider.DisplayName));
     }
 
@@ -52,7 +52,7 @@ public sealed class UsageModelsTests
         Assert.Contains(ProviderId.OpenCodeGo, ProviderId.Supported);
         Assert.DoesNotContain(ProviderId.OpenCodeGo, ProviderId.Available);
         Assert.Equal(
-            ["OpenAI Codex", "Claude", "Antigravity", "GitHub Copilot", "Kiro", "Amp", "Z.AI", "TheClawBay"],
+            ["OpenAI Codex", "Claude", "Antigravity", "GitHub Copilot", "Kiro", "Amp", "Kimi Code", "Z.AI", "TheClawBay"],
             ProviderId.Available.Select(provider => provider.DisplayName));
     }
 

@@ -32,6 +32,7 @@ public sealed class ProviderDiscoveryService
             (ProviderId.Copilot, "gh", "GitHub CLI"),
             (ProviderId.Kiro, "kiro-cli", "Kiro CLI"),
             (ProviderId.Amp, "amp", "Amp CLI"),
+            (ProviderId.KimiCode, "kimi", "Kimi Code CLI"),
         ];
 
     private readonly IExecutableLocator _executableLocator;

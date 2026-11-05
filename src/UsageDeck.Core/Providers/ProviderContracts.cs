@@ -30,6 +30,13 @@ public enum ProviderErrorCategory
     Unavailable,
     Transient,
     InvalidResponse,
+
+    /// <summary>
+    /// The provider's own tool has to run again before its usage can be read, for example
+    /// because the sign-in it shares has lapsed while the tool was idle. This is expected
+    /// rather than a failure, so it never counts towards availability alerts.
+    /// </summary>
+    Inactive,
 }
 
 public sealed class ProviderException : Exception

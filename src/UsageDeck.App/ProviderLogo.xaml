@@ -55,6 +55,16 @@
                     Fill="{ThemeResource TextFillColorPrimaryBrush}" />
             </Canvas>
         </Viewbox>
+        <Viewbox x:Name="KimiCodeMark" Stretch="Uniform" Visibility="Collapsed">
+            <Canvas Width="24" Height="24">
+                <Path
+                    Data="M21.846 0 a1.923 1.923 0 1 1 0 3.846 H20.15 a0.226 0.226 0 0 1 -0.227 -0.226 V1.923 C19.923 0.861 20.784 0 21.846 0 Z"
+                    Fill="{ThemeResource TextFillColorPrimaryBrush}" />
+                <Path
+                    Data="M11.065 11.199 l7.257 -7.2 c0.137 -0.136 0.06 -0.41 -0.116 -0.41 H14.3 a0.164 0.164 0 0 0 -0.117 0.051 l-7.82 7.756 c-0.122 0.12 -0.302 0.013 -0.302 -0.179 V3.82 c0 -0.127 -0.083 -0.23 -0.185 -0.23 H3.186 c-0.103 0 -0.186 0.103 -0.186 0.23 V19.77 c0 0.128 0.083 0.23 0.186 0.23 h2.69 c0.103 0 0.186 -0.102 0.186 -0.23 v-3.25 c0 -0.069 0.025 -0.135 0.069 -0.178 l2.424 -2.406 a0.158 0.158 0 0 1 0.205 -0.023 l6.484 4.772 a7.677 7.677 0 0 0 3.453 1.283 c0.108 0.012 0.2 -0.095 0.2 -0.23 v-3.06 c0 -0.117 -0.07 -0.212 -0.164 -0.227 a5.028 5.028 0 0 1 -2.027 -0.807 l-5.613 -4.064 c-0.117 -0.078 -0.132 -0.279 -0.028 -0.381 Z"
+                    Fill="{ThemeResource TextFillColorPrimaryBrush}" />
+            </Canvas>
+        </Viewbox>
         <Viewbox x:Name="OpenCodeGoMark" Stretch="Uniform" Visibility="Collapsed">
             <Path
                 Data="M80 88H20V12H80V88ZM35 27H65V72H35V27Z"

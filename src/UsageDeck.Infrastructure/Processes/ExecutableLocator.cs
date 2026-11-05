@@ -164,6 +164,9 @@ public sealed class ExecutableLocator : IExecutableLocator
                 }
 
                 break;
+            case "kimi":
+                yield return PathFrom(this._roots.UserProfile, ".kimi-code", "bin", "kimi.exe");
+                break;
             case "opencode":
                 yield return PathFrom(this._roots.UserProfile, "bin", "opencode.exe");
                 yield return PathFrom(this._roots.UserProfile, ".opencode", "bin", "opencode.exe");

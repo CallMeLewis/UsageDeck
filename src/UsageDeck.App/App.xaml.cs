@@ -13,6 +13,7 @@ using UsageDeck.Infrastructure.Providers.Antigravity;
 using UsageDeck.Infrastructure.Providers.Claude;
 using UsageDeck.Infrastructure.Providers.Codex;
 using UsageDeck.Infrastructure.Providers.Copilot;
+using UsageDeck.Infrastructure.Providers.KimiCode;
 using UsageDeck.Infrastructure.Providers.Kiro;
 using UsageDeck.Infrastructure.Providers.OpenCodeGo;
 using UsageDeck.Infrastructure.Providers.Status;
@@ -125,6 +126,7 @@ public partial class App : Application, IDisposable
                 executableLocator,
                 cliVersionReader: cliVersionReader),
             new AmpUsageProvider(processSessionFactory, executableLocator, cliVersionReader: cliVersionReader),
+            new KimiCodeUsageProvider(this._httpClient, executableLocator, cliVersionReader: cliVersionReader),
             new OpenCodeGoUsageProvider(
                 new OpenCodeGoDataLocator(),
                 new OpenCodeGoUsageReader(),

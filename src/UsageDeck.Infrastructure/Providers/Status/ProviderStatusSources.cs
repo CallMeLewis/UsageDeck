@@ -38,6 +38,15 @@ public static class ProviderStatusSources
                 new Uri("https://ampcodestatus.com/"),
                 ["Amp CLI", "ampcode.com"],
                 ["Amp"]),
+            // Moonshot AI's page lists Kimi Code's models inside a "Kimi Code" component group.
+            // The group is matched rather than its model components, whose names change.
+            [ProviderId.KimiCode] = new StatusPageProvider(
+                httpClient,
+                ProviderId.KimiCode,
+                new Uri("https://status.moonshot.cn/api/v2/summary.json"),
+                new Uri("https://status.moonshot.cn/"),
+                ["Kimi Code"],
+                ["Kimi Code"]),
             [ProviderId.TheClawBay] = new TheClawBayStatusProvider(httpClient),
         };
 

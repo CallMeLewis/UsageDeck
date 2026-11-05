@@ -417,6 +417,12 @@ public sealed class NotificationEvaluator
         NotificationEvaluationOptions options,
         List<UsageNotificationEvent> notifications)
     {
+        if (current.ErrorCategory == ProviderErrorCategory.Inactive)
+        {
+            this._consecutiveFailures[current.ProviderId] = 0;
+            return;
+        }
+
         if (current.ErrorCategory == ProviderErrorCategory.AuthenticationRequired)
         {
             this._consecutiveFailures[current.ProviderId] = 0;
@@ -463,6 +469,12 @@ public sealed class NotificationEvaluator
         NotificationEvaluationOptions options,
         List<UsageNotificationEvent> notifications)
     {
+        if (current.ErrorCategory == ProviderErrorCategory.Inactive)
+        {
+            this._consecutiveFailures[current.ProviderId] = 0;
+            return;
+        }
+
         if (current.ErrorCategory == ProviderErrorCategory.AuthenticationRequired)
         {
             this._consecutiveFailures[current.ProviderId] = 0;

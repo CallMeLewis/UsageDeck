@@ -8,6 +8,7 @@ using UsageDeck.Infrastructure.Providers.Antigravity;
 using UsageDeck.Infrastructure.Providers.Claude;
 using UsageDeck.Infrastructure.Providers.Codex;
 using UsageDeck.Infrastructure.Providers.Copilot;
+using UsageDeck.Infrastructure.Providers.KimiCode;
 using UsageDeck.Infrastructure.Providers.Kiro;
 
 if (args.Length > 0 && string.Equals(args[0], "claude-capture", StringComparison.OrdinalIgnoreCase))
@@ -36,8 +37,10 @@ IUsageProvider provider = args switch
         new KiroUsageProvider(new ProcessSessionFactory(), new PtySessionFactory(), executableLocator),
     [var name] when name.Equals("amp", StringComparison.OrdinalIgnoreCase) =>
         new AmpUsageProvider(new ProcessSessionFactory(), executableLocator),
+    [var name] when name.Equals("kimi", StringComparison.OrdinalIgnoreCase) =>
+        new KimiCodeUsageProvider(new HttpClient { Timeout = Timeout.InfiniteTimeSpan }, executableLocator),
     _ => throw new ArgumentException(
-        "Usage: UsageDeck.Probe [codex | claude | claude-cli | claude-capture | antigravity | copilot | kiro | amp]")
+        "Usage: UsageDeck.Probe [codex | claude | claude-cli | claude-capture | antigravity | copilot | kiro | amp | kimi]")
 };
 
 try

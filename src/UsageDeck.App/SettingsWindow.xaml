@@ -120,6 +120,16 @@
                     </NavigationViewItem.Content>
                 </NavigationViewItem>
                 <NavigationViewItem
+                    AutomationProperties.Name="Kimi Code provider settings"
+                    Tag="provider:kimi-code">
+                    <NavigationViewItem.Content>
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <local:ProviderLogo Width="18" Height="18" ProviderKey="kimi-code" />
+                            <TextBlock VerticalAlignment="Center" Text="Kimi Code" />
+                        </StackPanel>
+                    </NavigationViewItem.Content>
+                </NavigationViewItem>
+                <NavigationViewItem
                     AutomationProperties.Name="Z.AI provider settings"
                     Tag="provider:zai">
                     <NavigationViewItem.Content>
@@ -340,6 +350,7 @@
                                             <ComboBoxItem Content="GitHub Copilot" Tag="copilot" />
                                             <ComboBoxItem Content="Kiro" Tag="kiro" />
                                             <ComboBoxItem Content="Amp" Tag="amp" />
+                                            <ComboBoxItem Content="Kimi Code" Tag="kimi-code" />
                                             <ComboBoxItem Content="OpenCode Go" Tag="opencode-go" />
                                             <ComboBoxItem Content="Z.AI" Tag="zai" />
                                             <ComboBoxItem Content="TheClawBay" Tag="theclawbay" />

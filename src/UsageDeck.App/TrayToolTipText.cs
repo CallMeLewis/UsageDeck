@@ -85,11 +85,15 @@ internal static class TrayToolTipText
                 || !ProviderTabViewModel.IsCodexSparkWindow(window))
             .OrderByDescending(window => window.UsedPercent)
             .FirstOrDefault();
+        // An inactive provider is waiting for its own tool to run, which is not a problem.
+        bool isInactive = snapshot.ErrorCategory == ProviderErrorCategory.Inactive;
         if (mostUsed is null)
         {
             return snapshot.SafeError is null
                 ? new($"{name}: no limits reported", Urgency.None)
-                : new($"{name}: couldn’t refresh", Urgency.Problem);
+                : isInactive
+                    ? new($"{name}: no data yet", Urgency.None)
+                    : new($"{name}: couldn’t refresh", Urgency.Problem);
         }
 
         double displayPercent = usageValueDisplay == UsageValueDisplayMode.Remaining
@@ -100,18 +104,19 @@ internal static class TrayToolTipText
         string text = mostUsed.ResetsAt is null
             ? $"{name}: {usage}"
             : $"{name}: {usage}, {LowercaseFirst(UsageText.FormatResetCountdown(mostUsed.ResetsAt, now, TimeDisplayPrecision.ThirtySeconds))}";
-        if (snapshot.State == UsageDataState.Stale)
-        {
-            return new($"{text} (saved data)", Urgency.Problem);
-        }
-
         // Matches the meter colours: amber at 50% or less remaining, red at 20% or less.
-        return new(text, mostUsed.UsedPercent switch
+        Urgency usageUrgency = mostUsed.UsedPercent switch
         {
             >= 80 => Urgency.Low,
             >= 50 => Urgency.Watch,
             _ => Urgency.None,
-        });
+        };
+        if (snapshot.State == UsageDataState.Stale)
+        {
+            return new($"{text} (saved data)", isInactive ? usageUrgency : Urgency.Problem);
+        }
+
+        return new(text, usageUrgency);
     }
 
     private static string LowercaseFirst(string text) =>

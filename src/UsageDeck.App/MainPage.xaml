@@ -207,7 +207,7 @@
                                             <FontIcon
                                                 FontSize="12"
                                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                Glyph="&#xE7BA;" />
+                                                Glyph="{x:Bind StatusGlyph, Mode=OneWay}" />
                                             <TextBlock
                                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                 Style="{StaticResource CaptionTextBlockStyle}"
@@ -372,7 +372,7 @@
                     IsClosable="False"
                     IsOpen="{Binding SelectedProvider.HasStatusMessage}"
                     Message="{Binding SelectedProvider.StatusMessage}"
-                    Severity="Warning"
+                    Severity="{Binding SelectedProvider.StatusSeverity}"
                     Visibility="{Binding IsOpen, RelativeSource={RelativeSource Self}, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <InfoBar.ActionButton>
                         <Button
