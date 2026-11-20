@@ -37,6 +37,23 @@ public sealed class AntigravityUsageProviderTests
     }
 
     [Fact]
+    public async Task FetchTurnsOffAgyBackgroundUpdater()
+    {
+        FakePtySession session = new(ReadyScreen, "Model Quotas\nGemini 3.1 Pro 40% used");
+        FakePtySessionFactory sessions = new(session);
+        AntigravityUsageProvider provider = new(
+            sessions,
+            new StubExecutableLocator("C:\\tools\\agy.exe"),
+            new ImmediateTimeProvider(new DateTimeOffset(2026, 7, 16, 12, 0, 0, TimeSpan.Zero)));
+
+        await provider.FetchAsync(CancellationToken.None);
+
+        // agy ignores "1" for this variable. Only the literal "true" stops its background
+        // updater, which otherwise opens a console window on Windows.
+        Assert.Equal("true", sessions.StartSpec?.Environment?["AGY_CLI_DISABLE_AUTO_UPDATE"]);
+    }
+
+    [Fact]
     public async Task FetchWaitsForPromptAfterSavedSignInLoads()
     {
         DateTimeOffset start = new(2026, 11, 20, 12, 0, 0, TimeSpan.Zero);

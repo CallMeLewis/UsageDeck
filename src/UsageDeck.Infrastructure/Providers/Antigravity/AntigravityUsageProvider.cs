@@ -54,6 +54,11 @@ public sealed class AntigravityUsageProvider(
             {
                 ["NO_COLOR"] = "1",
                 ["TERM"] = "xterm-256color",
+
+                // agy starts a detached background updater on launch, and on Windows that
+                // updater's `agy --version` call opens a visible console window, about once an
+                // hour. agy only honours the literal value "true" here; "1" is ignored.
+                ["AGY_CLI_DISABLE_AUTO_UPDATE"] = "true",
             },
             Columns: 140,
             Rows: 50);
