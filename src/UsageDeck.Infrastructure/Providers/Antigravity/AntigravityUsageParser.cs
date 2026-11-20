@@ -6,6 +6,17 @@ namespace UsageDeck.Infrastructure.Providers.Antigravity;
 
 public static partial class AntigravityUsageParser
 {
+    public const string SignInRequiredMessage =
+        "Antigravity needs you to sign in. Run `agy`, sign in with the account used by your cloud agents, then refresh.";
+
+    /// <summary>
+    /// Whether agy is asking the user to sign in. Its start-up screen briefly says "You are
+    /// currently not signed in. Signing in..." while it loads a saved sign-in, which is not a
+    /// request to sign in and does not match.
+    /// </summary>
+    public static bool IsSignInPrompt(string terminalOutput) =>
+        AuthenticationRegex().IsMatch(StripTerminalSequences(terminalOutput));
+
     public static IReadOnlyList<UsageWindow> Parse(string terminalOutput, DateTimeOffset now)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(terminalOutput);
@@ -86,7 +97,7 @@ public static partial class AntigravityUsageParser
         {
             throw new ProviderException(
                 ProviderErrorCategory.AuthenticationRequired,
-                "Antigravity needs you to sign in. Run `agy`, sign in with the account used by your cloud agents, then refresh.");
+                SignInRequiredMessage);
         }
 
         throw new ProviderException(
@@ -234,6 +245,6 @@ public static partial class AntigravityUsageParser
     [GeneratedRegex("(?:resets?|refreshes?)\\s+in(?:\\s+(?<days>\\d+)\\s*d(?:ays?)?)?(?:\\s+(?<hours>\\d+)\\s*h(?:ours?)?)?(?:\\s+(?<minutes>\\d+)\\s*m(?:in(?:utes?)?)?)?", RegexOptions.IgnoreCase)]
     private static partial Regex RelativeResetRegex();
 
-    [GeneratedRegex("(?:sign|log)\\s*in|authentication required|choose an account", RegexOptions.IgnoreCase)]
+    [GeneratedRegex("\\b(?:sign|log)[\\s-]*in\\b|authentication required|choose an account|authorization code|no authentication methods", RegexOptions.IgnoreCase)]
     private static partial Regex AuthenticationRegex();
 }

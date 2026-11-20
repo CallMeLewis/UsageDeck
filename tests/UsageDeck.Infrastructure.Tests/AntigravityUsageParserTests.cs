@@ -83,4 +83,24 @@ public sealed class AntigravityUsageParserTests
         Assert.Equal(ProviderErrorCategory.AuthenticationRequired, exception.Category);
         Assert.Contains("account used by your cloud agents", exception.Message, StringComparison.Ordinal);
     }
+
+    [Theory]
+    [InlineData("Open this URL in your local browser to sign in:\nhttps://accounts.google.com/o/oauth2/auth")]
+    [InlineData("Then paste the authorization code from the page:")]
+    [InlineData("Select Google Cloud sign-in method:")]
+    public void IsSignInPromptRecognisesBrowserSignIn(string screen)
+    {
+        Assert.True(AntigravityUsageParser.IsSignInPrompt(screen));
+    }
+
+    [Fact]
+    public void StartupSpinnerIsNotASignInRequest()
+    {
+        const string screen = "Welcome to the Antigravity CLI. You are currently not signed in.\n ⣷  Signing in...";
+
+        Assert.False(AntigravityUsageParser.IsSignInPrompt(screen));
+        ProviderException exception = Assert.Throws<ProviderException>(() =>
+            AntigravityUsageParser.Parse(screen, Now));
+        Assert.Equal(ProviderErrorCategory.InvalidResponse, exception.Category);
+    }
 }

@@ -59,7 +59,7 @@ public sealed class AntigravityUsageProvider(
             Rows: 50);
 
         using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(TimeSpan.FromSeconds(22));
+        timeout.CancelAfter(TimeSpan.FromSeconds(30));
 
         try
         {
@@ -68,7 +68,44 @@ public sealed class AntigravityUsageProvider(
             object captureLock = new();
             Task captureTask = CaptureAsync(session, captured, captureLock, timeout.Token);
 
-            await Task.Delay(TimeSpan.FromSeconds(3), this._timeProvider, timeout.Token).ConfigureAwait(false);
+            // agy opens on a "not signed in, signing in..." screen while it loads the saved
+            // sign-in, and only shows its prompt once that finishes, usually 4 to 6 seconds in.
+            // Anything typed before then is lost, so wait for the prompt rather than a fixed delay.
+            bool isReady = false;
+            string startup = string.Empty;
+            DateTimeOffset readyBy = this._timeProvider.GetUtcNow().AddSeconds(12);
+            while (this._timeProvider.GetUtcNow() < readyBy)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(250), this._timeProvider, timeout.Token).ConfigureAwait(false);
+                lock (captureLock)
+                {
+                    startup = captured.ToString();
+                }
+
+                if (IsPromptReady(startup))
+                {
+                    isReady = true;
+                    await Task.Delay(TimeSpan.FromMilliseconds(500), this._timeProvider, timeout.Token).ConfigureAwait(false);
+                    break;
+                }
+            }
+
+            if (!isReady && AntigravityUsageParser.IsSignInPrompt(startup))
+            {
+                session.Kill();
+                timeout.Cancel();
+                await IgnoreCancellationAsync(captureTask).ConfigureAwait(false);
+                throw new ProviderException(
+                    ProviderErrorCategory.AuthenticationRequired,
+                    AntigravityUsageParser.SignInRequiredMessage);
+            }
+
+            int commandStart;
+            lock (captureLock)
+            {
+                commandStart = captured.Length;
+            }
+
             await session.WriteAsync(Encoding.UTF8.GetBytes("/usage"), timeout.Token).ConfigureAwait(false);
             await Task.Delay(TimeSpan.FromMilliseconds(150), this._timeProvider, timeout.Token).ConfigureAwait(false);
             await session.WriteAsync("\r"u8.ToArray(), timeout.Token).ConfigureAwait(false);
@@ -80,7 +117,7 @@ public sealed class AntigravityUsageProvider(
                 string current;
                 lock (captureLock)
                 {
-                    current = captured.ToString();
+                    current = captured.ToString(commandStart, captured.Length - commandStart);
                 }
 
                 if (HasQuotaPanel(current))
@@ -89,8 +126,7 @@ public sealed class AntigravityUsageProvider(
                     break;
                 }
 
-                if (current.Contains("sign in", StringComparison.OrdinalIgnoreCase)
-                    || current.Contains("log in", StringComparison.OrdinalIgnoreCase))
+                if (AntigravityUsageParser.IsSignInPrompt(current))
                 {
                     break;
                 }
@@ -103,7 +139,7 @@ public sealed class AntigravityUsageProvider(
             string output;
             lock (captureLock)
             {
-                output = captured.ToString();
+                output = captured.ToString(commandStart, captured.Length - commandStart);
             }
 
             DateTimeOffset capturedAt = this._timeProvider.GetUtcNow();
@@ -140,6 +176,10 @@ public sealed class AntigravityUsageProvider(
                 exception);
         }
     }
+
+    private static bool IsPromptReady(string output) =>
+        AntigravityUsageParser.StripTerminalSequences(output)
+            .Contains("for shortcuts", StringComparison.OrdinalIgnoreCase);
 
     private static bool HasQuotaPanel(string output) =>
         output.Contains('%', StringComparison.Ordinal)
