@@ -816,7 +816,7 @@ public partial class App : Application, IDisposable
     {
         if (this._normalSessionStarted && this.CurrentSettings.EnabledProviders.Contains(providerId))
         {
-            _ = this.RefreshUsageNowInBackgroundAsync([providerId]);
+            _ = this.RefreshUsageNowInBackgroundAsync((ProviderId[])[providerId]);
         }
     }
 

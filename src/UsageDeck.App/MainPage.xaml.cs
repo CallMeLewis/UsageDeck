@@ -190,7 +190,7 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
     private async Task RefreshProviderAsync(ProviderTabViewModel provider)
     {
         provider.IsLoading = true;
-        await ((App)Application.Current).RefreshUsageProvidersAsync([provider.Id]);
+        await ((App)Application.Current).RefreshUsageProvidersAsync((ProviderId[])[provider.Id]);
         ProviderSnapshot snapshot = this._refreshCoordinator.GetSnapshot(provider.Id)
             ?? throw new InvalidOperationException($"{provider.DisplayName} did not publish a usage snapshot.");
         this.ApplyProviderSnapshot(snapshot);
